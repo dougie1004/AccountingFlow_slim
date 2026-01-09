@@ -19,7 +19,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { ManagementReport } from '../types';
 
 export const Reports: React.FC = () => {
-    const { financials, ledger, inventory } = useAccounting();
+    const context = useAccounting() as any;
+    const { financials, ledger, inventory } = context;
     const [report, setReport] = useState<ManagementReport | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
 

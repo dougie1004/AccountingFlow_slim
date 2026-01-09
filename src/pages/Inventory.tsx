@@ -11,7 +11,8 @@ interface ValuationSummary {
 }
 
 export const Inventory: React.FC = () => {
-    const { inventory = [], financials, addEntry } = useAccounting();
+    const context = useAccounting() as any;
+    const { inventory = [], financials, addEntry } = context;
     const [summary, setSummary] = useState<ValuationSummary | null>(null);
 
     // AI/Backend 기반 재고자산 평가 실행 (LCM)
@@ -28,7 +29,7 @@ export const Inventory: React.FC = () => {
         runValuation();
     }, [inventory]);
 
-    const totalQty = inventory?.reduce((acc, curr) => acc + (curr.batches?.reduce((bAcc, b) => bAcc + b.quantity, 0) || 0), 0) || 0;
+    const totalQty = inventory?.reduce((acc: any, curr: any) => acc + (curr.batches?.reduce((bAcc: any, b: any) => bAcc + b.quantity, 0) || 0), 0) || 0;
 
     return (
         <div className="space-y-8 pb-20 bg-[#0B1221] min-h-screen p-6">
@@ -92,7 +93,7 @@ export const Inventory: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {inventory?.map(item => (
+                                {inventory?.map((item: any) => (
                                     <React.Fragment key={item.id}>
                                         <tr className="bg-white/[0.02]">
                                             <td colSpan={4} className="px-6 py-3">
@@ -107,7 +108,7 @@ export const Inventory: React.FC = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                        {item.batches?.map(batch => (
+                                        {item.batches?.map((batch: any) => (
                                             <tr key={batch.id} className="hover:bg-white/[0.01] transition-colors">
                                                 <td className="px-8 py-3 text-xs text-slate-400">
                                                     <div className="flex items-center gap-2">

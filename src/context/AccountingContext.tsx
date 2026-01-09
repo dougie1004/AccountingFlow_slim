@@ -2,7 +2,7 @@ import React, { createContext, useState, useMemo, ReactNode } from 'react';
 import { JournalEntry, Partner, SimulationResult, Asset, TenantConfig, InventoryItem, Order } from '../types';
 import { generateMockBatch, simulateAIParsing } from '../utils/mockDataGenerator';
 
-interface AccountingContextType {
+export interface AccountingContextType {
     ledger: JournalEntry[];
     partners: Partner[];
     addEntry: (entry: JournalEntry) => void;
@@ -40,6 +40,8 @@ interface AccountingContextType {
     config: TenantConfig;
     updateConfig: (updates: Partial<TenantConfig>) => void;
     subLedger: JournalEntry[];
+    inventory: InventoryItem[];
+    transactions: JournalEntry[];
 }
 
 export const AccountingContext = createContext<AccountingContextType | undefined>(undefined);
@@ -335,7 +337,9 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
             addScmOrder,
             updateScmOrder,
             resetData,
-            subLedger
+            subLedger,
+            inventory,
+            transactions: ledger
         }}>
             {children}
         </AccountingContext.Provider>

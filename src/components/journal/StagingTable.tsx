@@ -14,7 +14,8 @@ interface StagingTableProps {
 }
 
 export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onConfirm }) => {
-    const { addPartner, addAsset, config } = useContext(AccountingContext)!;
+    const context = useContext(AccountingContext) as any;
+    const { addPartner, addAsset, config } = context;
     const { parseTransaction, isParsing } = useAI();
     const { processMassBatch } = useMassProcessor();
     const [stagedData, setStagedData] = useState<ParsedTransaction[]>(data);
@@ -37,12 +38,18 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
             console.log(`[개별 AI] ${i + 1}/${newData.length} 정밀 분석 중:`, input);
             const result = await parseTransaction(input, "General K-IFRS", partners, "default-tenant", "Pro");
 
-            if (result) {
-                const tx = result.transaction;
+            if (result && result.transaction) {
+                const tx = result.transaction as ParsedTransaction;
                 const newTrail = [...(tx.auditTrail || []), `[${new Date().toLocaleTimeString()}] AI 정밀 재분석 완료`];
 
                 newData[i] = {
                     ...tx,
+                    date: tx.date || row.date || '', // Ensure date is string
+                    amount: tx.amount || row.amount || 0,
+                    vat: tx.vat || row.vat || 0,
+                    description: tx.description || row.description || '',
+                    entryType: tx.entryType || row.entryType || 'Expense',
+                    reasoning: tx.reasoning || row.reasoning || '',
                     auditTrail: newTrail
                 };
                 setStagedData([...newData]); // Update state immediately for each row
@@ -157,16 +164,16 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                                 <div className="w-2 h-2 rounded-full bg-amber-500" />
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 font-mono text-xs text-slate-400 whitespace-nowrap">{row.date}</td>
+                                        <td className="px-6 py-4 font-mono text-xs text-slate-400 whitespace-nowrap">{row.date || ''}</td>
                                         <td className="px-6 py-4">
-                                            <p className="text-white font-black leading-tight truncate max-w-[200px]">{row.description}</p>
+                                            <p className="text-white font-black leading-tight truncate max-w-[200px]">{row.description || '내용 없음'}</p>
                                             <p className="text-[10px] font-bold text-slate-500 mt-0.5">
                                                 {row.vendor && row.vendor.trim() !== '' ? row.vendor : '거래처 미지정'}
                                             </p>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <span className="font-black text-white text-base">₩{row.amount.toLocaleString()}</span>
-                                            {row.vat > 0 && <p className="text-[10px] text-slate-500 font-bold">VAT ₩{row.vat.toLocaleString()}</p>}
+                                            <span className="font-black text-white text-base">₩{(row.amount || 0).toLocaleString()}</span>
+                                            {row.vat > 0 && <p className="text-[10px] text-slate-500 font-bold">VAT ₩{(row.vat || 0).toLocaleString()}</p>}
                                         </td>
                                         <td className="px-6 py-4">
                                             {analyzingIndex === idx ? (
@@ -209,7 +216,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Selected Transaction</h4>
-                                    <p className="text-xl font-black text-white mt-1">{stagedData[selectedRow].description}</p>
+                                    <p className="text-xl font-black text-white mt-1">{stagedData[selectedRow].description || '내용 없음'}</p>
                                 </div>
                                 <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${stagedData[selectedRow].confidence === 'High' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
                                     {stagedData[selectedRow].confidence} Confidence

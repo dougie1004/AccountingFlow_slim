@@ -28,24 +28,25 @@ import { useAccounting } from '../hooks/useAccounting';
 import { invoke } from '@tauri-apps/api/core';
 
 export const SCM: React.FC = () => {
-    const { scmOrders, updateScmOrder, inventory, financials, ledger } = useAccounting();
+    const context = useAccounting() as any;
+    const { scmOrders, updateScmOrder, inventory, financials, ledger } = context;
 
     // 1. 실제 데이터 기반 지표 계산
     const metrics = useMemo(() => {
         // A. 재고 자산 가치 (원가 기준 - Batch 합계)
-        const inventoryCost = inventory?.reduce((total, item) =>
-            total + (item.batches?.reduce((bTotal, b) => bTotal + (b.unitCost * b.quantity), 0) || 0)
+        const inventoryCost = (inventory as any)?.reduce((total: any, item: any) =>
+            total + (item.batches?.reduce((bTotal: any, b: any) => bTotal + (b.unitCost * b.quantity), 0) || 0)
             , 0) || 0;
 
         // B. 누적 매입 원가 (Purchase Orders)
-        const purchaseCost = scmOrders?.filter(o => o.typeField === 'PURCHASE')
-            .reduce((total, o) => total + o.totalAmount, 0) || 0;
+        const purchaseCost = scmOrders?.filter((o: any) => o.typeField === 'PURCHASE')
+            .reduce((total: any, o: any) => total + o.totalAmount, 0) || 0;
 
         // C. 매출 원가 (COGS) - G/L에서 추출 또는 산식 계산 (매입 - 기말재고)
-        const cogsResult = ledger?.filter(e =>
+        const cogsResult = ledger?.filter((e: any) =>
             e.status === 'Approved' &&
             (e.debitAccount.includes('매출원가') || e.debitAccount.includes('COGS'))
-        ).reduce((acc, curr) => acc + curr.amount, 0) || Math.max(0, purchaseCost - inventoryCost);
+        ).reduce((acc: any, curr: any) => acc + curr.amount, 0) || Math.max(0, purchaseCost - inventoryCost);
 
         // D. 예상 판매 가치 (마진 40% 가정)
         const expectedSalesValue = inventoryCost * 1.4;
@@ -82,7 +83,7 @@ export const SCM: React.FC = () => {
     ], [metrics]);
 
     const handleStatusChange = async (orderId: string, newStatus: string) => {
-        const order = scmOrders.find(o => o.id === orderId);
+        const order = (scmOrders as any[]).find((o: any) => o.id === orderId);
         if (!order) return;
 
         updateScmOrder(orderId, { status: newStatus as any });
@@ -259,7 +260,7 @@ export const SCM: React.FC = () => {
                 </div>
 
                 <div className="divide-y divide-white/5">
-                    {scmOrders.map(order => (
+                    {scmOrders.map((order: any) => (
                         <div key={order.id} className="p-8 hover:bg-white/[0.02] transition-colors flex items-center justify-between group">
                             <div className="flex items-center gap-8">
                                 <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg ${order.typeField === 'PURCHASE'

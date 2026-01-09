@@ -1,0 +1,185 @@
+/**
+ * AccountingFlow Shared Types
+ * Mirror these in src-tauri/src/models.rs
+ */
+
+export type EntryType = 'Expense' | 'Asset' | 'Revenue' | 'Liability' | 'Equity' | 'Payroll';
+export type PartnerType = 'Vendor' | 'Customer' | 'Employee';
+
+export interface JournalEntry {
+    id: string;
+    date: string; // ISO 8601
+    description: string;
+    vendor?: string; // Optional - 거래처가 없을 수 있음
+    debitAccount: string;
+    creditAccount: string;
+    amount: number;
+    vat: number;
+    type: EntryType;
+    status: 'Approved' | 'Unconfirmed' | 'Hold';
+    taxCode?: TaxCode;
+    // Audit Readiness
+    version?: number;
+    lastModifiedBy?: string;
+    attachmentUrl?: string; // Digital Evidence
+    ocrData?: string;       // JSON string
+    complianceContext?: string; // Knowledge sync from Compliance AI
+}
+
+export type TaxCode =
+    | 'ENTERTAINMENT_LIMIT'    // 접대비 (한도 내)
+    | 'ENTERTAINMENT_NO_PROOF' // 접대비 (증빙불비) - 전액 부인
+    | 'PENALTY'                // 벌과금 - 전액 부인
+    | 'DEPRECIATION'           // 감가상각비
+    | 'NON_DEDUCTIBLE'         // 기타 손금불산입
+    | 'NONE';
+
+export interface Asset {
+    id: string;
+    name: string;
+    acquisitionDate: string;
+    cost: number;
+    depreciationMethod: 'STRAIGHT_LINE' | 'DECLINING_BALANCE';
+    usefulLife: number; // Years
+    residualValue: number;
+    accumulatedDepreciation: number;
+    currentValue: number; // Book Value
+    quantity?: number;    // NEW - 수량 관리
+    accumulatedDepreciationAccount?: string;
+    expenseAccount?: string;
+}
+
+export interface ValidationResult {
+    status: 'Success' | 'Warning' | 'Critical';
+    message: string;
+    field?: string;
+}
+
+export interface InventoryItem {
+    id: string;
+    name: string;
+    sku: string;
+    unitCost: number;
+    quantity: number;
+    category?: string;
+}
+
+export interface OrderItem {
+    sku: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+}
+
+export interface Order {
+    id: string;
+    date: string;
+    partnerId: string;
+    typeField: 'PURCHASE' | 'SALES';
+    status: 'DRAFT' | 'CONFIRMED' | 'FULFILLED' | 'INVOICED';
+    items: OrderItem[];
+    totalAmount: number;
+    vat: number;
+}
+
+export interface EntityMetadata {
+    companyName: string;
+    regId: string;
+    repName: string;
+    corpType: 'SME' | 'Large' | 'Startup';
+    fiscalYearEnd: string;
+    isStartupTaxBenefit?: boolean; // 신규 - 청년창업 감면 여부
+}
+
+export interface TaxPolicy {
+    depreciationMethod: 'StraightLine' | 'DecliningBalance';
+    entertainmentLimitBase: number;
+    vatFilingCycle: 'Quarterly' | 'BiAnnual';
+    aiGovernanceThreshold?: number; // 신규 - AI 증빙 요청 임계값
+}
+
+export interface InitialBalance {
+    account: string;
+    amount: number;
+}
+
+export interface TenantConfig {
+    tenantId: string;
+    closingDate?: string;
+    isReadOnly: boolean;
+    entityMetadata?: EntityMetadata;
+    taxPolicy?: TaxPolicy;
+    initialBalances?: InitialBalance[]; // 신규 - 기초 잔액
+}
+
+export interface TaxFilingPackage {
+    xmlContent: string;
+    piiDensity: number;
+    riskSummary: string;
+    requiresAudit: boolean;
+}
+
+export interface SimulationResult {
+    ledger: JournalEntry[];
+    assets: Asset[];
+    orders: Order[];
+    adjustments: { category: string, bookAmount: number, taxAmount: number, difference: number }[]; // Simplified
+    validationResults: ValidationResult[];
+    companyConfig: TenantConfig;
+}
+
+export interface Partner {
+    id: string;
+    name: string;
+    partnerType: PartnerType;
+    partnerCode?: string;
+    regNo?: string;
+    representative?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    bankAccount?: string;
+    bankName?: string;
+    status: 'Approved' | 'Pending';
+    tags?: string[];
+}
+
+/**
+ * AI 분석 결과 (Rust에서 넘어오는 데이터)
+ */
+export interface ParsedTransaction {
+    date: string;
+    amount: number;
+    vat: number;
+    entryType: EntryType;
+    description: string;
+    vendor?: string; // Optional
+    vendorRegNo?: string;
+    vendorRepresentative?: string;
+    vendorAddress?: string;
+    reasoning: string;
+    accountName?: string;
+    needsClarification?: boolean;
+    clarificationPrompt?: string;
+    clarificationOptions?: string[];
+    isConsultation?: boolean;
+    confidence?: string;
+    paymentMethod?: 'Card' | 'Cash' | 'Transfer';
+    quantity?: number;      // NEW - 수량 추출
+    unitPrice?: number;     // NEW - 단가 추출
+    auditTrail?: string[];
+}
+
+export interface ComplianceReview {
+    status: 'Safe' | 'Warning' | 'Critical';
+    message: string;
+    suggestedAction?: string;
+    reviewLogs?: string[];
+}
+
+export interface AnalysisResponse {
+    transaction: ParsedTransaction;
+    vendorStatus: 'Matched' | 'Pending_Registration' | 'No_Vendor';
+    suggestedVendor?: Partner;
+    complianceReview?: ComplianceReview;
+}

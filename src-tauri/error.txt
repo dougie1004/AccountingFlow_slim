@@ -1,0 +1,139 @@
+cargo :    Compiling accounti
+ng-flow v0.1.0 (C:\Projects\A
+ccountingFlow\src-tauri)
+?? ?:1 ??:1
++ cargo check 2>&1 | Out-File
+ -Encoding ascii error.txt ; 
+Get-Content e ...
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (   Comp  
+  iling ac...Flow\src-taur   
+ i):String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+error[E0425]: cannot find val
+ue `EUC_KR` in this scope
+  --> src\ai\robust_parser.rs
+:93:27
+   |
+93 |     let (res, _, error) 
+= EUC_KR.decode(bytes);
+   |                         
+  ^^^^^^ not found in this sc
+ope
+   |
+help: consider importing this
+ static
+   |
+ 1 + use encoding_rs::EUC_KR;
+   |
+
+warning: unused imports: `EUC
+_KR` and `UTF_8`
+ --> src\core\file_utils.rs:1
+:19
+  |
+1 | use encoding_rs::{EUC_KR,
+ UTF_8, UTF_16LE};
+  |                   ^^^^^^ 
+ ^^^^^
+  |
+  = note: `#[warn(unused_impo
+rts)]` (part of `#[warn(unuse
+d)]`) on by default
+
+warning: unused import: `taur
+i_plugin_shell::process::Comm
+and`
+ --> src\core\config_manager.
+rs:6:5
+  |
+6 | use tauri_plugin_shell::p
+rocess::Command;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
+
+warning: unused import: `Comp
+lianceReview`
+ --> src\ai\ai_service.rs:1:4
+6
+  |
+1 | use crate::core::models::
+{ParsedTransaction, Complianc
+eReview};
+  |                          
+                    ^^^^^^^^^
+^^^^^^^
+
+error[E0308]: mismatched type
+s
+  --> src\commands.rs:86:12
+   |
+86 |     if let Some(reasonin
+g) = &tx.reasoning {
+   |            ^^^^^^^^^^^^^
+^^   ------------- this expre
+ssion has type `&std::string:
+:String`
+   |            |
+   |            expected `Str
+ing`, found `Option<_>`
+   |
+   = note: expected struct `s
+td::string::String`
+                found enum `s
+td::option::Option<_>`
+
+error[E0282]: type annotation
+s needed
+  --> src\ai\robust_parser.rs
+:95:19
+   |
+95 |         return Ok(res.to
+_string());
+   |                   ^^^ ca
+nnot infer type
+
+warning: unused variable: `ti
+er`
+ --> src\ai\ai_service.rs:9:5
+  |
+9 |     tier: &str
+  |     ^^^^ help: if this is
+ intentional, prefix it with 
+an underscore: `_tier`
+  |
+  = note: `#[warn(unused_vari
+ables)]` (part of `#[warn(unu
+sed)]`) on by default
+
+warning: value assigned to `i
+mage_mime_str` is never read
+  --> src\commands.rs:25:30
+   |
+25 |     let mut image_mime_s
+tr = "";
+   |                         
+     ^^
+   |
+   = help: maybe it is overwr
+itten before being read?
+   = note: `#[warn(unused_ass
+ignments)]` (part of `#[warn(
+unused)]`) on by default
+
+Some errors have detailed exp
+lanations: E0282, E0308, E042
+5.
+For more information about an
+ error, try `rustc --explain 
+E0282`.
+warning: `accounting-flow` (l
+ib) generated 5 warnings
+error: could not compile `acc
+ounting-flow` (lib) due to 3 
+previous errors; 5 warnings e
+mitted

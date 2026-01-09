@@ -1,0 +1,159 @@
+   Compiling accounting-flow v0.1.0 (C:\Projects\AccountingFlow\src-tauri)
+error[E0433]: failed to resolve: unresolved import
+  --> src\ai\universal_ingestor.rs:22:20
+   |
+22 |             crate::ai_service::extract_transaction_from_media(file_bytes, extension).await
+   |                    ^^^^^^^^^^ unresolved import
+   |
+help: a similar path exists
+   |
+22 |             crate::ai::ai_service::extract_transaction_from_media(file_bytes, extension).await
+   |                      ++++
+help: consider importing this module
+   |
+ 1 + use crate::ai::ai_service;
+   |
+help: if you import `ai_service`, refer to it directly
+   |
+22 -             crate::ai_service::extract_transaction_from_media(file_bytes, extension).await
+22 +             ai_service::extract_transaction_from_media(file_bytes, extension).await
+   |
+
+error[E0433]: failed to resolve: unresolved import
+  --> src\commands.rs:28:39
+   |
+28 |         if let Some(matched) = crate::vendor_governance::find_matching_partner(&partners, &Some(reg_no.clone())) {
+   |                                       ^^^^^^^^^^^^^^^^^ unresolved import
+   |
+help: a similar path exists
+   |
+28 |         if let Some(matched) = crate::governance::vendor_governance::find_matching_partner(&partners, &Some(reg_no.clone())) {
+   |                                       ++++++++++++
+help: consider importing this module
+   |
+ 1 + use crate::governance::vendor_governance;
+   |
+help: if you import `vendor_governance`, refer to it directly
+   |
+28 -         if let Some(matched) = crate::vendor_governance::find_matching_partner(&partners, &Some(reg_no.clone())) {
+28 +         if let Some(matched) = vendor_governance::find_matching_partner(&partners, &Some(reg_no.clone())) {
+   |
+
+error[E0433]: failed to resolve: unresolved import
+  --> src\commands.rs:31:62
+   |
+31 |             ("Pending_Registration".to_string(), Some(crate::vendor_governance::create_pending_partner(&parsed)))
+   |                                                              ^^^^^^^^^^^^^^^^^ unresolved import
+   |
+help: a similar path exists
+   |
+31 |             ("Pending_Registration".to_string(), Some(crate::governance::vendor_governance::create_pending_partner(&parsed)))
+   |                                                              ++++++++++++
+help: consider importing this module
+   |
+ 1 + use crate::governance::vendor_governance;
+   |
+help: if you import `vendor_governance`, refer to it directly
+   |
+31 -             ("Pending_Registration".to_string(), Some(crate::vendor_governance::create_pending_partner(&parsed)))
+31 +             ("Pending_Registration".to_string(), Some(vendor_governance::create_pending_partner(&parsed)))
+   |
+
+error[E0433]: failed to resolve: unresolved import
+  --> src\commands.rs:44:66
+   |
+44 |                 ("Pending_Registration".to_string(), Some(crate::vendor_governance::create_pending_partner(&parsed)))
+   |                                                                  ^^^^^^^^^^^^^^^^^ unresolved import
+   |
+help: a similar path exists
+   |
+44 |                 ("Pending_Registration".to_string(), Some(crate::governance::vendor_governance::create_pending_partner(&parsed)))
+   |                                                                  ++++++++++++
+help: consider importing this module
+   |
+ 1 + use crate::governance::vendor_governance;
+   |
+help: if you import `vendor_governance`, refer to it directly
+   |
+44 -                 ("Pending_Registration".to_string(), Some(crate::vendor_governance::create_pending_partner(&parsed)))
+44 +                 ("Pending_Registration".to_string(), Some(vendor_governance::create_pending_partner(&parsed)))
+   |
+
+error[E0433]: failed to resolve: unresolved import
+  --> src\commands.rs:61:35
+   |
+61 |     let mut transactions = crate::batch_processor::process_csv_batch(csv_data).await?;
+   |                                   ^^^^^^^^^^^^^^^ unresolved import
+   |
+help: a similar path exists
+   |
+61 |     let mut transactions = crate::accounting::batch_processor::process_csv_batch(csv_data).await?;
+   |                                   ++++++++++++
+help: consider importing this module
+   |
+ 1 + use crate::accounting::batch_processor;
+   |
+help: if you import `batch_processor`, refer to it directly
+   |
+61 -     let mut transactions = crate::batch_processor::process_csv_batch(csv_data).await?;
+61 +     let mut transactions = batch_processor::process_csv_batch(csv_data).await?;
+   |
+
+error[E0433]: failed to resolve: unresolved import
+  --> src\commands.rs:86:12
+   |
+86 |     crate::universal_ingestor::ingest_universal_file(file_bytes, file_name).await
+   |            ^^^^^^^^^^^^^^^^^^ unresolved import
+   |
+help: a similar path exists
+   |
+86 |     crate::ai::universal_ingestor::ingest_universal_file(file_bytes, file_name).await
+   |            ++++
+help: consider importing this module
+   |
+ 1 + use crate::ai::universal_ingestor;
+   |
+help: if you import `universal_ingestor`, refer to it directly
+   |
+86 -     crate::universal_ingestor::ingest_universal_file(file_bytes, file_name).await
+86 +     universal_ingestor::ingest_universal_file(file_bytes, file_name).await
+   |
+
+warning: unused import: `crate::ai::ai_service`
+ --> src\accounting\batch_processor.rs:2:5
+  |
+2 | use crate::ai::ai_service;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `TaxAdjustment` and `ValidationResult`
+ --> src\accounting\simulation_engine.rs:3:32
+  |
+3 |     EntityMetadata, TaxPolicy, TaxAdjustment, ValidationResult
+  |                                ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+error[E0282]: type annotations needed
+  --> src\commands.rs:67:49
+   |
+67 |             || tx.vendor.as_ref().map_or(true, |v| v.is_empty());
+   |                                                 ^  - type must be known at this point
+   |
+help: consider giving this closure parameter an explicit type
+   |
+67 |             || tx.vendor.as_ref().map_or(true, |v: /* Type */| v.is_empty());
+   |                                                  ++++++++++++
+
+warning: value assigned to `version_counter` is never read
+   --> src\accounting\simulation_engine.rs:229:5
+    |
+229 |     version_counter += 1;
+    |     ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+Some errors have detailed explanations: E0282, E0433.
+For more information about an error, try `rustc --explain E0282`.
+warning: `accounting-flow` (lib) generated 3 warnings
+error: could not compile `accounting-flow` (lib) due to 7 previous errors; 3 warnings emitted

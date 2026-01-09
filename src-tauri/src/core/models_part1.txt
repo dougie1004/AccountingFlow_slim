@@ -1,0 +1,36 @@
+﻿use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = \"camelCase\")]
+#[allow(dead_code)]
+pub struct ParsedTransaction {
+    pub date: String,
+    pub amount: f64,
+    pub vat: f64,
+    pub entry_type: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub vendor: Option<String>,
+    #[serde(default)]
+    pub vendor_reg_no: Option<String>,
+    #[serde(default)]
+    pub vendor_representative: Option<String>,
+    #[serde(default)]
+    pub vendor_address: Option<String>,
+    pub reasoning: String,
+    #[serde(default)]
+    pub account_name: Option<String>,
+    #[serde(default)]
+    pub needs_clarification: bool,
+    #[serde(default)]
+    pub clarification_prompt: Option<String>,
+    #[serde(default)]
+    pub clarification_options: Option<Vec<String>>,
+    #[serde(default)]
+    pub is_consultation: bool,
+    #[serde(default)]
+    pub confidence: Option<String>,
+    #[serde(default)]
+    pub audit_trail: Vec<String>,
+}

@@ -1,0 +1,75 @@
+﻿cargo :     Blocking waiting 
+for file lock on package cach
+e
+위치 줄:1 문자:1
++ cargo check 2> errors.txt; 
+Get-Content errors.txt | Set-
+Content error ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (    Blo  
+  cking wa...n package cac   
+ he:String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+    Blocking waiting for file
+ lock on package cache
+    Blocking waiting for file
+ lock on package cache
+   Compiling accounting-flow 
+v0.1.0 (C:\Projects\Accountin
+gFlow\src-tauri)
+warning: unused imports: `EUC
+_KR` and `UTF_8`
+ --> src\core\file_utils.rs:1
+:19
+  |
+1 | use encoding_rs::{EUC_KR,
+ UTF_8, UTF_16LE};
+  |                   ^^^^^^ 
+ ^^^^^
+  |
+  = note: `#[warn(unused_impo
+rts)]` (part of `#[warn(unuse
+d)]`) on by default
+
+warning: unused import: `taur
+i_plugin_shell::process::Comm
+and`
+ --> src\core\config_manager.
+rs:6:5
+  |
+6 | use tauri_plugin_shell::p
+rocess::Command;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
+
+warning: unused import: `crat
+e::ai::ai_service`
+ --> src\accounting\batch_pro
+cessor.rs:2:5
+  |
+2 | use crate::ai::ai_service
+;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `UTF_
+8`
+ --> src\ai\robust_parser.rs:
+3:27
+  |
+3 | use encoding_rs::{EUC_KR,
+ UTF_8, UTF_16LE};
+  |                          
+ ^^^^^
+
+warning: `accounting-flow` (l
+ib) generated 4 warnings (run
+ `cargo fix --lib -p accounti
+ng-flow` to apply 4 suggestio
+ns)
+    Finished `dev` profile [u
+noptimized + debuginfo] targe
+t(s) in 13.87s

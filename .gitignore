@@ -1,0 +1,17 @@
+# Node / Frontend
+node_modules
+dist
+.env
+.DS_Store
+
+# Rust / Tauri Backend
+src-tauri/target
+src-tauri/gen/android
+src-tauri/gen/schemas
+src-tauri/.cargo
+
+# IDE / OS
+.vscode
+.idea
+*.swp
+Thumbs.db

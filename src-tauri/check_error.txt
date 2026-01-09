@@ -1,0 +1,102 @@
+cargo :    Compiling accounti
+ng-flow v0.1.0 (C:\Projects\A
+ccountingFlow\src-tauri)
+?? ?:1 ??:1
++ cargo check 2>&1 | Out-File
+ -Encoding ascii check_error.
+txt ; Get-Con ...
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (   Comp  
+  iling ac...Flow\src-taur   
+ i):String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+warning: unused imports: `EUC
+_KR` and `UTF_8`
+ --> src\core\file_utils.rs:1
+:19
+  |
+1 | use encoding_rs::{EUC_KR,
+ UTF_8, UTF_16LE};
+  |                   ^^^^^^ 
+ ^^^^^
+  |
+  = note: `#[warn(unused_impo
+rts)]` (part of `#[warn(unuse
+d)]`) on by default
+
+warning: unused import: `taur
+i_plugin_shell::process::Comm
+and`
+ --> src\core\config_manager.
+rs:6:5
+  |
+6 | use tauri_plugin_shell::p
+rocess::Command;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
+
+warning: unused import: `Comp
+lianceReview`
+ --> src\ai\ai_service.rs:1:4
+6
+  |
+1 | use crate::core::models::
+{ParsedTransaction, Complianc
+eReview};
+  |                          
+                    ^^^^^^^^^
+^^^^^^^
+
+error[E0063]: missing field `
+payment_method` in initialize
+r of `ParsedTransaction`
+  --> src\ai\robust_parser.rs
+:41:22
+   |
+41 |         let mut tx = Par
+sedTransaction {
+   |                      ^^^
+^^^^^^^^^^^^^^ missing `payme
+nt_method`
+
+warning: unused variable: `ti
+er`
+ --> src\ai\ai_service.rs:9:5
+  |
+9 |     tier: &str
+  |     ^^^^ help: if this is
+ intentional, prefix it with 
+an underscore: `_tier`
+  |
+  = note: `#[warn(unused_vari
+ables)]` (part of `#[warn(unu
+sed)]`) on by default
+
+warning: value assigned to `i
+mage_mime_str` is never read
+  --> src\commands.rs:25:30
+   |
+25 |     let mut image_mime_s
+tr = "";
+   |                         
+     ^^
+   |
+   = help: maybe it is overwr
+itten before being read?
+   = note: `#[warn(unused_ass
+ignments)]` (part of `#[warn(
+unused)]`) on by default
+
+For more information about th
+is error, try `rustc --explai
+n E0063`.
+warning: `accounting-flow` (l
+ib) generated 5 warnings
+error: could not compile `acc
+ounting-flow` (lib) due to 1 
+previous error; 5 warnings em
+itted

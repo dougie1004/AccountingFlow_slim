@@ -13,7 +13,9 @@ import {
     Package,
     ShoppingCart,
     Landmark,
-    ShieldCheck
+    ShieldCheck,
+    Database,
+    RotateCcw
 } from 'lucide-react';
 import { useContext } from 'react';
 import { AccountingContext } from '../../context/AccountingContext';
@@ -45,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
     const menuItems = [
         { id: 'dashboard', label: '종합 대시보드', icon: LayoutDashboard },
         { id: 'ledger', label: 'AI 자동 분개장', icon: BookOpen },
+        { id: 'migration', label: '스마트 마이그레이션', icon: Database },
         { id: 'scm', label: '구매 및 판매 관리', icon: ShoppingCart },
         { id: 'inventory', label: '실시간 재고 현황', icon: Package },
         { id: 'assets', label: '고정자산 관리', icon: Landmark },
@@ -98,7 +101,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                     ))}
                 </nav>
 
-                <div className="p-4 border-t border-white/5 bg-slate-950/50 backdrop-blur-sm shrink-0">
+                <div className="p-4 border-t border-white/5 bg-slate-950/50 backdrop-blur-sm shrink-0 space-y-2">
+                    <button
+                        onClick={() => {
+                            if (window.confirm('시연을 위해 모든 데이터를 초기화하시겠습니까?')) {
+                                (window as any).resetData?.();
+                                setTab('dashboard');
+                            }
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-500/10 hover:text-orange-400 transition-all duration-300 group"
+                    >
+                        <RotateCcw size={20} className="text-slate-500 group-hover:text-orange-400 shrink-0" />
+                        <span className="font-semibold tracking-wide truncate">시연 환경 초기화</span>
+                    </button>
                     <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/10 hover:text-red-400 transition-all duration-300 group">
                         <LogOut size={20} className="text-slate-500 group-hover:text-red-400 shrink-0" />
                         <span className="font-semibold tracking-wide truncate">로그아웃</span>

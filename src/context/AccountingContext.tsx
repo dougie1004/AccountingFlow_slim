@@ -1,5 +1,5 @@
 import React, { createContext, useState, useMemo, ReactNode } from 'react';
-import { JournalEntry, Partner, SimulationResult, Asset, TenantConfig } from '../types';
+import { JournalEntry, Partner, SimulationResult, Asset, TenantConfig, InventoryItem, Order } from '../types';
 import { generateMockBatch, simulateAIParsing } from '../utils/mockDataGenerator';
 
 interface AccountingContextType {
@@ -32,6 +32,11 @@ interface AccountingContextType {
     deleteEntry: (id: string) => void;
     assets: Asset[];
     addAsset: (asset: Asset) => void;
+    updateInventory: (id: string, updates: Partial<InventoryItem>) => void;
+    scmOrders: Order[];
+    addScmOrder: (order: Order) => void;
+    updateScmOrder: (id: string, updates: Partial<Order>) => void;
+    resetData: () => void;
     config: TenantConfig;
     updateConfig: (updates: Partial<TenantConfig>) => void;
     subLedger: JournalEntry[];
@@ -45,6 +50,54 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
     const [ledger, setLedger] = useState<JournalEntry[]>(INITIAL_DATA);
     const [partners, setPartners] = useState<Partner[]>([]);
     const [assets, setAssets] = useState<Asset[]>([]);
+    const [inventory, setInventory] = useState<InventoryItem[]>([
+        {
+            id: '1', name: '고성능 리튬 배터리 셀 (High-Cap BATT)', sku: 'BATT-500', category: 'Energy Storage',
+            valuationMethod: 'FIFO',
+            batches: [
+                { id: 'B1', acquisitionDate: '2026-01-05', quantity: 500, unitCost: 45000 },
+                { id: 'B2', acquisitionDate: '2026-02-15', quantity: 700, unitCost: 48000 }
+            ],
+            lastNrv: 46000
+        },
+        {
+            id: '2', name: '정밀 서보 모터 (Precision Servo)', sku: 'MOTR-X100', category: 'Robotics',
+            valuationMethod: 'FIFO',
+            batches: [
+                { id: 'B3', acquisitionDate: '2026-01-10', quantity: 50, unitCost: 1200000 }
+            ],
+            lastNrv: 1100000 // 저가법 평가 대상
+        },
+        {
+            id: '3', name: '광학 센서 모듈 (Optic Sensor)', sku: 'SENS-OPT', category: 'Sensors',
+            valuationMethod: 'FIFO',
+            batches: [
+                { id: 'B4', acquisitionDate: '2026-01-20', quantity: 1500, unitCost: 15000 }
+            ]
+        },
+    ]);
+    const [scmOrders, setScmOrders] = useState<Order[]>([
+        {
+            id: 'PO-2026-102',
+            date: '2026-03-01',
+            partnerId: '삼성SDI',
+            typeField: 'PURCHASE',
+            status: 'CONFIRMED',
+            items: [{ sku: 'BATT-500', quantity: 100, unitPrice: 450000, amount: 45000000 }],
+            totalAmount: 45000000,
+            vat: 4500000
+        },
+        {
+            id: 'PO-2026-105',
+            date: '2026-03-05',
+            partnerId: '글로벌부품 (Global Supply)',
+            typeField: 'PURCHASE',
+            status: 'FULFILLED',
+            items: [{ sku: 'SENS-OPT', quantity: 500, unitPrice: 15000, amount: 7500000 }],
+            totalAmount: 7500000,
+            vat: 750000
+        }
+    ]);
     const [config, setConfig] = useState<TenantConfig>({
         tenantId: 'default-tenant',
         isReadOnly: false,
@@ -101,6 +154,34 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
     const updateConfig = (updates: Partial<TenantConfig>) => {
         setConfig(prev => ({ ...prev, ...updates }));
     };
+
+    const updateInventory = (id: string, updates: Partial<InventoryItem>) => {
+        setInventory(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    };
+
+    const addScmOrder = (order: Order) => {
+        setScmOrders(prev => [...prev, order]);
+    };
+
+    const updateScmOrder = (id: string, updates: Partial<Order>) => {
+        setScmOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
+    };
+
+    const resetData = () => {
+        setLedger([]);
+        setInventory([]);
+        setScmOrders([]);
+        setAssets([]);
+        setPartners([
+            { id: '1', name: '현대오일뱅크', partnerType: 'Vendor', status: 'Approved', partnerCode: 'V10001', regNo: '123-45-67890' },
+            { id: '2', name: '쿠팡(주)', partnerType: 'Vendor', status: 'Approved', partnerCode: 'V10002', regNo: '987-65-43210' },
+            { id: '3', name: 'AI Tech Corp', partnerType: 'Customer', status: 'Approved', partnerCode: 'C10001', regNo: '555-44-33221' }
+        ]);
+    };
+
+    React.useEffect(() => {
+        (window as any).resetData = resetData;
+    }, []);
 
     const attachEvidence = (id: string, url: string) => {
         setLedger(prev => prev.map(e => e.id === id ? { ...e, attachmentUrl: url, version: (e.version || 1) + 1 } : e));
@@ -249,6 +330,11 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
             deleteEntry,
             attachEvidence,
             processBulkTax,
+            updateInventory,
+            scmOrders,
+            addScmOrder,
+            updateScmOrder,
+            resetData,
             subLedger
         }}>
             {children}

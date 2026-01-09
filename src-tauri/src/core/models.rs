@@ -8,7 +8,7 @@ pub struct ParsedTransaction {
     pub amount: f64,
     #[serde(default)]
     pub vat: f64,
-    pub entry_type: String, 
+    pub entry_type: String,
     pub description: Option<String>,
     pub vendor: Option<String>,
     pub vendor_reg_no: Option<String>,
@@ -40,7 +40,7 @@ pub struct JournalEntry {
     pub amount: f64,
     pub vat: f64,
     #[serde(rename = "type")]
-    pub entry_type: String, 
+    pub entry_type: String,
     pub status: String,
     pub tax_code: Option<String>,
     #[serde(default)]
@@ -57,7 +57,7 @@ pub struct EntityMetadata {
     pub company_name: String,
     pub reg_id: String,
     pub rep_name: String,
-    pub corp_type: String, 
+    pub corp_type: String,
     pub fiscal_year_end: String,
     #[serde(default)]
     pub is_startup_tax_benefit: bool,
@@ -119,7 +119,7 @@ pub struct TaxAdjustment {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalysisResponse {
-    pub transaction: ParsedTransaction,
+    pub transaction: Option<ParsedTransaction>,
     pub vendor_status: String,
     pub suggested_vendor: Option<Partner>,
     pub compliance_review: Option<ComplianceReview>,
@@ -170,26 +170,56 @@ pub struct Asset {
     pub residual_value: f64,
     pub accumulated_depreciation: f64,
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ComplianceReview { 
-    pub status: String, 
+pub struct InventoryBatch {
+    pub id: String,
+    pub acquisition_date: String,
+    pub quantity: f64,
+    pub unit_cost: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct InventoryItem {
+    pub id: String,
+    pub name: String,
+    pub sku: String,
+    pub category: String,
+    pub batches: Vec<InventoryBatch>,
+    pub valuation_method: String,
+    pub last_nrv: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ComplianceReview {
+    pub status: String,
     pub message: String,
     pub review_logs: Option<Vec<String>>,
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AuditSnapshot { 
-    pub total_amount: f64, 
+pub struct AuditSnapshot {
+    pub total_amount: f64,
     pub record_count: usize,
     pub timestamp: String,
     pub integrity_hash: String,
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ValidationResult { 
-    pub status: String, 
+pub struct ValidationResult {
+    pub status: String,
     pub message: String,
     pub field: Option<String>,
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct TaxFilingPackage { pub xml_content: String, pub pii_density: f32, pub risk_summary: String, pub requires_audit: bool }
+pub struct TaxFilingPackage {
+    pub xml_content: String,
+    pub pii_density: f32,
+    pub risk_summary: String,
+    pub requires_audit: bool,
+}

@@ -24,6 +24,9 @@ export interface JournalEntry {
     attachmentUrl?: string; // Digital Evidence
     ocrData?: string;       // JSON string
     complianceContext?: string; // Knowledge sync from Compliance AI
+    clarificationPrompt?: string; // AI Inspector question
+    clarificationOptions?: string[]; // AI Inspector suggestions
+    confidence?: string;    // AI confidence level
 }
 
 export type TaxCode =
@@ -55,13 +58,21 @@ export interface ValidationResult {
     field?: string;
 }
 
+export interface InventoryBatch {
+    id: string;
+    acquisitionDate: string;
+    quantity: number;
+    unitCost: number;
+}
+
 export interface InventoryItem {
     id: string;
     name: string;
     sku: string;
-    unitCost: number;
-    quantity: number;
-    category?: string;
+    category: string;
+    batches: InventoryBatch[];
+    valuationMethod: 'FIFO' | 'WeightedAverage';
+    lastNrv?: number; // Net Realizable Value
 }
 
 export interface OrderItem {
@@ -178,8 +189,52 @@ export interface ComplianceReview {
 }
 
 export interface AnalysisResponse {
-    transaction: ParsedTransaction;
+    transaction?: ParsedTransaction;
     vendorStatus: 'Matched' | 'Pending_Registration' | 'No_Vendor';
     suggestedVendor?: Partner;
     complianceReview?: ComplianceReview;
+}
+
+export interface ManagementReport {
+    reportTitle: string;
+    reportDate: string;
+    executiveSummary: string;
+    financialOverview: {
+        totalRevenue: number;
+        totalExpenses: number;
+        netIncome: number;
+        profitMargin: number;
+        topExpenseCategories: {
+            category: string;
+            amount: number;
+            percentage: number;
+            trend: string;
+        }[];
+    };
+    scmInsights: {
+        inventoryCost: number;
+        inventoryNrv: number;
+        valuationLoss: number;
+        alert: string;
+    };
+    taxCompliance: {
+        taxableIncome: number;
+        estimatedTax: number;
+        effectiveRate: number;
+        majorAdjustment: string;
+    };
+    trendAnalysis: {
+        category: string;
+        insight: string;
+        severity: string;
+    }[];
+    riskAssessment: {
+        overallRisk: string;
+        cashFlowRisk: string;
+        complianceRisk: string;
+        operationalRisk: string;
+        mitigationStrategies: string[];
+    };
+    recommendations: string[];
+    detailedAnalysis: string;
 }

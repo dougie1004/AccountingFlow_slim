@@ -65,6 +65,16 @@ pub fn generate_hometax_xml(
                         disposal: "기타사외유출".to_string(),
                     });
                 },
+                "INVENTORY_LOSS" => {
+                    adjustments.push(TaxAdjustment {
+                        category: "재고자산평가손실(부인)".to_string(),
+                        book_amount: entry.amount,
+                        tax_amount: 0.0,
+                        difference: entry.amount,
+                        adjustment_type: "Inclusion".to_string(),
+                        disposal: "유보(발생)".to_string(),
+                    });
+                },
                 _ => {}
             }
         }
@@ -93,6 +103,21 @@ pub fn generate_hometax_xml(
         xml.push_str("      </Adjustment>\n");
     }
     xml.push_str("    </TaxAdjustments>\n");
+
+    // 2.5 Tax Estimation (추정 법인세)
+    let total_adj: f64 = adjustments.iter().map(|a| a.difference).sum();
+    let taxable_income = total_amount * 0.2 + total_adj; // 간이 이익 계산 (현업에선 재무제표 기준)
+    let is_sme = metadata.corp_type == "SME";
+    let est = calculate_estimated_tax(taxable_income, is_sme);
+
+    xml.push_str("    <TaxEstimation>\n");
+    xml.push_str(&format!("      <TaxableIncome>{:.0}</TaxableIncome>\n", est.taxable_income));
+    xml.push_str(&format!("      <BaseTax>{:.0}</BaseTax>\n", est.base_tax));
+    xml.push_str(&format!("      <Deductions>{:.0}</Deductions>\n", est.deductions));
+    xml.push_str(&format!("      <FinalTax>{:.0}</FinalTax>\n", est.final_tax));
+    xml.push_str(&format!("      <EffectiveRate>{:.2}</EffectiveRate>\n", est.effective_rate));
+    xml.push_str("    </TaxEstimation>\n");
+
     xml.push_str("  </Body>\n");
     xml.push_str("</HometaxFiling>");
 
@@ -146,6 +171,46 @@ pub fn generate_standard_forms(_ledger: Vec<JournalEntry>, _adjustments: Vec<Tax
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaxEstimation {
+    pub taxable_income: f64,
+    pub base_tax: f64,
+    pub deductions: f64,
+    pub final_tax: f64,
+    pub effective_rate: f64,
+}
+
+pub fn calculate_estimated_tax(taxable_income: f64, is_sme: bool) -> TaxEstimation {
+    // 2024/2025 한국 법인세율 (지방소득세 제외)
+    // 2억 이하: 9%
+    // 2억 ~ 200억: 19%
+    let income = if taxable_income > 0.0 { taxable_income } else { 0.0 };
+    let mut tax = 0.0;
+
+    if income <= 200_000_000.0 {
+        tax = income * 0.09;
+    } else if income <= 20_000_000_000.0 {
+        tax = 18_000_000.0 + (income - 200_000_000.0) * 0.19;
+    } else {
+        tax = 18_000_000.0 + 3_762_000_000.0 + (income - 20_000_000_000.0) * 0.24;
+    }
+
+    // 중소기업 특별세액감면 (간이 10% 적용)
+    let deductions = if is_sme { tax * 0.1 } else { 0.0 };
+    let final_tax = tax - deductions;
+    let effective_rate = if income > 0.0 { (final_tax / income) * 100.0 } else { 0.0 };
+
+    TaxEstimation {
+        taxable_income,
+        base_tax: tax,
+        deductions,
+        final_tax,
+        effective_rate,
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StandardTaxForms {
     pub vat_summary: String,
     pub corporate_tax_summary: String,

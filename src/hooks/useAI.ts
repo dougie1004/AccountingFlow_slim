@@ -38,5 +38,28 @@ export function useAI() {
         }
     };
 
-    return { parseTransaction, isParsing, error };
+    const chatWithCompliance = async (
+        userMessage: string,
+        currentTx: any,
+        policy: string
+    ): Promise<AnalysisResponse | null> => {
+        setIsParsing(true);
+        setError(null);
+        try {
+            const result = await invoke<AnalysisResponse>('chat_with_compliance', {
+                userMessage,
+                currentTx,
+                policy
+            });
+            return result;
+        } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            setError(errMsg);
+            return null;
+        } finally {
+            setIsParsing(false);
+        }
+    };
+
+    return { parseTransaction, chatWithCompliance, isParsing, error };
 }

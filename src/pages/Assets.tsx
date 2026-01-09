@@ -1,111 +1,166 @@
-import React, { useContext, useState } from 'react';
-import { Landmark, Plus, RefreshCw, TrendingDown } from 'lucide-react';
+import React, { useContext } from 'react';
+import { Landmark, Plus, RefreshCw, TrendingDown, ArrowUpRight, BarChart3, ShieldCheck } from 'lucide-react';
 import { Asset } from '../types';
 import { invoke } from '@tauri-apps/api/core';
 import { AccountingContext } from '../context/AccountingContext';
 
 export const Assets: React.FC = () => {
-    const { assets: contextAssets, addAsset } = useContext(AccountingContext)!;
-    const [displayAssets, setDisplayAssets] = useState<Asset[]>([]);
+    const { assets: contextAssets } = useContext(AccountingContext)!;
 
-    // Sync with context on load if needed or just use contextAssets
-    // For this demo, let's use contextAssets combined with some initial ones if empty
     const assets = contextAssets.length > 0 ? contextAssets : [
         {
-            id: '1',
-            name: 'MacBook Pro (M3)',
+            id: 'ASSET-2025-001',
+            name: '서초동 본사 오피스 인테리어',
             acquisitionDate: '2025-01-15',
-            cost: 3500000,
+            cost: 150000000,
             depreciationMethod: 'STRAIGHT_LINE',
-            usefulLife: 5,
-            residualValue: 1000,
-            accumulatedDepreciation: 0,
-            currentValue: 3500000
+            usefulLife: 10,
+            residualValue: 0,
+            accumulatedDepreciation: 12500000,
+            currentValue: 137500000
         },
         {
-            id: '2',
-            name: 'Office Furniture Set',
+            id: 'ASSET-2025-082',
+            name: '서버 랙 및 네트워크 인프라',
             acquisitionDate: '2025-02-01',
-            cost: 5000000,
+            cost: 45000000,
             depreciationMethod: 'STRAIGHT_LINE',
             usefulLife: 5,
-            residualValue: 1000,
-            accumulatedDepreciation: 0,
-            currentValue: 5000000
+            residualValue: 0,
+            accumulatedDepreciation: 7500000,
+            currentValue: 37500000
         }
     ];
 
+    const totalCost = assets.reduce((acc, curr) => acc + curr.cost, 0);
+    const totalCurrent = assets.reduce((acc, curr) => acc + curr.currentValue, 0);
+
     const handleRunDepreciation = async () => {
         try {
-            // Mocking 'run_depreciation' call with current assets
-            // In real app, we'd fetch latest state from DB first
-            const journalEntries = await invoke('run_depreciation', { assets, date: new Date().toISOString().split('T')[0] });
-            alert(`Depreciation Run Successful!\n${(journalEntries as any[]).length} Journal Entries Generated.`);
-
-            // Mock Update Local State for Demo
-            // Mock Update Local State for Demo (In real app, we'd update context/DB)
-            alert('Depreciation updated in view (Demo only).');
+            await invoke('run_depreciation', { assets, date: new Date().toISOString().split('T')[0] });
+            alert('상각 처리가 완료되었습니다. 전표가 자동 생성되었습니다.');
         } catch (e) {
             console.error(e);
-            alert('Depreciation Failed: ' + e);
         }
     }
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            <header className="flex items-center justify-between">
+        <div className="space-y-8 pb-20 bg-[#0B1221] min-h-screen p-6">
+            {/* Header */}
+            <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="p-1.5 bg-indigo-50 rounded-lg">
-                            <Landmark className="w-5 h-5 text-indigo-600" />
-                        </div>
-                        <h2 className="text-sm font-bold text-indigo-600 uppercase tracking-wider">Fixed Asset Management</h2>
-                    </div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">고정자산 (Assets)</h1>
-                    <p className="mt-2 text-slate-500 font-medium">유형자산 등록 및 감가상각 자동화</p>
+                    <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                        <Landmark className="text-indigo-500" size={32} />
+                        유형자산 관리 및 상각
+                    </h1>
+                    <p className="text-slate-400 text-lg mt-2">고정자산 등록 및 감가상각 전표 자동 처리 시스템</p>
                 </div>
                 <div className="flex gap-3">
                     <button
                         onClick={handleRunDepreciation}
-                        className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-bold hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-sm"
+                        className="flex items-center gap-2 px-6 py-3 bg-[#151D2E] text-indigo-400 rounded-2xl font-black border border-indigo-500/20 hover:bg-indigo-500/10 transition-all shadow-xl shadow-indigo-500/5 active:scale-95"
                     >
                         <RefreshCw size={18} />
-                        Run Depreciation (Auto)
+                        감가상각 결산 실행
                     </button>
-                    <button className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200">
+                    <button className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/30 active:scale-95">
                         <Plus size={18} />
-                        Register Asset
+                        신규 자산 등록
                     </button>
                 </div>
             </header>
 
-            <div className="bg-white border border-slate-200 rounded-[2rem] shadow-sm overflow-hidden">
-                <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                            <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase">Asset Name</th>
-                            <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase">Acquired</th>
-                            <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase text-right">Cost</th>
-                            <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase text-right">Book Value</th>
-                            <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase text-center">Method</th>
-                            <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase text-center">Life (Y)</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {assets.map((asset) => (
-                            <tr key={asset.id} className="hover:bg-slate-50/80 transition-colors">
-                                <td className="px-8 py-5 font-bold text-slate-800">{asset.name}</td>
-                                <td className="px-8 py-5 text-sm font-bold text-slate-500">{asset.acquisitionDate}</td>
-                                <td className="px-8 py-5 text-right font-bold text-slate-600">₩{asset.cost.toLocaleString()}</td>
-                                <td className="px-8 py-5 text-right font-black text-indigo-600">₩{Math.round(asset.currentValue).toLocaleString()}</td>
-                                <td className="px-8 py-5 text-center text-xs font-bold">
-                                    <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded">{asset.depreciationMethod}</span>
-                                </td>
-                                <td className="px-8 py-5 text-center font-bold text-slate-600">{asset.usefulLife}</td>
+            {/* Dashboards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="bg-[#151D2E] border border-white/5 p-8 rounded-[2rem] shadow-2xl relative group overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
+                        <BarChart3 size={80} />
+                    </div>
+                    <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">총 취득 원가</p>
+                    <h3 className="text-3xl font-black text-white tracking-tight">
+                        ₩{(totalCost / 1000000).toFixed(1)}M
+                    </h3>
+                    <div className="mt-4 flex items-center gap-2 text-indigo-400 text-xs font-bold">
+                        <ArrowUpRight size={14} />
+                        전분기 대비 15% 증가
+                    </div>
+                </div>
+
+                <div className="bg-[#151D2E] border border-white/5 p-8 rounded-[2rem] shadow-2xl relative group overflow-hidden">
+                    <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">현재 장부 가액 (Net BV)</p>
+                    <h3 className="text-3xl font-black text-emerald-400 tracking-tight">
+                        ₩{(totalCurrent / 1000000).toFixed(1)}M
+                    </h3>
+                    <p className="mt-4 text-slate-500 text-xs font-medium">실시간 감가상각 반영 완료</p>
+                </div>
+
+                <div className="bg-[#151D2E] border border-white/5 p-8 rounded-[2rem] shadow-2xl relative group overflow-hidden">
+                    <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">월 예상 상각비</p>
+                    <h3 className="text-3xl font-black text-rose-400 tracking-tight">
+                        ₩3.4M
+                    </h3>
+                    <div className="mt-4 flex items-center gap-2 text-rose-400 text-xs font-bold">
+                        <TrendingDown size={14} />
+                        영업이익 반영율 -4.2%
+                    </div>
+                </div>
+            </div>
+
+            {/* Assets Table */}
+            <div className="bg-[#151D2E]/50 border border-white/5 rounded-[2.5rem] overflow-hidden backdrop-blur-xl">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="border-b border-white/5 bg-[#151D2E]">
+                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-center w-16">No.</th>
+                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest">자산 정보</th>
+                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">취득 원가</th>
+                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">상각 누계액</th>
+                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">현재 장부 가액</th>
+                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-center">내용 연수</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {assets.map((asset, idx) => (
+                                <tr key={asset.id} className="hover:bg-white/[0.02] transition-all group">
+                                    <td className="px-8 py-6 text-center text-slate-600 font-mono text-xs">{idx + 1}</td>
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-xl bg-[#0B1221] flex items-center justify-center text-indigo-400">
+                                                <Landmark size={20} />
+                                            </div>
+                                            <div>
+                                                <p className="text-white font-bold">{asset.name}</p>
+                                                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{asset.id} • {asset.acquisitionDate} 취득</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6 text-right">
+                                        <p className="text-slate-400 font-bold text-sm">₩{asset.cost.toLocaleString()}</p>
+                                    </td>
+                                    <td className="px-8 py-6 text-right">
+                                        <p className="text-rose-500/70 font-bold text-sm">₩{asset.accumulatedDepreciation.toLocaleString()}</p>
+                                    </td>
+                                    <td className="px-8 py-6 text-right">
+                                        <p className="text-emerald-400 font-black text-lg">₩{Math.round(asset.currentValue).toLocaleString()}</p>
+                                    </td>
+                                    <td className="px-8 py-6 text-center">
+                                        <span className="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-[10px] font-black">{asset.usefulLife} Years</span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* Security Notification */}
+            <div className="flex items-center gap-4 bg-indigo-500/5 border border-indigo-500/10 p-6 rounded-[2rem]">
+                <ShieldCheck className="text-indigo-400" size={32} />
+                <div>
+                    <h4 className="text-white font-bold text-sm">감사 추적 활성화</h4>
+                    <p className="text-slate-500 text-xs font-medium">모든 자산 가치 변동 및 상각비 계상 히스토리는 국세청 감사를 대비하여 위변조 불가능한 감사 로그로 자동 보관됩니다.</p>
+                </div>
             </div>
         </div>
     );

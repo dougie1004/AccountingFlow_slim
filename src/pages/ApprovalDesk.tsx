@@ -1,6 +1,6 @@
 import React, { useContext, useMemo, useState } from 'react';
 import { AccountingContext } from '../context/AccountingContext';
-import { CheckCircle, XCircle, Clock, Search, Filter, LayoutGrid, List, Download, FileJson, AlertTriangle, Paperclip } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Search, Filter, LayoutGrid, List, Download, FileJson, AlertTriangle, Paperclip, Zap } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { JournalEntry, ParsedTransaction } from '../types';
 import { ALL_ACCOUNTS } from '../constants/accounts';
@@ -188,6 +188,30 @@ const ApprovalDesk: React.FC = () => {
                                                     <Paperclip size={10} /> View Evidence
                                                 </button>
                                             )}
+                                            {entry.attachmentUrl && (
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const result: ParsedTransaction = await invoke('verify_receipt_compliance', {
+                                                                imageBytes: [], // 실무에선 실제 이미지 데이터를 보내야 함
+                                                                imageMime: "image/jpeg",
+                                                                transactionJson: JSON.stringify(entry)
+                                                            });
+                                                            updateEntry(entry.id, {
+                                                                confidence: result.confidence,
+                                                                complianceContext: result.reasoning,
+                                                                clarificationPrompt: result.clarificationPrompt,
+                                                                status: result.needsClarification ? 'Hold' : entry.status
+                                                            });
+                                                        } catch (e) {
+                                                            console.error("AI Inspector Failed:", e);
+                                                        }
+                                                    }}
+                                                    className="flex items-center gap-1 bg-amber-500/10 text-amber-500 text-[10px] font-black px-2.5 py-1 rounded-lg border border-amber-500/20 uppercase hover:bg-amber-500/20 transition-all animate-pulse"
+                                                >
+                                                    <Zap size={10} /> AI Inspector Run
+                                                </button>
+                                            )}
                                         </div>
 
                                         <div>
@@ -222,6 +246,24 @@ const ApprovalDesk: React.FC = () => {
                                                 ))}
                                             </datalist>
                                         </div>
+
+                                        {entry.clarificationPrompt && (
+                                            <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 mt-2">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <AlertTriangle size={14} className="text-amber-500" />
+                                                    <span className="text-[10px] font-black text-amber-500 uppercase">AI 감사 소명 요청</span>
+                                                </div>
+                                                <p className="text-sm font-bold text-white mb-2">{entry.clarificationPrompt}</p>
+                                                <div className="flex gap-2">
+                                                    <button className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-slate-300 transition-all border border-white/5">
+                                                        업무 관련성 소명하기
+                                                    </button>
+                                                    <button className="px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg text-xs font-bold text-rose-400 transition-all border border-rose-500/10">
+                                                        사적 사용 (불산입) 처리
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="flex items-center gap-8 w-full lg:w-auto border-t lg:border-t-0 lg:border-l border-white/5 pt-6 lg:pt-0 lg:pl-8">

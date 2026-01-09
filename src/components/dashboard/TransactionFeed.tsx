@@ -15,14 +15,16 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
     const [input, setInput] = useState('');
     const [userResponse, setUserResponse] = useState('');
     const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
+    const [lastUserQuestion, setLastUserQuestion] = useState<string | null>(null);
     const { partners, addPartner } = context!;
-    const { parseTransaction, isParsing, error } = useAI();
+    const { parseTransaction, chatWithCompliance, isParsing, error } = useAI();
     const [selectedFile, setSelectedFile] = useState<{ name: string, bytes: number[], mime: string, url: string } | null>(null);
+    const [complianceChatInput, setComplianceChatInput] = useState('');
 
     const handleSubmit = async (e: React.FormEvent, directResponse?: string) => {
         e.preventDefault();
         const responseToUse = directResponse || userResponse;
-        const textToParse = analysis?.transaction.needsClarification
+        const textToParse = analysis?.transaction?.needsClarification
             ? `Original Input: ${input} \nUser's Additional Info: ${responseToUse}`
             : input;
 
@@ -40,7 +42,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
         );
         if (result) {
             setAnalysis(result);
-            if (!result.transaction.needsClarification) {
+            if (!result.transaction?.needsClarification) {
                 // Clear user response only if finalized
                 setUserResponse('');
             }
@@ -48,7 +50,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
     };
 
     const handleConfirm = async () => {
-        if (!analysis) return;
+        if (!analysis || !analysis.transaction) return;
         const { transaction, vendorStatus, suggestedVendor, complianceReview } = analysis;
 
         let debitAccount = '계정 미지정';
@@ -110,6 +112,22 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
         setInput('');
         setUserResponse('');
         setSelectedFile(null);
+    };
+
+    const handleComplianceChat = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!complianceChatInput.trim() || isParsing) return;
+
+        setLastUserQuestion(complianceChatInput);
+        const result = await chatWithCompliance(
+            complianceChatInput,
+            analysis?.transaction,
+            "Standard SME Policy"
+        );
+        if (result) {
+            setAnalysis(result);
+            setComplianceChatInput('');
+        }
     };
 
     const complianceStatus = analysis?.complianceReview?.status || 'Safe';
@@ -191,7 +209,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
 
                 {analysis && (
                     <div className="animate-in slide-in-from-left-4 duration-500">
-                        {analysis.transaction.isConsultation ? (
+                        {analysis.transaction?.isConsultation ? (
                             <div className="bg-[#151D2E] rounded-[2rem] border-2 border-indigo-500/30 p-8 space-y-6 shadow-[0_0_50px_rgba(79,70,229,0.1)]">
                                 <div className="flex items-center justify-between border-b border-white/5 pb-4">
                                     <div className="flex items-center gap-2">
@@ -209,7 +227,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
                                             <MessageSquare size={12} /> Inquiry context
                                         </p>
                                         <p className="text-sm font-bold text-white leading-relaxed italic border-l-2 border-indigo-500 pl-4 py-1">
-                                            "{analysis.transaction.description}"
+                                            "{analysis.transaction?.description}"
                                         </p>
                                     </div>
 
@@ -233,9 +251,9 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
                             <div className="bg-[#151D2E] rounded-[2rem] border border-white/10 p-8 space-y-6 shadow-2xl">
                                 <div className="flex items-center justify-between border-b border-white/5 pb-4">
                                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">분개 초안 (Draft)</span>
-                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${analysis.transaction.confidence === 'High' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${analysis.transaction?.confidence === 'High' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
                                         }`}>
-                                        Confidence: {analysis.transaction.confidence || 'Medium'}
+                                        Confidence: {analysis.transaction?.confidence || 'Medium'}
                                     </span>
                                 </div>
 
@@ -244,15 +262,17 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
                                         <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Account</p>
                                         <input
                                             list="feed-account-list"
-                                            value={analysis.transaction.accountName || ""}
+                                            value={analysis.transaction?.accountName || ""}
                                             onChange={(e) => {
-                                                setAnalysis({
-                                                    ...analysis,
-                                                    transaction: {
-                                                        ...analysis.transaction,
-                                                        accountName: e.target.value
-                                                    }
-                                                });
+                                                if (analysis.transaction) {
+                                                    setAnalysis({
+                                                        ...analysis,
+                                                        transaction: {
+                                                            ...analysis.transaction,
+                                                            accountName: e.target.value
+                                                        }
+                                                    });
+                                                }
                                             }}
                                             placeholder="계정과목 입력..."
                                             className="bg-transparent border-none p-0 text-lg font-black text-white focus:ring-0 outline-none w-full placeholder:text-slate-700"
@@ -265,14 +285,14 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
                                     </div>
                                     <div className="text-right">
                                         <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Vendor</p>
-                                        <p className="text-lg font-black text-indigo-400">{analysis.transaction.vendor || '내부거래'}</p>
+                                        <p className="text-lg font-black text-indigo-400">{analysis.transaction?.vendor || '내부거래'}</p>
                                     </div>
                                     <div className="col-span-2 py-4 bg-[#0B1221]/50 rounded-2xl border border-white/5 px-4 italic text-slate-300 font-bold">
-                                        "{analysis.transaction.description}"
+                                        "{analysis.transaction?.description}"
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Amount</p>
-                                        <p className="text-2xl font-black text-white font-mono">₩{analysis.transaction.amount.toLocaleString()}</p>
+                                        <p className="text-2xl font-black text-white font-mono">₩{analysis.transaction?.amount.toLocaleString()}</p>
                                     </div>
                                     <div className="flex items-end justify-end gap-3">
                                         <button
@@ -327,32 +347,34 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
                                     'bg-rose-500/5 border-rose-500/10 text-rose-300/80'
                                 }`}>
                                 <h3 className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <MessageSquare size={12} /> Real-time Review
+                                    <MessageSquare size={12} /> Compliance Advisory
                                 </h3>
+                                {lastUserQuestion && (
+                                    <div className="mb-4 bg-[#0B1221] p-3 rounded-2xl border border-white/5">
+                                        <p className="text-[10px] text-indigo-400 font-black uppercase mb-1">User Inquiry</p>
+                                        <p className="text-xs font-bold text-slate-300 italic">"{lastUserQuestion}"</p>
+                                    </div>
+                                )}
                                 <p className="text-sm font-bold leading-relaxed text-white whitespace-pre-wrap">
                                     {analysis.complianceReview?.message || '검토 중인 리스크가 없습니다.'}
                                 </p>
                             </div>
 
-                            {analysis.transaction.needsClarification && (
+                            {analysis.transaction?.needsClarification && (
                                 <div className="space-y-4 animate-in slide-in-from-top-4 duration-500">
                                     <div className="p-4 bg-indigo-600/10 rounded-2xl border border-indigo-500/20">
                                         <p className="text-xs font-black text-indigo-400 uppercase mb-2">추가 질문 (Clarification)</p>
-                                        <p className="text-sm font-bold text-white">{analysis.transaction.clarificationPrompt}</p>
+                                        <p className="text-sm font-bold text-white">{analysis.transaction?.clarificationPrompt}</p>
                                     </div>
 
-                                    {analysis.transaction.clarificationOptions && (
+                                    {analysis.transaction?.clarificationOptions && (
                                         <div className="flex flex-wrap gap-2">
                                             {analysis.transaction.clarificationOptions.map((opt, idx) => (
                                                 <button
                                                     key={idx}
                                                     onClick={() => {
-                                                        setUserResponse(opt);
-                                                        // Auto-submit when clicking a predefined option
-                                                        setTimeout(() => {
-                                                            const fakeEvent = { preventDefault: () => { } } as React.FormEvent;
-                                                            handleSubmit(fakeEvent, opt);
-                                                        }, 0);
+                                                        const fakeEvent = { preventDefault: () => { } } as React.FormEvent;
+                                                        handleSubmit(fakeEvent, opt);
                                                     }}
                                                     className="px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl text-indigo-300 text-xs font-black transition-all hover:scale-105 active:scale-95"
                                                 >
@@ -361,23 +383,34 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
                                             ))}
                                         </div>
                                     )}
-
-                                    <form onSubmit={(e) => handleSubmit(e)} className="relative">
-                                        <input
-                                            value={userResponse}
-                                            onChange={(e) => setUserResponse(e.target.value)}
-                                            placeholder="답변을 입력하여 분개 최적화..."
-                                            className="w-full pl-5 pr-14 py-4 bg-[#151D2E] border border-white/5 rounded-2xl text-white font-bold text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none placeholder:text-slate-600 shadow-inner"
-                                        />
-                                        <button
-                                            type="submit"
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2 rounded-xl shadow-lg hover:scale-110 transition-all"
-                                        >
-                                            <ArrowRight size={16} />
-                                        </button>
-                                    </form>
                                 </div>
                             )}
+
+                            {/* Persistent Chat Input for Compliance AI */}
+                            <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                    <Brain size={12} className="text-indigo-400" />
+                                    AI 감사관에게 질문하기
+                                </label>
+                                <form onSubmit={handleComplianceChat} className="relative">
+                                    <input
+                                        value={complianceChatInput}
+                                        onChange={(e) => setComplianceChatInput(e.target.value)}
+                                        placeholder="계정과목이나 규정 관련 궁금한 점..."
+                                        className="w-full pl-5 pr-12 py-3.5 bg-[#151D2E] border border-white/5 rounded-2xl text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500/50 outline-none placeholder:text-slate-600 shadow-xl"
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={isParsing || !complianceChatInput.trim()}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-xl shadow-lg hover:scale-110 active:scale-95 transition-all disabled:opacity-20"
+                                    >
+                                        <Send size={14} />
+                                    </button>
+                                </form>
+                                <p className="text-[9px] text-slate-600 font-medium px-2">
+                                    현재 실시간 전표 데이터가 AI 감사관에게 공유되었습니다.
+                                </p>
+                            </div>
 
                             {complianceStatus !== 'Safe' && (
                                 <div className="space-y-3">

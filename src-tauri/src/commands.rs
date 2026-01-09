@@ -50,7 +50,7 @@ pub async fn parse_transaction(
     let compliance_review = run_compliance_check(&parsed, &policy).await;
 
     Ok(AnalysisResponse {
-        transaction: parsed,
+        transaction: Some(parsed),
         vendor_status,
         suggested_vendor,
         compliance_review: Some(compliance_review),
@@ -164,6 +164,11 @@ pub fn get_tax_adjustments(ledger: Vec<JournalEntry>) -> Vec<TaxAdjustment> {
 }
 
 #[tauri::command]
+pub fn estimate_corporate_tax(taxable_income: f64, is_sme: bool) -> crate::tax::tax_bridge::TaxEstimation {
+    crate::tax::tax_bridge::calculate_estimated_tax(taxable_income, is_sme)
+}
+
+#[tauri::command]
 pub fn create_snapshot(ledger: Vec<JournalEntry>, adjustments: Vec<TaxAdjustment>) -> AuditSnapshot {
     audit_manager::create_audit_snapshot(ledger, adjustments)
 }
@@ -198,6 +203,11 @@ pub fn run_depreciation(mut assets: Vec<Asset>, date: String) -> Vec<JournalEntr
 pub fn process_scm_order(order: Order) -> Result<Vec<JournalEntry>, String> {
     let mut version = 1;
     crate::scm::scm_service::process_order_journaling(&order, &mut version)
+}
+
+#[tauri::command]
+pub fn evaluate_inventory_assets(inventory: Vec<crate::core::models::InventoryItem>) -> crate::scm::scm_service::ValuationSummary {
+    crate::scm::scm_service::evaluate_lcm(&inventory)
 }
 
 #[tauri::command]
@@ -253,8 +263,43 @@ pub async fn generate_cash_flow_forecast(
 #[tauri::command]
 pub async fn generate_management_report(
     ledger: Vec<JournalEntry>,
+    inventory: Vec<crate::core::models::InventoryItem>,
     period_start: String,
     period_end: String,
 ) -> Result<crate::accounting::report_engine::ManagementReport, String> {
-    crate::accounting::report_engine::generate_management_report(ledger, period_start, period_end).await
+    crate::accounting::report_engine::generate_management_report(ledger, inventory, period_start, period_end).await
+}
+
+#[tauri::command]
+pub async fn run_erp_migration(
+    file_bytes: Vec<u8>,
+    file_name: String,
+) -> Result<crate::ai::migration_engine::MigrationSummary, String> {
+    crate::ai::migration_engine::run_smart_migration(file_bytes, file_name).await
+}
+
+#[tauri::command]
+pub async fn verify_receipt_compliance(
+    image_bytes: Vec<u8>,
+    image_mime: String,
+    transaction_json: String,
+) -> Result<ParsedTransaction, String> {
+    ai_service::verify_receipt_compliance(image_bytes, &image_mime, &transaction_json).await
+}
+#[tauri::command]
+pub async fn chat_with_compliance(
+    user_message: String,
+    current_tx: Option<ParsedTransaction>,
+    policy: String,
+) -> Result<AnalysisResponse, String> {
+    let mut response = ai_service::consult_compliance_ai(&user_message, current_tx, &policy).await?;
+    
+    // Consultation 성격을 표시하기 위해 임의로 transaction에 플래그 설정 (브릿지 역할)
+    if response.transaction.is_none() {
+        let mut mock_tx = ParsedTransaction::default();
+        mock_tx.is_consultation = true; // 프론트엔드에서 상담 모드 UI를 띄우기 위함
+        response.transaction = Some(mock_tx);
+    }
+    
+    Ok(response)
 }

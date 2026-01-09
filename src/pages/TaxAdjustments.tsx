@@ -6,11 +6,20 @@ import { Calculator, Download, ArrowRight, TrendingUp, ShieldCheck, FileText, Al
 import { invoke } from '@tauri-apps/api/core';
 import { ValidationResult } from '../types';
 
+interface TaxEstimation {
+    taxableIncome: number;
+    baseTax: number;
+    deductions: number;
+    finalTax: number;
+    effectiveRate: number;
+}
+
 export const TaxAdjustments: React.FC = () => {
-    const { ledger, financials, processBulkTax, loadSimulation } = useAccounting();
+    const { ledger, financials, processBulkTax, loadSimulation, config } = useAccounting();
     const [adjustments, setAdjustments] = useState<AdjustmentItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
+    const [estimation, setEstimation] = useState<TaxEstimation | null>(null);
 
     useEffect(() => {
         const fetchAdjustments = async () => {
@@ -30,6 +39,28 @@ export const TaxAdjustments: React.FC = () => {
             fetchAdjustments();
         }
     }, [ledger]);
+
+    useEffect(() => {
+        const fetchEstimation = async () => {
+            const totalAdj = adjustments.reduce((acc, cur) => acc + cur.difference, 0);
+            const taxableIncome = financials.netIncome + totalAdj;
+            const isSme = config?.entityMetadata?.corpType === 'SME' || true;
+
+            try {
+                const result = await invoke<TaxEstimation>('estimate_corporate_tax', {
+                    taxableIncome,
+                    isSme
+                });
+                setEstimation(result);
+            } catch (e) {
+                console.error("Estimation failed:", e);
+            }
+        };
+
+        if (adjustments.length > 0 || financials.netIncome !== 0) {
+            fetchEstimation();
+        }
+    }, [adjustments, financials.netIncome, config]);
 
     const waterfallData = useMemo(() => {
         const totalAdj = adjustments.reduce((acc, cur) => acc + cur.difference, 0);
@@ -71,7 +102,7 @@ export const TaxAdjustments: React.FC = () => {
     const handleGenerateFiling = async () => {
         try {
             const snapshot = await invoke('create_snapshot', { ledger, adjustments });
-            const mockConfig = {
+            const filingConfig = config || {
                 tenantId: 'demo-tenant',
                 isReadOnly: false,
                 entityMetadata: {
@@ -84,7 +115,7 @@ export const TaxAdjustments: React.FC = () => {
                 }
             };
 
-            const xmlContent = await invoke('generate_filing', { snapshot, config: mockConfig });
+            const xmlContent = await invoke('generate_filing', { snapshot, config: filingConfig });
 
             const fileName = `tax_filing_${new Date().toISOString().split('T')[0]}.xml`;
             const blob = new Blob([xmlContent as string], { type: 'application/xml' });
@@ -271,9 +302,25 @@ export const TaxAdjustments: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="pt-8 border-t border-white/10">
-                                <p className="text-indigo-400 font-bold text-sm uppercase tracking-wider mb-1">최종 과세 대상 소득</p>
-                                <p className="text-4xl font-black text-white">₩{(financials.netIncome + adjustments.reduce((acc, c) => acc + c.difference, 0)).toLocaleString()}</p>
+                            <div className="pt-8 border-t border-white/10 space-y-4">
+                                <div>
+                                    <p className="text-indigo-400 font-bold text-sm uppercase tracking-wider mb-1">최종 과세 대상 소득</p>
+                                    <p className="text-4xl font-black text-white">₩{(financials.netIncome + adjustments.reduce((acc, c) => acc + c.difference, 0)).toLocaleString()}</p>
+                                </div>
+
+                                {estimation && (
+                                    <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <p className="text-emerald-400 font-bold text-xs uppercase tracking-wider">예상 법인세액 (Estim.)</p>
+                                            <span className="text-[10px] font-black bg-emerald-500 text-white px-2 py-0.5 rounded-full">EFF {estimation.effectiveRate.toFixed(1)}%</span>
+                                        </div>
+                                        <p className="text-2xl font-black text-white leading-tight">₩{estimation.finalTax.toLocaleString()}</p>
+                                        <p className="text-[9px] text-slate-500 mt-2 font-medium leading-relaxed">
+                                            * 산출세액: ₩{estimation.baseTax.toLocaleString()} <br />
+                                            * 중소기업 세액감면(10%) 적용됨
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>

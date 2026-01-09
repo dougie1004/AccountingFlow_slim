@@ -8,6 +8,11 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
     let description = tx.description.as_deref().unwrap_or("").to_lowercase();
     let vendor = tx.vendor.as_deref().unwrap_or("").to_lowercase();
     let combined = format!("{} {}", description, vendor);
+    
+    // 금액 추출 시도 (Fallback 시에도 숫자 파악)
+    if tx.amount == 0.0 {
+        tx.amount = parse_korean_amount(&description);
+    }
 
     // 1. 관리비 패턴
     if combined.contains("관리비") || combined.contains("관리실") || combined.contains("아파트") {
@@ -68,11 +73,20 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
         return;
     }
 
-    // 7. 소모품비 패턴
+    // 7. 소모품비/비품 패턴
     if combined.contains("소모품") || combined.contains("문구") || combined.contains("용품") {
         tx.account_name = Some("소모품비".to_string());
         tx.reasoning = "규칙: 소모품비 키워드".to_string();
         tx.entry_type = "Expense".to_string();
+        tx.confidence = Some("High".to_string());
+        return;
+    }
+
+    if combined.contains("냉장고") || combined.contains("에어컨") || combined.contains("가구") 
+        || combined.contains("컴퓨터") || combined.contains("노트북") || combined.contains("가전") {
+        tx.account_name = Some("비품".to_string());
+        tx.reasoning = "규칙: 비품/자산성 가전 키워드".to_string();
+        tx.entry_type = "Asset".to_string();
         tx.confidence = Some("High".to_string());
         return;
     }
@@ -117,10 +131,53 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
         return;
     }
 
-    // 12. 광고/마케팅 패턴 (NEW!)
+    // 12. 광고/마케팅 패턴
     if combined.contains("광고") || combined.contains("마케팅") || combined.contains("홍보") {
         tx.account_name = Some("광고선전비".to_string());
         tx.reasoning = "규칙: 광고/마케팅 키워드".to_string();
+        tx.entry_type = "Expense".to_string();
+        tx.confidence = Some("High".to_string());
+        return;
+    }
+
+    // 13. 자본금/증자 패턴 (NEW!)
+    if combined.contains("자본금") || combined.contains("증자") || combined.contains("납입") {
+        tx.account_name = Some("자본금".to_string());
+        tx.reasoning = "규칙: 자본금/증자 키워드".to_string();
+        tx.entry_type = "Equity".to_string();
+        tx.confidence = Some("High".to_string());
+        return;
+    }
+
+    // 14. 재고/SCM 확장 패턴 (NEW for CSV)
+    if combined.contains("원재료") || combined.contains("부품") || combined.contains("반도체") {
+        tx.account_name = Some("원재료".to_string());
+        tx.reasoning = "규칙: 원재료/부품 매입".to_string();
+        tx.entry_type = "Asset".to_string();
+        tx.confidence = Some("High".to_string());
+        return;
+    }
+
+    if combined.contains("감모") || combined.contains("재고부족") || combined.contains("재고 실사") 
+        || (combined.contains("재고") && combined.contains("손실")) {
+        tx.account_name = Some("재고자산감모손실".to_string());
+        tx.reasoning = "규칙: 재고 감모/실사 손실".to_string();
+        tx.entry_type = "Expense".to_string();
+        tx.confidence = Some("High".to_string());
+        return;
+    }
+
+    if combined.contains("관세") || (combined.contains("운반비") && combined.contains("수입")) {
+        tx.account_name = Some("상품 (재고자산)".to_string());
+        tx.reasoning = "규칙: 재고 부대비용 가산 (Landed Cost)".to_string();
+        tx.entry_type = "Asset".to_string();
+        tx.confidence = Some("Medium".to_string());
+        return;
+    }
+
+    if combined.contains("원가확정") || combined.contains("cogs") {
+        tx.account_name = Some("매출원가".to_string());
+        tx.reasoning = "규칙: 매출원가 인식".to_string();
         tx.entry_type = "Expense".to_string();
         tx.confidence = Some("High".to_string());
         return;
@@ -145,6 +202,30 @@ pub fn quick_classify(description: &str) -> Option<String> {
     if desc_lower.contains("접대") { return Some("접대비".to_string()); }
     if desc_lower.contains("주유") { return Some("차량유지비".to_string()); }
     if desc_lower.contains("우편") { return Some("운반비".to_string()); }
+    if desc_lower.contains("자본금") || desc_lower.contains("증자") { return Some("자본금".to_string()); }
     
     None
+}
+
+/// 한국어 금액 표현 파싱 (예: "1억원", "50만원", "10,000,000")
+fn parse_korean_amount(input: &str) -> f64 {
+    let clean = input.replace(",", "").replace(" ", "");
+    
+    // "억원" 패턴
+    if let Some(idx) = clean.find("억원") {
+        if let Ok(num) = clean[..idx].parse::<f64>() {
+            return num * 100_000_000.0;
+        }
+    }
+    
+    // "만원" 패턴
+    if let Some(idx) = clean.find("만원") {
+        if let Ok(num) = clean[..idx].parse::<f64>() {
+            return num * 10_000.0;
+        }
+    }
+
+    // 숫자만 있는 경우
+    let only_nums: String = clean.chars().filter(|c| c.is_digit(10)).collect();
+    only_nums.parse::<f64>().unwrap_or(0.0)
 }

@@ -39,20 +39,20 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
             const result = await parseTransaction(input, "General K-IFRS", partners, "default-tenant", "Pro");
 
             if (result && result.transaction) {
-                const tx = result.transaction as ParsedTransaction;
+                const tx = result.transaction;
                 const newTrail = [...(tx.auditTrail || []), `[${new Date().toLocaleTimeString()}] AI 정밀 재분석 완료`];
 
                 newData[i] = {
                     ...tx,
-                    date: tx.date || row.date || '', // Ensure date is string
-                    amount: tx.amount || row.amount || 0,
-                    vat: tx.vat || row.vat || 0,
-                    description: tx.description || row.description || '',
-                    entryType: tx.entryType || row.entryType || 'Expense',
-                    reasoning: tx.reasoning || row.reasoning || '',
+                    date: (tx.date || row.date || '').toString(),
+                    amount: Number(tx.amount || row.amount || 0),
+                    vat: Number(tx.vat || row.vat || 0),
+                    description: (tx.description || row.description || '').toString(),
+                    entryType: (tx.entryType || row.entryType || 'Expense') as any,
+                    reasoning: (tx.reasoning || row.reasoning || '').toString(),
                     auditTrail: newTrail
-                };
-                setStagedData([...newData]); // Update state immediately for each row
+                } as ParsedTransaction;
+                setStagedData([...newData]);
             }
             await new Promise(r => setTimeout(r, 100));
         }

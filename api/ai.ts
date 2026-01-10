@@ -21,17 +21,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const { input, policy, imageBytes, imageMime } = payload;
             prompt = `당신은 숙련된 공인회계사(KICPA)이자 SME 전문 세무 조력자입니다. 사용자의 텍스트 입력과 증빙을 분석하여 '세무 신고'가 가능한 수준의 정교한 전표를 생성하세요.
 
- 핵심 계정과목 가이드라인 (accountName에 반드시 사용):
- [자산] 보통예금, 현금, 외상매출금, 미수금, 선급금, 가지급금, 상품, 원재료, 재고자산, 비품, 차량운반구, 소프트웨어, 임차보증금
- [부채] 미지급금, 예수금, 외상매입금, 단기차입금, 미지급비용
- [자본] 자본금, 미처분이익잉여금
- [수익] 상품매출, 서비스매출, 이자수익
- [비용/판관비] 급여, 복리후생비(식대/경조사), 여비교통비(택시/출장), 통신비(인터넷/폰), 수도광열비(전기/가스), 세금과공과(협회비/과태료 제외공과금), 임차료, 수선비, 보험료, 접대비(거래처식대/선물), 광고선전비, 소모품비, 지급수수료(이체/세무대리), 운반비(퀵/택배), 차량유지비(주유/주차), 도서인쇄비, 교육훈련비, 연구개발비, 이자비용, 재고자산감모손실, 재고자산평가손실(부인)
+  핵심 계정과목 가이드라인 (accountName에 반드시 사용):
+  [자산] 보통예금, 현금, 외상매출금, 미수금, 선급금, 가지급금, 상품, 원재료, 재고자산, 비품, 차량운반구, 소프트웨어, 임차보증금
+  [부채] 미지급금, 예수금, 외상매입금, 단기차입금, 미지급비용
+  [자본] 자본금, 미처분이익잉여금
+  [수익/매출] 상품매출, 서비스매출, 이자수익, 잡이익
+  [비용/판관비] 급여, 복리후생비(식대/경조사), 여비교통비(택시/출장), 통신비(인터넷/폰), 수도광열비(전기/가스), 세금과공과(협회비/과태료 제외공과금), 임차료, 수선비, 보험료, 접대비(거래처식대/선물), 광고선전비, 소모품비, 지급수수료(이체/세무대리), 운반비(퀵/택배), 차량유지비(주유/주차), 도서인쇄비, 교육훈련비, 연구개발비, 이자비용, 재고자산감모손실, 재고자산평가손실(부인)
 
  분석 규칙:
- 1. **계정 세분화**: 1인 사업자도 이해할 수 있도록 description은 구체적으로 적되, accountName은 위 가이드라인의 정식 명칭을 사용하세요.
- 2. **금액 및 단위**: "1억원" -> 100000000 처럼 한국어 단위를 숫자로 정확히 환산하세요.
- 3. **결제 수단**: 영수증 형태면 "Card", 계좌이체 언급 시 "Transfer"를 지정하세요.
+ 1. **수익(매출) vs 비용**: '판매', '수주', '입금', '수익', '매출' 등 돈이 들어오거나 제품을 판 맥락이면 반드시 'Revenue'로 분류하고 '상품매출' 또는 '서비스매출'을 선택하세요. 절대 '지급수수료'와 혼동하지 마세요.
+ 2. **계정 세분화**: 1인 사업자도 이해할 수 있도록 description은 구체적으로 적되, accountName은 위 가이드라인의 정식 명칭을 사용하세요.
+ 3. **금액 및 단위**: "1억원" -> 100000000 처럼 한국어 단위를 숫자로 정확히 환산하세요.
+ 4. **결제 수단**: 영수증 형태면 "Card", 계좌이체 언급 시 "Transfer"를 지정하세요.
 
  사용자 입력: ${input}
  정책: ${policy}
@@ -41,12 +42,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
    "date": "YYYY-MM-DD",
    "amount": 1000000,
    "vat": 100000,
-   "entryType": "Expense",
-   "description": "거래 요약",
+   "entryType": "Revenue",
+   "description": "OOO 제품 판매 매출",
    "vendor": "거래처명",
-   "paymentMethod": "Card",
-   "reasoning": "분석 근거",
-   "accountName": "소모품비",
+   "paymentMethod": "Transfer",
+   "reasoning": "제품 판매에 따른 수익 발생으로 인식",
+   "accountName": "상품매출",
    "needsClarification": false,
    "confidence": "High"
  }`;
@@ -64,7 +65,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             prompt = `당신은 숙련된 공인회계사(KICPA)입니다. 다음의 원본 데이터 목록을 분석하여 표준화된 회계 전표(JSON 배열)로 변환하세요.
 
  가이드라인:
- - accountName은 정식 계정과목(보통예금, 급여, 임차료, 소모품비, 매출 등)을 사용하세요.
+ - **수익(Revenue) 인식**: '판매', '매출', '수지', '입금' 등의 단어가 포함된 행은 반드시 entryType: "Revenue"로 분류하고 accountName은 '상품매출' 또는 '서비스매출'을 부여하세요.
+ - accountName은 정식 계정과목(상품매출, 보통예금, 급여, 임차료, 소모품비 등)을 사용하세요.
  - 금액에서 쉼표나 단위를 제거하고 숫자로 변환하세요.
  - 날짜는 YYYY-MM-DD 형식으로 통일하세요.
 
@@ -75,13 +77,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
  [
    {
      "date": "YYYY-MM-DD",
-     "amount": 123400,
-     "vat": 12340,
-     "entryType": "Expense",
-     "description": "항목 설명",
-     "vendor": "거래처",
-     "accountName": "계정명",
-     "reasoning": "분석 근거",
+     "amount": 85000000,
+     "vat": 7727273,
+     "entryType": "Revenue",
+     "description": "시스템 서버 모듈 제품 판매",
+     "vendor": "OO솔루션",
+     "accountName": "상품매출",
+     "reasoning": "제품 판매 문구가 명확하여 매출로 인식",
      "confidence": "High"
    }
  ]`;

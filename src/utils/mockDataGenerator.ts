@@ -80,21 +80,44 @@ export const simulateAIParsing = (entry: Partial<JournalEntry>): JournalEntry =>
     let type: EntryType = 'Expense';
     let debitAccount = '소모품비';
     let creditAccount = '보통예금';
+    let vendor = entry.vendor || '';
+    let amount = entry.amount || 0;
 
     const desc = entry.description || '';
-    const amount = entry.amount || 0;
+
+    // Simple heuristic for vendor and amount if they are in the description
+    if (!vendor && !amount) {
+        // Try to find a number as amount
+        const amountMatch = desc.match(/[\d,]+/);
+        if (amountMatch) {
+            amount = parseInt(amountMatch[0].replace(/,/g, ''));
+        }
+
+        // Mock vendor and amount if it's an attachment
+        if (desc.includes('[Attached:')) {
+            const mockVendors = ['배달의민족', '스타벅스', '쿠팡', '네이버페이', '카카오모빌리티'];
+            vendor = mockVendors[Math.floor(Math.random() * mockVendors.length)];
+            if (!amount) amount = Math.floor(Math.random() * 50000) + 5000;
+
+            // Extract date from filename if it matches KakaoTalk_YYYYMMDD
+            const dateMatch = desc.match(/KakaoTalk_(\d{4})(\d{2})(\d{2})/);
+            if (dateMatch) {
+                entry.date = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`;
+            }
+        }
+    }
 
     if (desc.includes('자본금') || (amount >= 100000000 && desc.includes('납입'))) {
         type = 'Equity';
-        debitAccount = '미수금'; // 미확정 시에는 납입 전 미수 처리
+        debitAccount = '미수금';
         creditAccount = '자본금';
     } else if (desc.includes('MacBook') || amount > 1000000) {
         type = 'Asset';
         debitAccount = '비품';
-        creditAccount = '미지급금'; // 미확정 시 미지급 처리
+        creditAccount = '미지급금';
     } else if (desc.includes('SaaS') || desc.includes('수익')) {
         type = 'Revenue';
-        debitAccount = '미수금'; // 미확정 시 미수 처리
+        debitAccount = '미수금';
         creditAccount = '매출';
     } else if (desc.includes('급여')) {
         type = 'Payroll';
@@ -103,29 +126,28 @@ export const simulateAIParsing = (entry: Partial<JournalEntry>): JournalEntry =>
     } else if (desc.includes('Rent') || desc.includes('FastFive')) {
         type = 'Expense';
         debitAccount = '임차료';
-        creditAccount = '미지급금'; // 미확정 시 미지급 처리
+        creditAccount = '미지급금';
     }
 
-    const hasEvidence = Math.random() > 0.3; // 70% have evidence
+    const hasEvidence = desc.includes('[Attached:') || Math.random() > 0.3;
 
     return {
         id: crypto.randomUUID(),
-        date: entry.date || '2026-01-01',
+        date: entry.date || new Date().toISOString().split('T')[0],
         description: entry.description || '',
-        vendor: entry.vendor || '',
+        vendor: vendor || '일반거래',
         debitAccount,
         creditAccount,
-        amount: entry.amount || 0,
-        vat: entry.vat || 0,
+        amount: amount,
+        vat: entry.vat || Math.floor(amount * 0.1 / 1.1),
         type,
         status: 'Unconfirmed',
-        // Audit Readiness Mock
         version: 1,
         attachmentUrl: hasEvidence ? `https://storage.accountingflow.ai/evidence/${Math.floor(Math.random() * 1000)}.jpg` : undefined,
         ocrData: hasEvidence ? JSON.stringify({
-            amount: entry.amount,
+            amount: amount,
             date: entry.date,
-            vendor: entry.vendor
+            vendor: vendor
         }) : undefined
     };
 };

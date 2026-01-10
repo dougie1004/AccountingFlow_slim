@@ -36,13 +36,14 @@ export function useAI() {
                         transaction: {
                             ...mockTx,
                             entryType: mockTx.type,
+                            accountName: mockTx.debitAccount, // Mapping for UI display
                             confidence: 'High',
-                            reasoning: 'Web Preview: This simulation demonstrates the UI flow. Install the Desktop App for real Gemini AI analysis.'
+                            reasoning: 'Web Preview: This simulation demonstrates the UI flow. Install the Desktop App for real Gemini AI analysis with Korean OCR support.'
                         },
                         vendorStatus: 'Matched',
                         complianceReview: {
                             status: 'Safe',
-                            message: 'Web Preview Advisory: In the desktop version, this would be analyzed against full Korean tax laws.'
+                            message: 'Web Preview Advisory: In the desktop version, this would be analyzed against full Korean tax laws and local accounting standards.'
                         }
                     };
                     setIsParsing(false);

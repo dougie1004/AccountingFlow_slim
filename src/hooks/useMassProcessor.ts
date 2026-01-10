@@ -10,6 +10,14 @@ export const useMassProcessor = () => {
         transactions: ParsedTransaction[],
         policy: string = "Default Accounting Policy: Accrual Basis, SME Asset Threshold 1M KRW"
     ): Promise<ParsedTransaction[]> => {
+        if (!(window as any).__TAURI_INTERNALS__) {
+            console.warn('Web environment detected. Simulating mass processing preview...');
+            await new Promise(r => setTimeout(r, 2000));
+            return transactions.map(tx => ({
+                ...tx,
+                reasoning: 'Web Preview: Mass Processed Simulation'
+            }));
+        }
         try {
             const result = await invoke<ParsedTransaction[]>('process_mass_ai_batch', {
                 transactions,

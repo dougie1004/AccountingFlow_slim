@@ -100,11 +100,16 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
 
         if (vendorStatus === 'Pending_Registration' && suggestedVendor) {
             // "자동 등록" 요청에 따라 즉시 승인(Approved) 상태로 마스터 네트워크에 편입
-            const approvedVendor = await invoke<Partner>('approve_partner', {
-                partner: suggestedVendor,
-                partners
-            });
-            addPartner(approvedVendor);
+            if ((window as any).__TAURI_INTERNALS__) {
+                const approvedVendor = await invoke<Partner>('approve_partner', {
+                    partner: suggestedVendor,
+                    partners
+                });
+                addPartner(approvedVendor);
+            } else {
+                // Web Fallback: Just add the suggested vendor as "Approved" in the local state
+                addPartner({ ...suggestedVendor, status: 'Approved' });
+            }
         }
 
         onConfirm(newEntry);

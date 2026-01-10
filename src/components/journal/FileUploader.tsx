@@ -23,7 +23,26 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
             const arrayBuffer = await file.arrayBuffer();
             const bytes = new Uint8Array(arrayBuffer);
 
-            // Universal Ingestion via Rust Backend
+            // Check if running in Tauri environment (Desktop App)
+            if (!(window as any).__TAURI_INTERNALS__) {
+                console.warn('Web environment detected. Simulating bulk upload for preview...');
+                await new Promise(r => setTimeout(r, 1500));
+
+                const { generateMockBatch, simulateAIParsing } = await import('../../utils/mockDataGenerator');
+                const raw = generateMockBatch().slice(0, 5);
+                const mockResults = raw.map(r => {
+                    const parsed = simulateAIParsing(r);
+                    return {
+                        ...parsed,
+                        entryType: parsed.type,
+                        reasoning: 'Web Preview: Universal Ingestion Simulation'
+                    };
+                });
+                onTransactionsLoaded(mockResults as any);
+                return;
+            }
+
+            // Universal Ingestion via Rust Backend (Desktop Only)
             const results = await invoke<ParsedTransaction[]>('process_universal_file', {
                 fileBytes: Array.from(bytes),
                 fileName: file.name

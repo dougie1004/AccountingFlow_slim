@@ -15,3 +15,20 @@ src-tauri/.cargo
 .idea
 *.swp
 Thumbs.db
+
+# Logs and temporary files
+*.log
+build_log.txt
+cargo_errors.txt
+commands_view.txt
+
+# Generated assets and temporary scripts
+app-logo.png
+app-icon.jpg
+app-icon-square.png
+mega_fix.py
+add_config_commands.py
+
+# Evidence images (temporary)
+KakaoTalk_*.jpg
+20260109_*.jpg

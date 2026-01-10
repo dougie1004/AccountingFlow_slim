@@ -35,6 +35,53 @@ export const Reports: React.FC = () => {
 
     const handleGenerateAIReport = async () => {
         setIsGenerating(true);
+        if (!(window as any).__TAURI_INTERNALS__) {
+            console.warn('Web environment detected. Simulating report generation...');
+            await new Promise(r => setTimeout(r, 2500));
+            const mockReport: ManagementReport = {
+                reportTitle: "2026년 1월 경영 분석 리포트 (Web Preview Simulation)",
+                reportDate: new Date().toISOString().split('T')[0],
+                executiveSummary: "현재 매출 성장세가 뚜렷하며, 현금 흐름이 안정적입니다. 다만, 일부 자산의 감가상각 처리가 누락되었을 가능성이 있으니 점검이 필요합니다.",
+                financialOverview: {
+                    totalRevenue: revenue,
+                    totalExpenses: expenses,
+                    netIncome: netIncome,
+                    profitMargin: revenue > 0 ? (netIncome / revenue) * 100 : 0,
+                    topExpenseCategories: [
+                        { category: "급여", amount: expenses * 0.6, percentage: 60, trend: "Stable" },
+                        { category: "임차료", amount: expenses * 0.2, percentage: 20, trend: "Stable" }
+                    ]
+                },
+                scmInsights: {
+                    inventoryCost: 156000000,
+                    inventoryNrv: 148000000,
+                    valuationLoss: 8000000,
+                    alert: "평가 손실 발생"
+                },
+                taxCompliance: {
+                    taxableIncome: netIncome * 1.05,
+                    estimatedTax: netIncome * 0.1,
+                    effectiveRate: 10,
+                    majorAdjustment: "접대비 한도 초과분 손금불산입 (Web Preview)"
+                },
+                trendAnalysis: [],
+                riskAssessment: {
+                    overallRisk: "Low",
+                    cashFlowRisk: "Low",
+                    complianceRisk: "Medium",
+                    operationalRisk: "Low",
+                    mitigationStrategies: ["정기적인 증빙 대조 작업 강화"]
+                },
+                recommendations: [
+                    "SaaS 구독료 지출 최적화 방안 검토",
+                    "단기 여유 자금의 MMF 운용 제안"
+                ],
+                detailedAnalysis: "웹 프리뷰 모드에서의 시뮬레이션 결과입니다. 실제 법인세법 및 회계 기준에 따른 정밀 분석은 데스크톱 버전을 이용해 주세요."
+            };
+            setReport(mockReport);
+            setIsGenerating(false);
+            return;
+        }
         try {
             const result = await invoke<ManagementReport>('generate_management_report', {
                 ledger,

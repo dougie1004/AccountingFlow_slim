@@ -209,6 +209,10 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     const approvePartner = async (partner: Partner) => {
+        if (!(window as any).__TAURI_INTERNALS__) {
+            setPartners(prev => prev.map(p => p.id === partner.id ? { ...p, status: 'Approved' } : p));
+            return;
+        }
         try {
             const { invoke } = await import('@tauri-apps/api/core');
             const approved: Partner = await invoke('approve_partner', { partner, partners });

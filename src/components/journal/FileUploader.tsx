@@ -2,6 +2,8 @@ import React, { useRef, useState } from 'react';
 import { Upload, FileUp, Loader2, AlertCircle } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { ParsedTransaction } from '../../types';
+import { useAI } from '../../hooks/useAI';
+import * as XLSX from 'xlsx';
 
 interface FileUploaderProps {
     onTransactionsLoaded: (transactions: ParsedTransaction[]) => void;
@@ -11,6 +13,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { batchParseTransactions } = useAI();
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -25,20 +28,28 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
 
             // Check if running in Tauri environment (Desktop App)
             if (!(window as any).__TAURI_INTERNALS__) {
-                console.warn('Web environment detected. Simulating bulk upload for preview...');
-                await new Promise(r => setTimeout(r, 1500));
+                console.warn('Web environment: Parsing file and calling real AI analysis...');
 
-                const { generateMockBatch, simulateAIParsing } = await import('../../utils/mockDataGenerator');
-                const raw = generateMockBatch().slice(0, 5);
-                const mockResults = raw.map(r => {
-                    const parsed = simulateAIParsing(r);
-                    return {
-                        ...parsed,
-                        entryType: parsed.type,
-                        reasoning: 'Web Preview: Universal Ingestion Simulation'
-                    };
-                });
-                onTransactionsLoaded(mockResults as any);
+                // Parse Excel/CSV using xlsx
+                const workbook = XLSX.read(bytes, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+                // Convert rows to strings for AI analysis (take first 50 rows to avoid context limits)
+                const rowsToAnalyze = rawData.slice(0, 50).map(row => row.join(' ')).filter(r => r.trim().length > 0);
+
+                const results = await batchParseTransactions(rowsToAnalyze, "Standard SME Policy");
+
+                if (results.length === 0) {
+                    throw new Error('데이터 분석에 실패했습니다. 파일 형식을 확인해 주세요.');
+                }
+
+                const parsedTransactions = results
+                    .map(r => r.transaction)
+                    .filter((tx): tx is ParsedTransaction => !!tx);
+
+                onTransactionsLoaded(parsedTransactions);
                 return;
             }
 
@@ -49,11 +60,12 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
             });
 
             onTransactionsLoaded(results);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Upload Error:', err);
             setError(err instanceof Error ? err.message : String(err));
         } finally {
             setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 

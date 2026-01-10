@@ -59,6 +59,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 });
             }
+        } else if (action === 'batch_parse') {
+            const { rows, policy } = payload;
+            prompt = `당신은 숙련된 공인회계사(KICPA)입니다. 다음의 원본 데이터 목록을 분석하여 표준화된 회계 전표(JSON 배열)로 변환하세요.
+
+ 가이드라인:
+ - accountName은 정식 계정과목(보통예금, 급여, 임차료, 소모품비, 매출 등)을 사용하세요.
+ - 금액에서 쉼표나 단위를 제거하고 숫자로 변환하세요.
+ - 날짜는 YYYY-MM-DD 형식으로 통일하세요.
+
+ 대상 데이터: ${JSON.stringify(rows)}
+ 정책: ${policy}
+
+ 응답 형식 (반드시 JSON 배열만 응답):
+ [
+   {
+     "date": "YYYY-MM-DD",
+     "amount": 123400,
+     "vat": 12340,
+     "entryType": "Expense",
+     "description": "항목 설명",
+     "vendor": "거래처",
+     "accountName": "계정명",
+     "reasoning": "분석 근거",
+     "confidence": "High"
+   }
+ ]`;
+            parts.push({ text: prompt });
         } else if (action === 'chat') {
             const { userMessage, currentTx, policy } = payload;
             prompt = `당신은 회계 법인의 시니어 매니저이자 규정 준수(Compliance) 전문가입니다. 사용자의 질문에 답변하고 최선의 회계 처리를 권고하세요. 

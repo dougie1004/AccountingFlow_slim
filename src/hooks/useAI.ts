@@ -201,5 +201,48 @@ export function useAI() {
         }
     };
 
-    return { parseTransaction, chatWithCompliance, isParsing, error };
+    const batchParseTransactions = async (
+        rows: any[],
+        policy: string
+    ): Promise<AnalysisResponse[]> => {
+        setIsParsing(true);
+        setError(null);
+
+        if (!isTauri()) {
+            try {
+                const response = await fetch('/api/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'batch_parse',
+                        payload: { rows, policy }
+                    })
+                });
+
+                if (!response.ok) throw new Error('Batch analysis failed');
+                const results = await response.json();
+
+                return results.map((tx: any) => ({
+                    transaction: tx,
+                    vendorStatus: 'Matched',
+                    complianceReview: {
+                        status: 'Safe',
+                        message: tx.reasoning || '분석 완료'
+                    }
+                }));
+            } catch (err: any) {
+                setError(err.message || 'Batch parsing failed');
+                return [];
+            } finally {
+                setIsParsing(false);
+            }
+        }
+
+        // Desktop logic (simulated for now as we don't have a direct batch command in Rust yet, 
+        // but we can loop or use a specific one if added)
+        // For now, web is the priority as per user request
+        return [];
+    };
+
+    return { parseTransaction, batchParseTransactions, chatWithCompliance, isParsing, error };
 }

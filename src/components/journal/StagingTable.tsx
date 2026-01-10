@@ -25,6 +25,25 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
     const [processProgress, setProcessProgress] = useState<{ current: number; total: number } | null>(null);
     const [validationResult, setValidationResult] = useState<any>(null);
     const [isValidating, setIsValidating] = useState(false);
+    const [filterMode, setFilterMode] = useState<'all' | 'critical'>('all');
+
+    // Derived data for display: Sorted and Filtered
+    const getProcessedData = () => {
+        let items = stagedData.map((item, originalIndex) => ({ ...item, originalIndex }));
+
+        if (filterMode === 'critical') {
+            items = items.filter(r => r.needsClarification || r.confidence !== 'High');
+        }
+
+        // Priority sort: Critical items first
+        return items.sort((a, b) => {
+            const aCrit = a.needsClarification || a.confidence !== 'High' ? 1 : 0;
+            const bCrit = b.needsClarification || b.confidence !== 'High' ? 1 : 0;
+            return bCrit - aCrit;
+        });
+    };
+
+    const displayData = getProcessedData();
 
     const runAIAnalysis = async () => {
         const newData = [...stagedData];
@@ -133,6 +152,22 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                 </div>
             </div>
 
+            {/* View Filters */}
+            <div className="flex px-4 gap-2 border-b border-white/5 pb-1">
+                <button
+                    onClick={() => setFilterMode('all')}
+                    className={`px-6 py-3 rounded-t-xl font-black text-xs tracking-widest transition-all ${filterMode === 'all' ? 'bg-indigo-500/10 text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                    전체 보기 ({stagedData.length})
+                </button>
+                <button
+                    onClick={() => setFilterMode('critical')}
+                    className={`px-6 py-3 rounded-t-xl font-black text-xs tracking-widest transition-all ${filterMode === 'critical' ? 'bg-rose-500/10 text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                    검토 필요 ({stagedData.filter(r => r.needsClarification || r.confidence !== 'High').length})
+                </button>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Grid */}
                 <div className="lg:col-span-2 professional-card overflow-hidden">
@@ -149,60 +184,61 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {stagedData.map((row, idx) => (
-                                    <tr
-                                        key={idx}
-                                        onClick={() => setSelectedRow(idx)}
-                                        className={`transition-all cursor-pointer ${idx === analyzingIndex ? 'bg-indigo-500/5' : ''} ${selectedRow === idx ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'}`}
-                                    >
-                                        <td className="px-6 py-4">
-                                            {row.needsClarification ? (
-                                                <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] animate-pulse" />
-                                            ) : row.confidence === 'High' ? (
-                                                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                            ) : (
-                                                <div className="w-2 h-2 rounded-full bg-amber-500" />
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 font-mono text-xs text-slate-400 whitespace-nowrap">{row.date || ''}</td>
-                                        <td className="px-6 py-4">
-                                            <p className="text-white font-black leading-tight truncate max-w-[200px]">{row.description || '내용 없음'}</p>
-                                            <p className="text-[10px] font-bold text-slate-500 mt-0.5">
-                                                {row.vendor && row.vendor.trim() !== '' ? row.vendor : '거래처 미지정'}
-                                            </p>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className="font-black text-white text-base">₩{(row.amount || 0).toLocaleString()}</span>
-                                            {row.vat > 0 && <p className="text-[10px] text-slate-500 font-bold">VAT ₩{(row.vat || 0).toLocaleString()}</p>}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {analyzingIndex === idx ? (
-                                                <span className="flex items-center gap-2 text-indigo-400 animate-pulse font-black text-xs">
-                                                    <Loader2 size={12} className="animate-spin" /> 연산 중
-                                                </span>
-                                            ) : (
-                                                <span className={`px-3 py-1 rounded-lg font-black text-xs ${row.accountName ? 'bg-indigo-500/10 text-indigo-400' : 'bg-white/5 text-slate-600'}`}>
-                                                    {row.accountName || '대기 중'}
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    const newData = stagedData.filter((_, i) => i !== idx);
-                                                    setStagedData(newData);
-                                                    if (selectedRow === idx) setSelectedRow(null);
-                                                    else if (selectedRow !== null && selectedRow > idx) setSelectedRow(selectedRow - 1);
-                                                }}
-                                                className="p-1.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
-                                                title="Remove from batch"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {displayData.map((row, dIdx) => {
+                                    const idx = row.originalIndex;
+                                    return (
+                                        <tr
+                                            key={idx}
+                                            onClick={() => setSelectedRow(idx)}
+                                            className={`transition-all cursor-pointer ${idx === analyzingIndex ? 'bg-indigo-500/5' : ''} ${selectedRow === idx ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'}`}
+                                        >
+                                            <td className="px-6 py-4">
+                                                {row.needsClarification || row.confidence !== 'High' ? (
+                                                    <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] animate-pulse" />
+                                                ) : (
+                                                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 font-mono text-xs text-slate-400 whitespace-nowrap">{row.date || ''}</td>
+                                            <td className="px-6 py-4">
+                                                <p className="text-white font-black leading-tight truncate max-w-[200px]">{row.description || '내용 없음'}</p>
+                                                <p className="text-[10px] font-bold text-slate-500 mt-0.5">
+                                                    {row.vendor && row.vendor.trim() !== '' ? row.vendor : '거래처 미지정'}
+                                                </p>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <span className="font-black text-white text-base">₩{(row.amount || 0).toLocaleString()}</span>
+                                                {row.vat > 0 && <p className="text-[10px] text-slate-500 font-bold">VAT ₩{(row.vat || 0).toLocaleString()}</p>}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {analyzingIndex === idx ? (
+                                                    <span className="flex items-center gap-2 text-indigo-400 animate-pulse font-black text-xs">
+                                                        <Loader2 size={12} className="animate-spin" /> 연산 중
+                                                    </span>
+                                                ) : (
+                                                    <span className={`px-3 py-1 rounded-lg font-black text-xs ${row.accountName ? 'bg-indigo-500/10 text-indigo-400' : 'bg-white/5 text-slate-600'}`}>
+                                                        {row.accountName || '대기 중'}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const newData = stagedData.filter((_, i) => i !== idx);
+                                                        setStagedData(newData);
+                                                        if (selectedRow === idx) setSelectedRow(null);
+                                                        else if (selectedRow !== null && selectedRow > idx) setSelectedRow(selectedRow - 1);
+                                                    }}
+                                                    className="p-1.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                                                    title="Remove from batch"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

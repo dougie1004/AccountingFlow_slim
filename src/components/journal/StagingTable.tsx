@@ -7,6 +7,9 @@ import { AccountingContext } from '../../context/AccountingContext';
 import { ALL_ACCOUNTS } from '../../constants/accounts';
 import { invoke } from '@tauri-apps/api/core';
 
+// Check if running in Tauri environment (Desktop App)
+const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
+
 interface StagingTableProps {
     data: ParsedTransaction[];
     partners: Partner[];
@@ -522,34 +525,41 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                 // 시산표 검증 및 이상 탐지
                                 setIsValidating(true);
                                 try {
-                                    const result: any = await invoke('batch_export_with_validation', { entries });
-                                    setValidationResult(result);
+                                    let result: any = { is_balanced: true, anomalies: [] };
 
-                                    // 검증 결과 표시
-                                    if (!result.is_balanced) {
-                                        const confirm = window.confirm(
-                                            `⚠️ 시산표 불일치 감지!\n\n` +
-                                            `차변: ₩${result.total_debit.toLocaleString()}\n` +
-                                            `대변: ₩${result.total_credit.toLocaleString()}\n` +
-                                            `차이: ₩${Math.abs(result.total_debit - result.total_credit).toLocaleString()}\n\n` +
-                                            `그래도 계속하시겠습니까?`
-                                        );
-                                        if (!confirm) {
-                                            setIsValidating(false);
-                                            return;
-                                        }
-                                    }
+                                    if (isTauri()) {
+                                        result = await invoke('batch_export_with_validation', { entries });
+                                        setValidationResult(result);
 
-                                    // 이상 징후 표시
-                                    if (result.anomalies && result.anomalies.length > 0) {
-                                        const anomalyMsg = result.anomalies.slice(0, 5).join('\n');
-                                        const confirm = window.confirm(
-                                            `⚠️ 이상 징후 탐지 (${result.anomalies.length}건):\n\n${anomalyMsg}\n\n계속하시겠습니까?`
-                                        );
-                                        if (!confirm) {
-                                            setIsValidating(false);
-                                            return;
+                                        // 검증 결과 표시 (데스크탑 전용)
+                                        if (!result.is_balanced) {
+                                            const confirm = window.confirm(
+                                                `⚠️ 시산표 불일치 감지!\n\n` +
+                                                `차변: ₩${result.total_debit.toLocaleString()}\n` +
+                                                `대변: ₩${result.total_credit.toLocaleString()}\n` +
+                                                `차이: ₩${Math.abs(result.total_debit - result.total_credit).toLocaleString()}\n\n` +
+                                                `그래도 계속하시겠습니까?`
+                                            );
+                                            if (!confirm) {
+                                                setIsValidating(false);
+                                                return;
+                                            }
                                         }
+
+                                        // 이상 징후 표시 (데스크탑 전용)
+                                        if (result.anomalies && result.anomalies.length > 0) {
+                                            const anomalyMsg = result.anomalies.slice(0, 5).join('\n');
+                                            const confirm = window.confirm(
+                                                `⚠️ 이상 징후 탐지 (${result.anomalies.length}건):\n\n${anomalyMsg}\n\n계속하시겠습니까?`
+                                            );
+                                            if (!confirm) {
+                                                setIsValidating(false);
+                                                return;
+                                            }
+                                        }
+                                    } else {
+                                        console.warn('Web Preview: Skipping deep validation (Desktop only feature)');
+                                        // Web mode proceeds directly as it's a preview
                                     }
 
                                     // 2. 신규 거래처 자동 등록 (Pending)

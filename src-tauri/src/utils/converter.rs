@@ -293,8 +293,13 @@ fn sanitize_amount(s: &str) -> f64 {
 }
 
 fn sanitize_date(s: &str) -> String {
+    // Handle DateTime format (e.g. "2024-01-01 10:30:00" or "2024-01-01T10:30")
+    let s = s.split(' ').next().unwrap_or(s);
+    let s = s.split('T').next().unwrap_or(s);
+    
     let s = s.trim().replace("\"", "").replace(".", "-").replace("/", "-");
     let parts: Vec<&str> = s.split('-').collect();
+    
     if parts.len() == 3 {
         let year = parts[0];
         let month = parts[1];
@@ -304,5 +309,14 @@ fn sanitize_date(s: &str) -> String {
         let final_day = if day.len() == 1 { format!("0{}", day) } else { day.to_string() };
         return format!("{}-{}-{}", final_year, final_month, final_day);
     }
+    
+    // Handle YYYYMMDD format
+    if s.len() == 8 && s.chars().all(|c| c.is_numeric()) {
+        let year = &s[0..4];
+        let month = &s[4..6];
+        let day = &s[6..8];
+        return format!("{}-{}-{}", year, month, day);
+    }
+
     s.to_string()
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Download, Target, ShieldAlert, CheckCircle, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { JournalEntry } from '../../types';
+import { cleanMarkdown } from '../../utils/textUtils';
 
 interface ManagementReport {
     reportTitle: string;
@@ -100,7 +101,7 @@ export const ManagementReportPanel: React.FC<ManagementReportPanelProps> = ({ le
 
                 <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
                     <p className="text-lg font-bold text-slate-200 leading-relaxed italic">
-                        "{report.executiveSummary}"
+                        "{cleanMarkdown(report.executiveSummary)}"
                     </p>
                 </div>
             </div>
@@ -115,13 +116,13 @@ export const ManagementReportPanel: React.FC<ManagementReportPanelProps> = ({ le
                     </div>
                     <div className="space-y-4">
                         {report.trendAnalysis.map((trend, idx) => (
-                            <div key={idx} className="p-4 bg-[#0B1221] rounded-2xl border border-emerald-500/10 flex gap-4">
+                            <div key={idx} className="p-4 bg-[#0B1221] rounded-2xl border border-emerald-500/10 flex gap-4 hover:border-emerald-500/30 transition-all">
                                 <div className={`p-2 rounded-xl h-fit ${trend.severity === 'High' ? 'text-rose-400 bg-rose-500/10' : 'text-emerald-400 bg-emerald-500/10'}`}>
                                     {trend.severity === 'High' ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
                                 </div>
                                 <div>
                                     <p className="text-xs font-black text-slate-500 uppercase mb-1">{trend.category}</p>
-                                    <p className="text-sm font-bold text-slate-200 leading-snug">{trend.insight}</p>
+                                    <p className="text-sm font-bold text-slate-200 leading-snug">{cleanMarkdown(trend.insight)}</p>
                                 </div>
                             </div>
                         ))}
@@ -135,18 +136,32 @@ export const ManagementReportPanel: React.FC<ManagementReportPanelProps> = ({ le
                         <h4 className="text-sm font-black text-white uppercase tracking-wider">리스크 및 대비책</h4>
                     </div>
                     <div className="space-y-4">
-                        <div className="p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10">
-                            <p className="text-xs font-black text-amber-500 uppercase mb-3">전체 리스크 등급: {report.riskAssessment.overallRisk}</p>
-                            <div className="space-y-2">
+                        <div className="p-6 bg-amber-500/5 rounded-2xl border border-amber-500/10">
+                            <p className="text-xs font-black text-amber-500 uppercase mb-4 tracking-widest flex items-center gap-2">
+                                <ShieldAlert size={14} /> Overall Risk Status: {report.riskAssessment.overallRisk}
+                            </p>
+                            <div className="space-y-3">
                                 {report.recommendations.map((rec, idx) => (
-                                    <div key={idx} className="flex gap-2 text-sm font-bold text-slate-300">
-                                        <span className="text-amber-500 text-lg leading-none">•</span>
-                                        <span>{rec}</span>
+                                    <div key={idx} className="flex gap-3 text-sm font-bold text-slate-300 group">
+                                        <span className="text-amber-500 mt-1 transition-transform group-hover:scale-125">•</span>
+                                        <span className="leading-relaxed">{cleanMarkdown(rec)}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Detailed Analysis Section (Added for transparency) */}
+            <div className="px-8 pb-8">
+                <div className="p-6 bg-[#0B1221] rounded-2xl border border-white/5">
+                    <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <FileText size={14} /> Detailed Strategic Analysis
+                    </h4>
+                    <p className="text-sm font-medium text-slate-400 leading-relaxed whitespace-pre-wrap">
+                        {cleanMarkdown(report.detailedAnalysis)}
+                    </p>
                 </div>
             </div>
         </div>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, AlertTriangle, DollarSign, Calendar, Zap, Loader2 } from 'lucide-react';
+import { TrendingUp, AlertTriangle, DollarSign, Calendar, Zap, Loader2, Sparkles } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { invoke } from '@tauri-apps/api/core';
 import { JournalEntry } from '../../types';
+import { parseAIList } from '../../utils/textUtils';
 
 interface CashFlowForecast {
     currentBalance: number;
@@ -186,14 +187,23 @@ export const AIForecastPanel: React.FC<AIForecastPanelProps> = ({ ledger, curren
             </div>
 
             {/* AI Insights */}
-            <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                    <Zap size={14} className="text-indigo-400" />
-                    <span className="text-xs font-black text-indigo-400 uppercase">AI 인사이트</span>
+            <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                    <Sparkles size={16} className="text-indigo-400" />
+                    <span className="text-sm font-black text-indigo-400 uppercase tracking-widest">AI Financial Diagnostics</span>
                 </div>
-                <p className="text-sm font-bold text-slate-300 leading-relaxed">
-                    {forecast.aiInsights}
-                </p>
+                <div className="space-y-4">
+                    {parseAIList(forecast.aiInsights).map((part, idx) => (
+                        <div key={idx} className="flex gap-4 group">
+                            <span className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-black text-xs border border-indigo-500/20 group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300">
+                                {idx + 1}
+                            </span>
+                            <p className="text-sm font-bold text-slate-300 leading-relaxed pt-1">
+                                {part}
+                            </p>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {/* Recommendations */}

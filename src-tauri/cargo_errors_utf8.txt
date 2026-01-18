@@ -1,0 +1,175 @@
+﻿cargo :    Compiling accounti
+ng-flow v0.1.0 (C:\Projects\A
+ccountingFlow\src-tauri)
+위치 줄:1 문자:1
++ cargo check 2>&1 | Out-File
+ -Encoding utf8 cargo_errors_
+utf8.txt
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (   Comp  
+  iling ac...Flow\src-taur   
+ i):String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+error: cannot find derive mac
+ro `Serialize` in this scope
+ --> src\hometax.rs:5:10
+  |
+5 | #[derive(Serialize, Deser
+ialize)]
+  |          ^^^^^^^^^
+  |
+help: consider importing this
+ derive macro
+  |
+1 + use serde::Serialize;
+  |
+
+error: cannot find derive mac
+ro `Deserialize` in this scop
+e
+ --> src\hometax.rs:5:21
+  |
+5 | #[derive(Serialize, Deser
+ialize)]
+  |                     ^^^^^
+^^^^^^
+  |
+help: consider importing this
+ derive macro
+  |
+1 + use serde::Deserialize;
+  |
+
+warning: unused imports: `App
+Handle` and `State`
+ --> src\commands.rs:9:13
+  |
+9 | use tauri::{AppHandle, St
+ate};
+  |             ^^^^^^^^^  ^^
+^^^
+  |
+  = note: `#[warn(unused_impo
+rts)]` (part of `#[warn(unuse
+d)]`) on by default
+
+error[E0277]: the trait bound
+ `HometaxData: CommandArg<'_,
+ tauri_runtime_wry::Wry<Event
+LoopMessage>>` is not satisfi
+ed
+   --> src\commands.rs:197:1
+    |
+197 |   #[tauri::command]
+    |   ^^^^^^^^^^^^^^^^^ uns
+atisfied trait bound
+    |
+   ::: src\lib.rs:18:25
+    |
+ 18 |           .invoke_handl
+er(tauri::generate_handler![
+    |  ______________________
+___-
+ 19 | |             commands:
+:parse_transaction,
+ 20 | |             commands:
+:process_batch,
+ 21 | |             commands:
+:process_mass_ai_batch,
+...   |
+ 46 | |             commands:
+:chat_with_compliance
+ 47 | |         ])
+    | |_________- in this mac
+ro invocation
+    |
+help: the trait `inventory::_
+::_serde::Deserialize<'_>` is
+ not implemented for `Hometax
+Data`
+   --> src\hometax.rs:6:1
+    |
+  6 | pub struct HometaxData 
+{
+    | ^^^^^^^^^^^^^^^^^^^^^^
+    = help: the following oth
+er types implement trait `inv
+entory::_::_serde::Deserializ
+e<'de>`:
+              `&'a [u8]` impl
+ements `inventory::_::_serde:
+:Deserialize<'de>`
+              `&'a serde_json
+::value::RawValue` implements
+ `inventory::_::_serde::Deser
+ialize<'de>`
+              `&'a std::path:
+:Path` implements `inventory:
+:_::_serde::Deserialize<'de>`
+              `&'a str` imple
+ments `inventory::_::_serde::
+Deserialize<'de>`
+              `&'p jsonptr::p
+ointer::Pointer` implements `
+inventory::_::_serde::Deseria
+lize<'de>`
+              `()` implements
+ `inventory::_::_serde::Deser
+ialize<'de>`
+              `(T,)` implemen
+ts `inventory::_::_serde::Des
+erialize<'de>`
+              `(T0, T1)` impl
+ements `inventory::_::_serde:
+:Deserialize<'de>`
+            and 420 others
+    = note: required for `Hom
+etaxData` to implement `Comma
+ndArg<'_, tauri_runtime_wry::
+Wry<EventLoopMessage>>`
+    = note: the full name for
+ the type has been written to
+ 'C:\Projects\AccountingFlow\
+src-tauri\target\debug\deps\a
+ccounting_flow_lib-b5da541580
+5bd645.long-type-270837129887
+4699848.txt'
+    = note: consider using `-
+-verbose` to print the full t
+ype name to the console
+    = note: this error origin
+ates in the macro `commands::
+__cmd__generate_hometax_filin
+g` which comes from the expan
+sion of the macro `tauri::gen
+erate_handler` (in Nightly bu
+ilds, run with -Z macro-backt
+race for more info)
+
+warning: value assigned to `t
+ax` is never read
+   --> src\tax\tax_bridge.rs:
+188:19
+    |
+188 |     let mut tax = 0.0;
+    |                   ^^^
+    |
+    = help: maybe it is overw
+ritten before being read?
+    = note: `#[warn(unused_as
+signments)]` (part of `#[warn
+(unused)]`) on by default
+
+For more information about th
+is error, try `rustc --explai
+n E0277`.
+warning: `accounting-flow` (l
+ib) generated 2 warnings
+error: could not compile `acc
+ounting-flow` (lib) due to 3 
+previous errors; 2 warnings e
+mitted

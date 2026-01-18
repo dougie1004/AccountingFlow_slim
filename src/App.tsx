@@ -56,7 +56,7 @@ const AppContent = () => {
 
                 <div className="flex-1 overflow-y-auto scroll-smooth custom-scrollbar pt-16 lg:pt-0">
                     <div className="w-full max-w-[1600px] p-4 md:p-8 lg:p-10 mx-auto">
-                        {activeTab === 'dashboard' && <Dashboard />}
+                        {activeTab === 'dashboard' && <Dashboard setTab={setActiveTab} />}
                         {activeTab === 'ledger' && <Journal />}
                         {activeTab === 'ledger-view' && <LedgerView />}
                         {activeTab === 'scm' && <SCM />}

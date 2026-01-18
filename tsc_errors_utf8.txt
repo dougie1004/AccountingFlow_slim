@@ -1,0 +1,1 @@
+﻿src/pages/Settings.tsx(140,35): error TS2345: Argument of type '{ companyName: string; regId: string; isSme: boolean; isStartupTaxBenefit: boolean; initialBalances: { account: string; amount: number; }[]; governanceThreshold: number; }' is not assignable to parameter of type 'SetStateAction<{ entity?: EntityMetadata | undefined; policy?: TaxPolicy | undefined; }>'.

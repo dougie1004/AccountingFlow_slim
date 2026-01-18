@@ -6,6 +6,7 @@ import { JournalEntry, Partner, ParsedTransaction } from '../../types';
 import { AccountingContext } from '../../context/AccountingContext';
 import { ALL_ACCOUNTS } from '../../constants/accounts';
 import { invoke } from '@tauri-apps/api/core';
+import { cleanMarkdown } from '../../utils/textUtils';
 
 // Check if running in Tauri environment (Desktop App)
 const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
@@ -204,7 +205,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                             </td>
                                             <td className="px-6 py-4 font-mono text-xs text-slate-400 whitespace-nowrap">{row.date || ''}</td>
                                             <td className="px-6 py-4">
-                                                <p className="text-white font-black leading-tight truncate max-w-[200px]">{row.description || '내용 없음'}</p>
+                                                <p className="text-white font-black leading-tight truncate max-w-[200px]">{cleanMarkdown(row.description) || '내용 없음'}</p>
                                                 <p className="text-[10px] font-bold text-slate-500 mt-0.5">
                                                     {row.vendor && row.vendor.trim() !== '' ? row.vendor : '거래처 미지정'}
                                                 </p>
@@ -255,7 +256,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Selected Transaction</h4>
-                                    <p className="text-xl font-black text-white mt-1">{stagedData[selectedRow].description || '내용 없음'}</p>
+                                    <p className="text-xl font-black text-white mt-1">{cleanMarkdown(stagedData[selectedRow].description) || '내용 없음'}</p>
                                 </div>
                                 <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${stagedData[selectedRow].confidence === 'High' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
                                     {stagedData[selectedRow].confidence} Confidence
@@ -271,7 +272,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                         <span className="text-xs font-black uppercase tracking-tight">Compliance Intervention</span>
                                     </div>
                                     <p className="text-sm font-bold text-slate-200 leading-relaxed">
-                                        {stagedData[selectedRow].clarificationPrompt || 'AI가 해당 전표에 대해 추가 정보를 요청하고 있습니다.'}
+                                        {cleanMarkdown(stagedData[selectedRow].clarificationPrompt) || 'AI가 해당 전표에 대해 추가 정보를 요청하고 있습니다.'}
                                     </p>
                                     <div className="flex flex-wrap gap-2 mt-3">
                                         {stagedData[selectedRow].clarificationOptions?.map(opt => (
@@ -458,7 +459,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                     {stagedData[selectedRow].auditTrail?.map((log, i) => (
                                         <div key={i} className="flex gap-3 text-[10px] font-bold text-slate-500 leading-relaxed py-2 border-b border-white/5 last:border-0">
                                             <span className="text-indigo-500/50 shrink-0">#{i + 1}</span>
-                                            <span>{log}</span>
+                                            <span>{cleanMarkdown(log)}</span>
                                         </div>
                                     )) || (
                                             <p className="text-[10px] font-bold text-slate-600 italic">No logs available for this transaction.</p>
@@ -522,31 +523,32 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                     return;
                                 }
 
-                                // 시산표 검증 및 이상 탐지
+                                if (isMassProcessing || isValidating) return;
                                 setIsValidating(true);
+
                                 try {
-                                    let result: any = { is_balanced: true, anomalies: [] };
+                                    const entries = stagedData.filter(r => r.accountName).map(tx => ({
+                                        id: crypto.randomUUID(),
+                                        date: tx.date || new Date().toISOString().split('T')[0],
+                                        description: tx.description,
+                                        vendor: tx.vendor,
+                                        debitAccount: tx.accountName || '계정 미지정',
+                                        creditAccount: tx.entryType === 'Revenue' ? (tx.accountName || '현금/매수금') : '미지급금',
+                                        amount: tx.amount,
+                                        vat: tx.vat,
+                                        type: tx.entryType,
+                                        status: 'Unconfirmed',
+                                        complianceContext: tx.reasoning
+                                    }));
 
+                                    if (entries.length === 0) {
+                                        alert('전송할 전표가 없습니다. 먼저 AI 분석을 통해 계정과목을 지정해 주세요.');
+                                        return;
+                                    }
+
+                                    // Desktop-only Validation
                                     if (isTauri()) {
-                                        result = await invoke('batch_export_with_validation', { entries });
-                                        setValidationResult(result);
-
-                                        // 검증 결과 표시 (데스크탑 전용)
-                                        if (!result.is_balanced) {
-                                            const confirm = window.confirm(
-                                                `⚠️ 시산표 불일치 감지!\n\n` +
-                                                `차변: ₩${result.total_debit.toLocaleString()}\n` +
-                                                `대변: ₩${result.total_credit.toLocaleString()}\n` +
-                                                `차이: ₩${Math.abs(result.total_debit - result.total_credit).toLocaleString()}\n\n` +
-                                                `그래도 계속하시겠습니까?`
-                                            );
-                                            if (!confirm) {
-                                                setIsValidating(false);
-                                                return;
-                                            }
-                                        }
-
-                                        // 이상 징후 표시 (데스크탑 전용)
+                                        const result = await invoke<any>('batch_export_with_validation', { entries });
                                         if (result.anomalies && result.anomalies.length > 0) {
                                             const anomalyMsg = result.anomalies.slice(0, 5).join('\n');
                                             const confirm = window.confirm(
@@ -557,32 +559,13 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                                 return;
                                             }
                                         }
-                                    } else {
-                                        console.warn('Web Preview: Skipping deep validation (Desktop only feature)');
-                                        // Web mode proceeds directly as it's a preview
                                     }
 
-                                    // 2. 신규 거래처 자동 등록 (Pending)
-                                    entries.forEach(entry => {
-                                        if (entry.vendor && !partners.find(p => p.name === entry.vendor)) {
-                                            const newPartner: Partner = {
-                                                id: crypto.randomUUID(),
-                                                name: entry.vendor,
-                                                partnerType: entry.type === 'Revenue' ? 'Customer' : 'Vendor',
-                                                status: 'Pending',
-                                                regNo: undefined // Bulk 등록 시에는 번호 미확인 상태
-                                            };
-                                            addPartner(newPartner);
-                                        }
-                                    });
-
-                                    // 3. 전표 확정
                                     onConfirm(entries as any);
                                     alert(`✅ ${entries.length}건의 전표가 회계 장부에 등록되었습니다.`);
                                 } catch (error) {
                                     console.error('[Batch Export] 검증 실패:', error);
-                                    alert(`검증 중 오류 발생: ${error}\n\n그래도 전송하시겠습니까?`);
-                                    onConfirm(entries as any);
+                                    alert(`전송 중 오류가 발생했습니다. 다시 시도해 주세요.`);
                                 } finally {
                                     setIsValidating(false);
                                 }
@@ -593,7 +576,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                             {isValidating ? (
                                 <>
                                     <Loader2 size={18} className="animate-spin" />
-                                    검증 중...
+                                    전표 생성 및 검증 중...
                                 </>
                             ) : (
                                 <>

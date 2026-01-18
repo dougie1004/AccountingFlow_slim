@@ -15,7 +15,8 @@ import {
     Landmark,
     ShieldCheck,
     Database,
-    RotateCcw
+    RotateCcw,
+    FileText
 } from 'lucide-react';
 import { useContext } from 'react';
 import { AccountingContext } from '../../context/AccountingContext';
@@ -47,6 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
     const menuItems = [
         { id: 'dashboard', label: '종합 대시보드', icon: LayoutDashboard },
         { id: 'ledger', label: 'AI 자동 분개장', icon: BookOpen },
+        { id: 'ledger-view', label: '총계정원장 (G/L)', icon: FileText },
         { id: 'migration', label: '스마트 마이그레이션', icon: Database },
         { id: 'scm', label: '구매 및 판매 관리', icon: ShoppingCart },
         { id: 'inventory', label: '실시간 재고 현황', icon: Package },

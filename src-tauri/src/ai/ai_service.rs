@@ -27,35 +27,34 @@ pub async fn call_journal_ai(
 
  분석 규칙:
  1. **수익(매출) vs 비용**: '판매', '수주', '입금', '수익', '매출' 등 돈이 들어오거나 제품을 판 맥락이면 반드시 'Revenue'로 분류하고 '상품매출' 또는 '서비스매출'을 선택하세요. 절대 '지급수수료'와 혼동하지 마세요.
- 2. **계정 세분화**: 1인 사업자도 이해할 수 있도록 description은 구체적으로 적되(예: '11월 사무실 임차료'), accountName은 위 가이드라인의 정식 명칭을 사용하세요.
- 3. **금액 및 단위**: "1억원" -> 100000000, "10만원" -> 100000 처럼 한국어 단위를 숫자로 정확히 환산하세요. (매우 중요!)
- 4. **결제 수단**: 텍스트나 증빙에서 영수증 형태면 "Card", 계좌이체 언급 시 "Transfer"를 paymentMethod에 지정하세요.
- 5. **증반적 계정**: 자본금 납입은 'Equity', 비용은 'Expense', 매출은 'Revenue'로 entryType을 구분하세요.
+        r#"당신은 숙련된 공인회계사(KICPA)이자 기업 서비스(SME) 전문 회계/세무 어시스턴트입니다.
+        사용자의 전표 데이터나 영수증 이미지를 분석하여 '정확한' 회계 처리를 제안하는 것이 당신의 목표입니다.
 
- 예시 1 (자본금 납입):
- 입력: "자본금 1억원 납입" -> {{"date": "오늘", "amount": 100000000, "entryType": "Equity", "accountName": "자본금", "description": "설립 자본금 납입"}}
+        [분석 지침]
+        1. 계정과목: 한국 채택 국제회계기준(K-IFRS) 및 기업회계기준을 준수하세요.
+        2. 부가세: 적격증빙 여부를 판단하여 매입세액 공제 가능 여부를 고려하세요.
+        3. 실무 중심: 실무에서 주로 사용하는 계정과목(복리후생비, 접대비, 지급수수료 등)을 우선 고려하세요.
+        4. 어조: 정중하고 전문적인 회계 전문가의 어조를 유지하세요.
 
- 예시 2 (재고 감모):
- 입력: "정기 재고 실사 결과 150만원 손실분 처리" -> {{"date": "오늘", "amount": 1500000, "entryType": "Expense", "accountName": "재고자산감모손실", "description": "재고 실사 차이분 손실 반영"}}
+        [응답 형식]
+        반드시 다음 JSON 형식으로만 응답해야 합니다:
+        {{
+          "date": "YYYY-MM-DD",
+          "amount": 0,
+          "vat": 0,
+          "entryType": "Revenue | Expense | Asset | Liability | Equity",
+          "description": "거래 내용 요약",
+          "vendor": "거래처명",
+          "accountName": "추천 계정과목",
+          "reasoning": "해당 계정과목으로 분류한 근거",
+          "needsClarification": false,
+          "clarificationPrompt": "추가 확인이 필요한 경우 질문 (없으면 빈 문자열)",
+          "confidence": "High | Medium | Low"
+        }}
 
- 사용자 입력: {}
- 정책: {}
-  
- 응답 JSON 형식:
- {{
-   "date": "YYYY-MM-DD",
-   "amount": 100000000,
-   "vat": 0,
-   "entryType": "Equity",
-   "description": "구체적인 거래 요약",
-   "vendor": "거래처명",
-   "paymentMethod": "Transfer",
-   "reasoning": "분석 근거",
-   "accountName": "자본금",
-   "needsClarification": false,
-   "confidence": "High"
- }}
-"#,
+        분석 대상: {}
+        정책 컨텍스트: {}
+        "#,
         input, policy
     );
 
@@ -150,27 +149,20 @@ pub async fn extract_transaction_from_media(bytes: Vec<u8>, mime: &str) -> Resul
         _ => "image/png",
     };
 
-    let prompt = r#"당신은 전문 회계 AI 분석가입니다. 제공된 이미지(영수증, 고지서, 인보이스)를 정밀 분석하여 JSON 형식으로 추출하세요.
-
-특히 '아파트 관리비 고지서'와 같은 복잡한 표 구조인 경우 다음을 준수하세요:
-1. **최종 납부 금액**: 표 하단의 '합계' 또는 '당월 부과액'을 찾아 amount로 설정하세요. (전월 금액이나 증감액과 혼동하지 마세요)
-2. **날짜**: 고지서의 부과 년월 또는 납기일을 찾아 YYYY-MM-DD 형식으로 기록하세요.
-3. **거래처**: 아파트 관리사무소 또는 관리비 수납처를 vendor로 설정하세요.
-4. **계정과목**: 관리비 고지서라면 accountName을 "관리비" (또는 세부 항목에 따라 수도광열비 등)로 설정하세요.
+    let prompt = r#"당신은 전문 회계 AI 분석가입니다. 제공된 파일(영수증, 고지서, 인보이스, 계약서, 기안문 등)을 정밀 분석하여 회계 전표 데이터를 JSON 형식으로 추출하세요.
+텍스트 데이터가 많거나 문서 형태인 경우, 해당 문서에서 실질적으로 발생한 '경제적 거래(비용 집행, 수익 발생)'의 내역을 찾아내세요.
 
 JSON 응답 형식:
 {
   "date": "YYYY-MM-DD",
   "amount": 0,
   "vat": 0,
-  "entryType": "Expense",
-  "description": "설명 (예: 2025년 11월분 관리비)",
+  "entryType": "Expense | Revenue | Asset",
+  "description": "거래 요약",
   "vendor": "거래처명",
-  "reasoning": "추출 근거 (어느 위치의 어떤 값을 읽었는지)",
+  "reasoning": "근거 (문서의 어느 부분에서 추출했는지)",
   "accountName": "계정과목",
-  "needsClarification": false,
-  "isConsultation": false,
-  "confidence": "High"
+  "confidence": "High | Medium | Low"
 }"#;
 
     let client = reqwest::Client::new();
@@ -191,13 +183,23 @@ JSON 응답 형식:
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("AI 시각 분석 오류: {}", e))?;
+        .map_err(|e| format!("AI 시각 분석 오류 (네트워크): {}", e))?;
 
-    let json_res: serde_json::Value = response.json().await.map_err(|e| format!("응답 분석 실패: {}", e))?;
+    let json_res: serde_json::Value = response.json().await.map_err(|e| format!("AI 응답 분석 실패 (JSON): {}", e))?;
     
+    // 에러 상세 메시지 확인
+    if let Some(err) = json_res.get("error") {
+        return Err(format!("Gemini API Error: {}", err["message"].as_str().unwrap_or("Unknown")));
+    }
+
+    let candidates = json_res.get("candidates").and_then(|c| c.as_array());
+    if candidates.is_none() || candidates.unwrap().is_empty() {
+        return Err(format!("AI가 파일로부터 데이터를 추출하지 못했습니다. (Response: {:?})", json_res));
+    }
+
     let mut text = json_res["candidates"][0]["content"]["parts"][0]["text"]
         .as_str()
-        .ok_or("AI가 이미지를 해석하지 못했습니다.")?
+        .ok_or(format!("AI 응답 데이터에 텍스트가 없습니다. (Raw: {:?})", json_res))?
         .trim()
         .to_string();
 
@@ -239,8 +241,8 @@ pub async fn verify_receipt_compliance(
     };
 
     let prompt = format!(
-        r#"당신은 기업 내부 감사관(Internal Auditor)입니다. 
-제공된 '법인카드 결제 내역(JSON)'과 '영수증 사진'이 서로 일치하는지, 그리고 '업무 관련성'이 있는지 정밀하게 교차 검증하세요.
+        r#"당신은 지능형 회계 데이터 검증 AI입니다. 
+제공된 '결제 내역(JSON)'과 '영수증 사진'이 서로 일치하는지, 그리고 회계 원칙에 부합하는지 정밀하게 교차 검증하세요.
 
 [검증 대상 데이터]:
 {}
@@ -295,7 +297,7 @@ pub async fn verify_receipt_compliance(
     updated_tx.needs_clarification = compliance_res["needsClarification"].as_bool().unwrap_or(false);
     updated_tx.reasoning = compliance_res["reasoning"].as_str().unwrap_or("").to_string();
     updated_tx.clarification_prompt = compliance_res["clarificationPrompt"].as_str().map(|s| s.to_string());
-    updated_tx.audit_trail.push(format!("[{}] AI AI Inspector 교차 검증 완료", chrono::Local::now().format("%H:%M:%S")));
+    updated_tx.audit_trail.push(format!("[{}] AI 회계사 영수증 교차 검증 완료", chrono::Local::now().format("%H:%M:%S")));
 
     Ok(updated_tx)
 }
@@ -318,7 +320,7 @@ pub async fn consult_compliance_ai(
     };
 
     let prompt = format!(
-        r#"당신은 회계 법인의 시니어 매니저이자 규정 준수(Compliance) 전문가입니다. 사용자의 질문에 답변하고 최선의 회계 처리를 권고하세요. 
+        r#"당신은 숙련된 회계 전문가이자 기업 경영 컨설턴트입니다. 사용자의 회계/세무 관련 질문에 답변하고 최선의 회계 처리를 제안하세요. 
 답변은 전문적이며 친절한 한글로 작성하세요.
 
 [사용자 상황]: {}

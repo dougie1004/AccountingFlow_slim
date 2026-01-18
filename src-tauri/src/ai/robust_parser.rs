@@ -28,15 +28,36 @@ pub fn parse_robust_csv(data: Vec<u8>) -> Result<Vec<ParsedTransaction>, String>
 
         if fields.len() < 2 { continue; }
 
-        // 스크린샷 구조: 0:Date, 1:Vendor, 2:Description, 3:Amount
-        let date = fields.get(0).cloned().unwrap_or_default();
-        let vendor = fields.get(1).cloned().unwrap_or_default();
-        let description = fields.get(2).cloned().unwrap_or_default();
-        
-        // 금액 필드 유추 (3번 인덱스가 숫자면 3번, 아니면 2번 시도)
-        let amount_raw = fields.get(3).or(fields.get(2)).cloned().unwrap_or_default();
-        let amount_clean = amount_raw.replace(",", "").replace("원", "").replace("\"", "");
-        let amount = amount_clean.parse::<f64>().unwrap_or(0.0);
+        // Multi-column heuristic search
+        let mut date = String::new();
+        let mut vendor = String::new();
+        let mut description = String::new();
+        let mut amount = 0.0;
+
+        for (i, field) in fields.iter().enumerate() {
+            let val = field.trim();
+            if val.is_empty() { continue; }
+
+            // Date Detection (YYYY-MM-DD or similar)
+            if date.is_empty() && (val.contains('-') || val.contains('.') || val.contains('/')) && val.chars().filter(|c| c.is_numeric()).count() >= 4 {
+                date = val.to_string();
+            }
+            // Amount Detection
+            else {
+                let clean = val.replace(",", "").replace("원", "").replace("₩", "").replace("\"", "").replace(" ", "");
+                if let Ok(num) = clean.parse::<f64>() {
+                    if num > 10.0 { // Small numbers might be counts/ids
+                        amount = num;
+                    }
+                }
+            }
+        }
+
+        // Fallback for vendor/description if not detected
+        vendor = fields.get(1).or(fields.get(0)).cloned().unwrap_or_default();
+        description = fields.get(2).or(fields.get(1)).cloned().unwrap_or_default();
+
+        if date.is_empty() { date = fields.get(0).cloned().unwrap_or_default(); }
 
         let mut tx = ParsedTransaction {
             date: date.clone(),
@@ -83,18 +104,24 @@ pub fn parse_robust_csv(data: Vec<u8>) -> Result<Vec<ParsedTransaction>, String>
     Ok(results)
 }
 
-fn detect_and_decode(bytes: &[u8]) -> Result<String, String> {
+pub fn detect_and_decode(bytes: &[u8]) -> Result<String, String> {
+    // 1. Check for UTF-16LE BOM
     if bytes.starts_with(&[0xFF, 0xFE]) {
         let (res, _, _) = UTF_16LE.decode(bytes);
         return Ok(res.to_string());
     }
+
+    // 2. Try UTF-8
     if let Ok(res) = String::from_utf8(bytes.to_vec()) {
         return Ok(res);
     }
+
+    // 3. Try EUC-KR (Common in Korea)
     let (res, _, error) = EUC_KR.decode(bytes);
     if !error {
-        let result_str: String = res.to_string();
-        return Ok(result_str);
+        return Ok(res.to_string());
     }
-    Err("인코딩 인지 실패".to_string())
+
+    // 4. Fallback: Lossy Decoding (UTF-8) - better to show mangled text than nothing
+    Ok(String::from_utf8_lossy(bytes).to_string())
 }

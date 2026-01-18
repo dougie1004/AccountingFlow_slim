@@ -202,6 +202,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
                                 />
                             </label>
                             <button
+                                type="button"
                                 onClick={(e) => handleSubmit(e)}
                                 disabled={isParsing || !input.trim()}
                                 className="bg-indigo-600 text-white px-6 py-2.5 rounded-2xl font-black text-xs hover:bg-indigo-700 transition-all shadow-lg active:scale-95 disabled:opacity-20"
@@ -212,110 +213,72 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
                     </div>
                 </div>
 
-                {analysis && (
+                {analysis && !analysis.transaction?.isConsultation && (
                     <div className="animate-in slide-in-from-left-4 duration-500">
-                        {analysis.transaction?.isConsultation ? (
-                            <div className="bg-[#151D2E] rounded-[2rem] border-2 border-indigo-500/30 p-8 space-y-6 shadow-[0_0_50px_rgba(79,70,229,0.1)]">
-                                <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-1.5 bg-indigo-500/20 rounded-lg">
-                                            <ShieldCheck size={14} className="text-indigo-400" />
-                                        </div>
-                                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">전문가 답변 (Professional Advisory)</span>
-                                    </div>
-                                    <span className="text-[10px] font-black text-slate-500 uppercase">Consultation Mode</span>
+                        <div className="bg-[#151D2E] rounded-[2rem] border border-white/10 p-8 space-y-6 shadow-2xl">
+                            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">분개 초안 (Draft)</span>
+                                <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${analysis.transaction?.confidence === 'High' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                                    }`}>
+                                    Confidence: {analysis.transaction?.confidence || 'Medium'}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-8">
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Account</p>
+                                    <input
+                                        list="feed-account-list"
+                                        value={analysis.transaction?.accountName || ""}
+                                        onChange={(e) => {
+                                            if (analysis.transaction) {
+                                                setAnalysis({
+                                                    ...analysis,
+                                                    transaction: {
+                                                        ...analysis.transaction,
+                                                        accountName: e.target.value
+                                                    }
+                                                });
+                                            }
+                                        }}
+                                        placeholder="계정과목 입력..."
+                                        className="bg-transparent border-none p-0 text-lg font-black text-white focus:ring-0 outline-none w-full placeholder:text-slate-700"
+                                    />
+                                    <datalist id="feed-account-list">
+                                        {ALL_ACCOUNTS.map(acc => (
+                                            <option key={acc.code} value={acc.name}>{acc.code} {acc.description}</option>
+                                        ))}
+                                    </datalist>
                                 </div>
-
-                                <div className="space-y-4">
-                                    <div className="p-6 bg-indigo-500/5 rounded-2xl border border-indigo-500/10">
-                                        <p className="text-xs font-black text-slate-500 uppercase mb-3 flex items-center gap-2">
-                                            <MessageSquare size={12} /> Inquiry context
-                                        </p>
-                                        <p className="text-sm font-bold text-white leading-relaxed italic border-l-2 border-indigo-500 pl-4 py-1">
-                                            "{analysis.transaction?.description}"
-                                        </p>
-                                    </div>
-
-                                    <div className="prose prose-invert max-w-none">
-                                        <p className="text-base font-bold text-indigo-100 leading-relaxed whitespace-pre-wrap">
-                                            {analysis.complianceReview?.message}
-                                        </p>
-                                    </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Vendor</p>
+                                    <p className="text-lg font-black text-indigo-400">{analysis.transaction?.vendor || '내부거래'}</p>
                                 </div>
-
-                                <div className="flex justify-end pt-4">
+                                <div className="col-span-2 py-4 bg-[#0B1221]/50 rounded-2xl border border-white/5 px-4 italic text-slate-300 font-bold">
+                                    "{analysis.transaction?.description}"
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Amount</p>
+                                    <p className="text-2xl font-black text-white font-mono">₩{analysis.transaction?.amount.toLocaleString()}</p>
+                                </div>
+                                <div className="flex items-end justify-end gap-3">
                                     <button
+                                        type="button"
                                         onClick={() => setAnalysis(null)}
-                                        className="text-slate-500 hover:text-white text-[10px] font-black uppercase tracking-tighter transition-colors"
+                                        className="px-6 py-3 bg-white/5 text-slate-400 font-black rounded-2xl hover:bg-rose-500/10 hover:text-rose-400 transition-all text-sm uppercase tracking-widest"
                                     >
-                                        상담 종료 (Close Session)
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleConfirm}
+                                        className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Check size={18} /> 전표 등록
                                     </button>
                                 </div>
                             </div>
-                        ) : (
-                            <div className="bg-[#151D2E] rounded-[2rem] border border-white/10 p-8 space-y-6 shadow-2xl">
-                                <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">분개 초안 (Draft)</span>
-                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${analysis.transaction?.confidence === 'High' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
-                                        }`}>
-                                        Confidence: {analysis.transaction?.confidence || 'Medium'}
-                                    </span>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-8">
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Account</p>
-                                        <input
-                                            list="feed-account-list"
-                                            value={analysis.transaction?.accountName || ""}
-                                            onChange={(e) => {
-                                                if (analysis.transaction) {
-                                                    setAnalysis({
-                                                        ...analysis,
-                                                        transaction: {
-                                                            ...analysis.transaction,
-                                                            accountName: e.target.value
-                                                        }
-                                                    });
-                                                }
-                                            }}
-                                            placeholder="계정과목 입력..."
-                                            className="bg-transparent border-none p-0 text-lg font-black text-white focus:ring-0 outline-none w-full placeholder:text-slate-700"
-                                        />
-                                        <datalist id="feed-account-list">
-                                            {ALL_ACCOUNTS.map(acc => (
-                                                <option key={acc.code} value={acc.name}>{acc.code} {acc.description}</option>
-                                            ))}
-                                        </datalist>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Vendor</p>
-                                        <p className="text-lg font-black text-indigo-400">{analysis.transaction?.vendor || '내부거래'}</p>
-                                    </div>
-                                    <div className="col-span-2 py-4 bg-[#0B1221]/50 rounded-2xl border border-white/5 px-4 italic text-slate-300 font-bold">
-                                        "{analysis.transaction?.description}"
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Amount</p>
-                                        <p className="text-2xl font-black text-white font-mono">₩{analysis.transaction?.amount.toLocaleString()}</p>
-                                    </div>
-                                    <div className="flex items-end justify-end gap-3">
-                                        <button
-                                            onClick={() => setAnalysis(null)}
-                                            className="px-6 py-3 bg-white/5 text-slate-400 font-black rounded-2xl hover:bg-rose-500/10 hover:text-rose-400 transition-all text-sm uppercase tracking-widest"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={handleConfirm}
-                                            className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center gap-2"
-                                        >
-                                            <Check size={18} /> 전표 등록
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        </div>
                     </div>
                 )}
             </div>
@@ -395,7 +358,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
                             <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
                                     <Brain size={12} className="text-indigo-400" />
-                                    AI 감사관에게 질문하기
+                                    Compliance Manager 문의
                                 </label>
                                 <form onSubmit={handleComplianceChat} className="relative">
                                     <input
@@ -413,7 +376,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
                                     </button>
                                 </form>
                                 <p className="text-[9px] text-slate-600 font-medium px-2">
-                                    현재 실시간 전표 데이터가 AI 감사관에게 공유되었습니다.
+                                    현재 실시간 전표 데이터가 Compliance Manager에게 공유되었습니다.
                                 </p>
                             </div>
 
@@ -431,6 +394,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
                                 </div>
                             )}
                         </div>
+
                     )}
                 </div>
 

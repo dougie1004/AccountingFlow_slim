@@ -1,0 +1,71 @@
+﻿cargo :    Compiling accounting-flo
+w v0.1.0 (C:\Projects\AccountingFlo
+w\src-tauri)
+위치 줄:1 문자:1
++ cargo build --bin accounting-flow
+ 2>&1 | Out-File -Encoding UTF8 bui
+l ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo          : NotS 
+   pecified: (   Compiling ac...F  
+  low\src-tauri):String) [], Rem   
+ oteException
+    + FullyQualifiedErrorId : Nati 
+   veCommandError
+ 
+warning: value assigned to `tax` is
+ never read
+   --> src\tax\tax_bridge.rs:188:19
+    |
+188 |     let mut tax = 0.0;
+    |                   ^^^
+    |
+    = help: maybe it is overwritten
+ before being read?
+    = note: `#[warn(unused_assignme
+nts)]` (part of `#[warn(unused)]`) 
+on by default
+
+warning: field `tenant_id` is never
+ read
+  --> src\core\quota_manager.rs:11:
+5
+   |
+10 | struct UserQuota {
+   |        --------- field in this
+ struct
+11 |     tenant_id: String,
+   |     ^^^^^^^^^
+   |
+   = note: `UserQuota` has derived 
+impls for the traits `Debug` and `C
+lone`, but these are intentionally 
+ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (pa
+rt of `#[warn(unused)]`) on by defa
+ult
+
+warning: function `parse_korean_amo
+unt` is never used
+   --> src\ai\rule_based_classifier
+.rs:231:4
+    |
+231 | fn parse_korean_amount(input:
+ &str) -> f64 {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `get_tax_adjustme
+nts` is never used
+   --> src\commands.rs:163:8
+    |
+163 | pub fn get_tax_adjustments(le
+dger: Vec<JournalEntry>) -> Vec<Tax
+Adjustment> {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: `accounting-flow` (lib) ge
+nerated 4 warnings
+    Finished `dev` profile [unoptim
+ized + debuginfo] target(s) in 24.5
+8s

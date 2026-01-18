@@ -201,11 +201,14 @@ pub struct ComplianceReview {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AuditSnapshot {
     pub total_amount: f64,
     pub record_count: usize,
     pub timestamp: String,
     pub integrity_hash: String,
+    pub ledger: Vec<JournalEntry>,
+    pub adjustments: Vec<TaxAdjustment>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

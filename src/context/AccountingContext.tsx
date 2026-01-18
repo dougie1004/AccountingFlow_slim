@@ -1,5 +1,5 @@
 import React, { createContext, useState, useMemo, ReactNode } from 'react';
-import { JournalEntry, Partner, SimulationResult, Asset, TenantConfig, InventoryItem, Order } from '../types';
+import { JournalEntry, Partner, SimulationResult, Asset, TenantConfig, InventoryItem, Order, FinancialSummary } from '../types';
 import { generateMockBatch, simulateAIParsing } from '../utils/mockDataGenerator';
 
 export interface AccountingContextType {
@@ -8,18 +8,7 @@ export interface AccountingContextType {
     addEntry: (entry: JournalEntry) => void;
     addPartner: (partner: Partner) => void;
     updatePartner: (id: string, updates: Partial<Partner>) => void;
-    financials: {
-        cash: number;
-        revenue: number;
-        expenses: number;
-        ar: number;
-        ap: number;
-        netIncome: number;
-        capital: number;
-        retainedEarnings: number;
-        fixedAssets: number;
-        vatNet: number;
-    };
+    financials: FinancialSummary;
     loadSimulation: (result: SimulationResult) => void;
     approvePartner: (partner: Partner) => Promise<void>;
     approveEntry: (id: string) => void;
@@ -245,72 +234,81 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
 
     const financials = useMemo(() => {
         let cash = 0;
+        let ar = 0;
+        let inventoryValue = 0;
+        let fixedAssets = 0;
+        let vatPayable = 0;
+        let vatReceivable = 0;
+        let ap = 0;
+        let otherLiabilities = 0;
+        let capital = 0;
         let revenue = 0;
         let expenses = 0;
-        let ar = 0;
-        let ap = 0;
-        let fixedAssets = 0;
-        let vatNet = 0; // Negative means VAT Refundable, Positive means VAT Payable
-        let capital = 0;
 
-        // ONLY Approved entries impact financial statements
         const approvedLedger = ledger.filter(e => e.status === 'Approved');
 
         approvedLedger.forEach((entry) => {
             const totalAmount = entry.amount + (entry.vat || 0);
 
-            // 1. Cash Tracking
-            if (entry.debitAccount === 'Cash' || entry.debitAccount.includes('현금') || entry.debitAccount.includes('보통예금')) {
-                cash += totalAmount;
-            }
-            if (entry.creditAccount === 'Cash' || entry.creditAccount.includes('현금') || entry.creditAccount.includes('보통예금')) {
-                cash -= totalAmount;
-            }
+            const processAccount = (acc: string, amount: number, isDebit: boolean) => {
+                const multiplier = isDebit ? 1 : -1;
+                const lowAcc = acc.toLowerCase();
 
-            // 2. Fixed Assets Tracking (Machinery, Equipment, etc.)
-            if (entry.type === 'Asset') {
-                if (!entry.debitAccount.includes('현금') && !entry.debitAccount.includes('외상')) {
-                    fixedAssets += entry.amount;
+                // 1. Asset/Liability/Equity accounts usually track the TOTAL flow (Cash, AR, AP)
+                if (lowAcc.includes('현금') || lowAcc.includes('예금') || lowAcc === 'cash' || lowAcc.includes('bank')) {
+                    cash += (amount * multiplier);
+                } else if (lowAcc.includes('외상매출') || lowAcc.includes('미수')) {
+                    ar += (amount * multiplier);
+                } else if (lowAcc.includes('상품') || lowAcc.includes('재고') || lowAcc.includes('재료')) {
+                    inventoryValue += (isDebit ? entry.amount : -entry.amount); // Inventory usually base
+                } else if (lowAcc.includes('비품') || lowAcc.includes('기계') || lowAcc.includes('장치') || lowAcc.includes('차량') || lowAcc.includes('건물')) {
+                    fixedAssets += (isDebit ? entry.amount : -entry.amount); // Fixed assets usually base
+                } else if (lowAcc.includes('부가세') && lowAcc.includes('대급')) {
+                    vatReceivable += (amount * multiplier);
+                } else if (lowAcc.includes('외상매입') || lowAcc.includes('미지급')) {
+                    ap += (amount * -multiplier);
+                } else if (lowAcc.includes('부가세') && lowAcc.includes('예수')) {
+                    vatPayable += (amount * -multiplier);
+                } else if (lowAcc.includes('차입') || lowAcc.includes('예수금') || lowAcc.includes('부채')) {
+                    otherLiabilities += (amount * -multiplier);
+                } else if (lowAcc.includes('자본')) {
+                    capital += (amount * -multiplier);
                 }
-                if (entry.creditAccount.includes('비품') || entry.creditAccount.includes('기계') || entry.creditAccount.includes('Asset')) {
-                    fixedAssets -= entry.amount;
+                // 2. Revenue/Expense accounts track the BASE amount
+                else if (entry.type === 'Revenue' || lowAcc.includes('매출') || lowAcc.includes('수익')) {
+                    if (!isDebit) revenue += entry.amount; else revenue -= entry.amount;
+                } else if (entry.type === 'Expense' || entry.type === 'Payroll' || lowAcc.includes('비용') || lowAcc.includes('급여') || lowAcc.includes('료') || lowAcc.includes('비')) {
+                    if (isDebit) expenses += entry.amount; else expenses -= entry.amount;
                 }
-            }
+            };
 
-            // 3. P&L Tracking (excludes VAT)
-            if (entry.type === 'Revenue') {
-                revenue += entry.amount;
-                vatNet += (entry.vat || 0); // Output VAT
-            }
-            if (entry.type === 'Expense') {
-                expenses += entry.amount;
-                vatNet -= (entry.vat || 0); // Input VAT
-            }
-            if (entry.type === 'Asset') {
-                vatNet -= (entry.vat || 0); // Asset Purchase input VAT
-            }
+            // Call with totalAmount for balancing, then internal logic separates it
+            processAccount(entry.debitAccount, totalAmount, true);
+            processAccount(entry.creditAccount, totalAmount, false);
 
-            // 4. AR / AP logic
-            if ((entry.type === 'Revenue' || entry.type === 'Asset') && (entry.debitAccount.includes('외상') || entry.debitAccount.includes('미수'))) {
-                ar += totalAmount;
-            }
-            if ((entry.type === 'Expense' || entry.type === 'Asset') && (entry.creditAccount.includes('외상') || entry.creditAccount.includes('미지급'))) {
-                ap += totalAmount;
-            }
-
-            // 5. Equity logic
-            if (entry.type === 'Equity' && (entry.creditAccount.includes('자본') || entry.creditAccount.includes('Capital'))) {
-                capital += entry.amount;
+            // Explicit VAT tracking to balance the equation
+            if (entry.vat > 0) {
+                if (entry.type === 'Revenue') {
+                    vatPayable += entry.vat;
+                } else if (entry.type === 'Expense' || entry.type === 'Asset') {
+                    vatReceivable += entry.vat;
+                }
             }
         });
 
         const netIncome = revenue - expenses;
-        const retainedEarnings = netIncome;
+        const totalAssets = cash + ar + inventoryValue + fixedAssets + vatReceivable;
+        const totalLiabilities = ap + vatPayable + otherLiabilities;
+        const totalEquity = capital + netIncome;
 
         return {
             cash, revenue, expenses, ar, ap,
-            fixedAssets, vatNet,
-            netIncome, capital, retainedEarnings
+            fixedAssets, vatNet: vatPayable - vatReceivable,
+            netIncome, capital, retainedEarnings: netIncome,
+            totalEquity,
+            inventoryValue,
+            totalAssets,
+            totalLiabilities
         };
     }, [ledger]);
 

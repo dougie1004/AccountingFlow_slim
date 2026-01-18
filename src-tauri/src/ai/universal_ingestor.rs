@@ -13,14 +13,36 @@ pub async fn ingest_universal_file(
         .unwrap_or_default();
 
     match extension.as_str() {
-        "csv" | "txt" | "tsv" | "xlsx" => {
-            // High-performance structured parsing
-            parse_robust_csv(file_bytes)
+        "csv" | "tsv" => {
+            crate::ai::robust_parser::parse_robust_csv(file_bytes)
         }
-        "pdf" | "jpg" | "jpeg" | "png" | "image" | "docx" | "pptx" => {
+        "xlsx" | "xls" => {
+            crate::ai::excel_parser::parse_excel_file(file_bytes)
+        }
+        "txt" => {
+            // First try structured, if no records found or low confidence, try AI.
+            let structured = crate::ai::robust_parser::parse_robust_csv(file_bytes.clone());
+            if let Ok(ref res) = structured {
+                if !res.is_empty() && res[0].confidence.as_deref() == Some("High") {
+                    return structured;
+                }
+            }
+            
+            // Fallback for unstructured text (Email, Drafts, etc.)
+            let text = String::from_utf8_lossy(&file_bytes).to_string();
+            let ai_res = crate::ai::ai_service::call_journal_ai(&text, None, "Unstructured Data Policy", "default", "Pro").await?;
+            Ok(vec![ai_res])
+        }
+        "pdf" | "jpg" | "jpeg" | "png" | "image" => {
             // Multi-modal AI Extraction
             crate::ai::ai_service::extract_transaction_from_media(file_bytes, &extension).await
                 .map(|tx| vec![tx])
+        }
+        "docx" | "pptx" => {
+            // Office Document Text Extraction -> AI
+            let text_content = crate::ai::office_parser::extract_text_from_office(file_bytes, &extension)?;
+            let ai_res = crate::ai::ai_service::call_journal_ai(&text_content, None, "Office Document Policy", "default", "Pro").await?;
+            Ok(vec![ai_res])
         }
         _ => Err(format!("Unsupported file format: .{}", extension)),
     }

@@ -2,6 +2,8 @@ use crate::core::models::{
     Asset, AuditSnapshot, JournalEntry, Order, ParsedTransaction, SimulationResult, 
     TaxAdjustment, TenantConfig, AnalysisResponse, Partner, ValidationResult
 };
+use crate::core::bank_models::BankMapping;
+use std::collections::HashMap;
 use crate::ai::ai_service;
 use crate::accounting::{closing_engine, asset_manager, simulation_engine};
 use crate::tax::{tax_bridge, filing_engine, tax_validator};
@@ -302,4 +304,28 @@ pub async fn chat_with_compliance(
     }
     
     Ok(response)
+}
+
+#[tauri::command]
+pub fn get_bank_presets() -> Vec<BankMapping> {
+    crate::core::bank_presets::DEFAULT_PRESETS.clone()
+}
+
+#[tauri::command]
+pub fn get_file_headers(file_bytes: Vec<u8>, file_name: String) -> Result<Vec<String>, String> {
+    crate::utils::converter::get_headers(&file_bytes, &file_name)
+}
+
+#[tauri::command]
+pub fn suggest_file_mapping(headers: Vec<String>) -> HashMap<String, String> {
+    crate::utils::converter::suggest_mapping(headers)
+}
+
+#[tauri::command]
+pub fn process_file_with_mapping(
+    file_bytes: Vec<u8>,
+    file_name: String,
+    mapping: HashMap<String, String>
+) -> Result<Vec<ParsedTransaction>, String> {
+    crate::utils::converter::process_with_mapping(&file_bytes, &file_name, mapping)
 }

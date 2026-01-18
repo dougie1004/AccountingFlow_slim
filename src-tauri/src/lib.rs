@@ -6,6 +6,7 @@ pub mod tax;
 pub mod ai;
 pub mod governance;
 pub mod inventory;
+pub mod utils;
 
 mod commands;
 
@@ -40,7 +41,11 @@ pub fn run() {
             commands::verify_receipt_compliance,
             commands::evaluate_inventory_assets,
             commands::estimate_corporate_tax,
-            commands::chat_with_compliance
+            commands::chat_with_compliance,
+            commands::get_bank_presets,
+            commands::get_file_headers,
+            commands::suggest_file_mapping,
+            commands::process_file_with_mapping
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

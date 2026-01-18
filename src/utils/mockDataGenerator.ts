@@ -66,7 +66,7 @@ export const generateMockBatch = () => {
         const amount = 272000;
         mockEntries.push({
             date: `2026-01-${String((i % 28) + 1).padStart(2, '0')}`,
-            description: 'AuditFlow SaaS Subscription (Monthly)',
+            description: 'AccountingFlow SaaS Subscription (Monthly)',
             vendor: client,
             amount: amount,
             vat: 27200,
@@ -109,24 +109,28 @@ export const simulateAIParsing = (entry: Partial<JournalEntry>): JournalEntry =>
 
     if (desc.includes('자본금') || (amount >= 100000000 && desc.includes('납입'))) {
         type = 'Equity';
-        debitAccount = '미수금';
+        debitAccount = '보통예금';
         creditAccount = '자본금';
-    } else if (desc.includes('MacBook') || amount > 1000000) {
+    } else if (desc.includes('MacBook') || (desc.includes('Asset') && amount > 1000000)) {
         type = 'Asset';
         debitAccount = '비품';
-        creditAccount = '미지급금';
-    } else if (desc.includes('SaaS') || desc.includes('수익')) {
+        creditAccount = '보통예금';
+    } else if (desc.includes('SaaS') || desc.includes('수수료수익') || desc.includes('이자')) {
         type = 'Revenue';
-        debitAccount = '미수금';
-        creditAccount = '매출';
+        debitAccount = '보통예금';
+        creditAccount = desc.includes('이자') ? '이자수익' : '상품매출';
     } else if (desc.includes('급여')) {
         type = 'Payroll';
         debitAccount = '급여';
-        creditAccount = '미지급급여';
+        creditAccount = '보통예금';
     } else if (desc.includes('Rent') || desc.includes('FastFive')) {
         type = 'Expense';
         debitAccount = '임차료';
-        creditAccount = '미지급금';
+        creditAccount = '보통예금';
+    } else if (desc.includes('AWS') || desc.includes('스타벅스')) {
+        type = 'Expense';
+        debitAccount = '소모품비';
+        creditAccount = '보통예금';
     }
 
     const hasEvidence = desc.includes('[Attached:') || Math.random() > 0.3;

@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, Clock, Search, Filter, LayoutGrid, List, Download
 import { invoke } from '@tauri-apps/api/core';
 import { JournalEntry, ParsedTransaction } from '../types';
 import { ALL_ACCOUNTS } from '../constants/accounts';
+import { cleanMarkdown } from '../utils/textUtils';
 
 const ApprovalDesk: React.FC = () => {
     const { ledger, approveEntry, deleteEntry, bulkApprove, addEntries, updateEntry } = useContext(AccountingContext)!;
@@ -218,7 +219,7 @@ const ApprovalDesk: React.FC = () => {
                                             <h3 className="text-xl font-black text-white group-hover:text-indigo-400 transition-colors mb-1 uppercase tracking-tight">
                                                 {entry.vendor && entry.vendor.trim() !== '' ? entry.vendor : '거래처 미지정'}
                                             </h3>
-                                            <p className="text-white/90 font-bold leading-relaxed italic">"{entry.description}"</p>
+                                            <p className="text-white/90 font-bold leading-relaxed italic">"{cleanMarkdown(entry.description)}"</p>
                                         </div>
 
                                         <div className="flex flex-wrap items-center gap-4 text-xs">
@@ -253,7 +254,7 @@ const ApprovalDesk: React.FC = () => {
                                                     <AlertTriangle size={14} className="text-amber-500" />
                                                     <span className="text-[10px] font-black text-amber-500 uppercase">AI 감사 소명 요청</span>
                                                 </div>
-                                                <p className="text-sm font-bold text-white mb-2">{entry.clarificationPrompt}</p>
+                                                <p className="text-sm font-bold text-white mb-2">{cleanMarkdown(entry.clarificationPrompt)}</p>
                                                 <div className="flex gap-2">
                                                     <button className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-slate-300 transition-all border border-white/5">
                                                         업무 관련성 소명하기
@@ -337,7 +338,7 @@ const ApprovalDesk: React.FC = () => {
                                             />
                                         </td>
                                         <td className="px-6 py-4 text-sm font-black text-white">{entry.vendor}</td>
-                                        <td className="px-6 py-4 text-xs text-slate-200 italic font-bold">"{entry.description}"</td>
+                                        <td className="px-6 py-4 text-xs text-slate-200 italic font-bold">"{cleanMarkdown(entry.description)}"</td>
                                         <td className="px-6 py-4 text-center">
                                             {entry.attachmentUrl && (
                                                 <button onClick={() => window.open(entry.attachmentUrl, '_blank')} className="p-1.5 text-indigo-400 hover:bg-indigo-400/10 rounded-lg transition-all">

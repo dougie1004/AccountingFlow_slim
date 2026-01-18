@@ -75,6 +75,23 @@ export interface InventoryItem {
     lastNrv?: number; // Net Realizable Value
 }
 
+export interface FinancialSummary {
+    cash: number;
+    revenue: number;
+    expenses: number;
+    ar: number;
+    ap: number;
+    netIncome: number;
+    capital: number;
+    retainedEarnings: number;
+    fixedAssets: number;
+    vatNet: number;
+    totalEquity: number;
+    inventoryValue: number;
+    totalAssets: number;
+    totalLiabilities: number;
+}
+
 export interface OrderItem {
     sku: string;
     quantity: number;
@@ -123,18 +140,29 @@ export interface TenantConfig {
     initialBalances?: InitialBalance[]; // 신규 - 기초 잔액
 }
 
-export interface TaxFilingPackage {
-    xmlContent: string;
-    piiDensity: number;
-    riskSummary: string;
-    requiresAudit: boolean;
+export interface TaxAdjustment {
+    category: string;
+    bookAmount: number;
+    taxAmount: number;
+    difference: number;
+    adjustmentType: string;
+    disposal: string;
+}
+
+export interface AuditSnapshot {
+    totalAmount: number;
+    recordCount: number;
+    timestamp: string;
+    integrityHash: string;
+    ledger: JournalEntry[];
+    adjustments: TaxAdjustment[];
 }
 
 export interface SimulationResult {
     ledger: JournalEntry[];
     assets: Asset[];
     orders: Order[];
-    adjustments: { category: string, bookAmount: number, taxAmount: number, difference: number }[]; // Simplified
+    adjustments: TaxAdjustment[];
     validationResults: ValidationResult[];
     companyConfig: TenantConfig;
 }

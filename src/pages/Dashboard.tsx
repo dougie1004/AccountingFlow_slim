@@ -24,7 +24,7 @@ import { ManagementReportPanel } from '../components/dashboard/ManagementReportP
 import { invoke } from '@tauri-apps/api/core';
 import { SimulationResult } from '../types';
 
-export const Dashboard: React.FC = () => {
+export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab }) => {
     const { ledger, financials, loadSimulation } = useAccounting();
     const [isSimulating, setIsSimulating] = React.useState(false);
 
@@ -101,11 +101,11 @@ export const Dashboard: React.FC = () => {
         return { cashFlowData, inventory, fixedAssets };
     }, [ledger]);
 
-    // Financial Position Data
+    // Financial Position Data (Directly from Context ensuring A = L + E)
     const positionData = [
-        { name: 'Assets', value: financials.cash + financials.ar + analytics.fixedAssets, color: '#4f46e5' },
-        { name: 'Liabilities', value: financials.ap, color: '#e11d48' },
-        { name: 'Equity', value: financials.capital + financials.retainedEarnings, color: '#10b981' }
+        { name: 'Assets', value: financials.totalAssets, color: '#4f46e5' },
+        { name: 'Liabilities', value: financials.totalLiabilities, color: '#e11d48' },
+        { name: 'Equity', value: financials.totalEquity, color: '#10b981' }
     ];
 
     // Tax Calendar Logic
@@ -274,7 +274,7 @@ export const Dashboard: React.FC = () => {
                     </div>
                     <div className="mt-6 text-center">
                         <p className="text-3xl font-black text-white tracking-tighter">
-                            ₩{(financials.cash + financials.ar + analytics.fixedAssets).toLocaleString()}
+                            ₩{financials.totalAssets.toLocaleString()}
                         </p>
                         <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">자산 총계 (KRW)</p>
                     </div>
@@ -309,7 +309,10 @@ export const Dashboard: React.FC = () => {
 
                 {/* 5. Recent Transactions (Full Width) */}
                 <div className="md:col-span-2 lg:col-span-4 h-[400px]">
-                    <RecentTransactions transactions={ledger.slice(0, 10)} />
+                    <RecentTransactions
+                        transactions={ledger}
+                        onNavigate={setTab}
+                    />
                 </div>
             </div>
         </div>

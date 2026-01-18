@@ -34,7 +34,7 @@ pub async fn ingest_universal_file(
             let safe_text = crate::utils::pii_guard::apply_deidentification(&raw_text);
             
             let mut ai_res = crate::ai::ai_service::call_journal_ai(&safe_text, None, "Unstructured Data Policy", "default", "Pro").await?;
-            ai_res.audit_trail.push(source_info);
+            ai_res.audit_trail.push(source_info.clone());
             Ok(vec![ai_res])
         }
         "hwp" => {
@@ -45,7 +45,7 @@ pub async fn ingest_universal_file(
             let prompt_context = format!("HWP Document Content:\n{}", safe_text);
             let mut ai_res = crate::ai::ai_service::call_journal_ai(&prompt_context, None, "HWP Document Policy", "default", "Pro").await?;
             
-            ai_res.audit_trail.push(source_info);
+            ai_res.audit_trail.push(source_info.clone());
             ai_res.reasoning.push_str(" | HWP Text Analysis with PII Guard");
             Ok(vec![ai_res])
         }
@@ -56,7 +56,7 @@ pub async fn ingest_universal_file(
             
             let mut ai_res = crate::ai::ai_service::call_journal_ai(&safe_text, None, "Office Document Policy", "default", "Pro").await?;
             
-            ai_res.audit_trail.push(source_info);
+            ai_res.audit_trail.push(source_info.clone());
             ai_res.reasoning.push_str(&format!(" | {} Analysis with PII Guard", extension.to_uppercase()));
             Ok(vec![ai_res])
         }
@@ -67,7 +67,7 @@ pub async fn ingest_universal_file(
             // However, the prompt in ai_service usually asks for JSON data which inherently structured and less PII-prone than raw text dumps.
             let mut ai_res = crate::ai::ai_service::extract_transaction_from_media(file_bytes, &extension).await?;
             
-            ai_res.audit_trail.push(source_info);
+            ai_res.audit_trail.push(source_info.clone());
             ai_res.reasoning.push_str(" | Vision Analysis");
             Ok(vec![ai_res])
         }

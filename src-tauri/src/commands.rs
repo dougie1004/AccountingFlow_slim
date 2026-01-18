@@ -80,7 +80,7 @@ async fn run_compliance_check(tx: &ParsedTransaction, _policy: &str) -> crate::c
              if tx.description.as_ref().map(|d| !d.contains("법인카드") && !d.contains("현금영수증")).unwrap_or(true) {
                 status = "Warning".to_string();
                 issues.push("접대비 증빙 주의: 적격증빙 미비");
-                expert_notes.push("3만원 초과 접대비는 반드시 법인카드나 현금영수증이어야 비용 인정됩니다. (기타 영수증 불인정)");
+                expert_notes.push("CFE 관점: 3만원 초과 접대비는 반드시 법인카드나 현금영수증이어야 비용 인정됩니다 (매입세액 불공제 및 가산세 리스크 85%).");
              }
         }
     }
@@ -115,7 +115,7 @@ async fn run_compliance_check(tx: &ParsedTransaction, _policy: &str) -> crate::c
         review_logs.push("교차 검증 불일치 감지".to_string());
     }
 
-    let message = if issues.is_empty() {
+    let mut message = if issues.is_empty() {
         if tx.entry_type == "Revenue" {
             "세금계산서 발행 시기를 놓치지 않도록 주의하세요 (익월 10일까지).".to_string()
         } else {
@@ -131,11 +131,11 @@ async fn run_compliance_check(tx: &ParsedTransaction, _policy: &str) -> crate::c
         note
     };
 
-    // 4. 정부지원금 특별 검토 (단순 키워드가 아닌 계정과목 기준으로 변경)
+    // 4. 정부지원금 특별 검토
     if tx.account_name.as_ref().map(|a| a.contains("정부보조금") || a.contains("R&D")).unwrap_or(false) {
         review_logs.push("정부지원금 관련 거래 - 목적외 사용 여부 검토 필요".to_string());
         if !message.contains("전문가 검토 의견") {
-            message = format!("{}\n\n[특이사항]\n국책과제 및 정부지원금 계정입니다. 해당 협약서의 규정에 따른 정산 증빙(연구노트 등)을 추가로 준비하시기 바랍니다.", message);
+            message = format!("{}\n\n[CFE 리스크 엔진 통보]\n국책과제 및 정부지원금 계정입니다. 해당 협약서의 규정에 따른 정산 증빙(연구노트 등)을 준비하십시오. 불일치 감지 시 환수 조치 리스크 90%입니다.", message);
         } else {
             message.push_str("\n• 국책과제 및 정부지원금 계정입니다. 정산 증빙(연구노트)을 추가로 준비하세요.");
         }

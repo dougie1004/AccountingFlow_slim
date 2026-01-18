@@ -72,6 +72,8 @@ pub fn parse_excel_file(bytes: Vec<u8>) -> Result<Vec<ParsedTransaction>, String
             confidence: Some(if amount > 0.0 && !date.is_empty() { "High".to_string() } else { "Normal".to_string() }),
             payment_method: None,
             audit_trail: vec!["#1 Excel 지능형 파싱 완료".to_string()],
+            id: Some(crate::utils::id_generator::generate_id(&date, crate::utils::id_generator::IdPrefix::AI)),
+            ..Default::default()
         };
 
         crate::ai::rule_based_classifier::classify_by_rules(&mut tx);

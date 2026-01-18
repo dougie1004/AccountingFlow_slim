@@ -78,6 +78,8 @@ pub fn parse_robust_csv(data: Vec<u8>) -> Result<Vec<ParsedTransaction>, String>
             confidence: Some("Normal".to_string()),
             payment_method: None,
             audit_trail: vec!["#1 CSV 임포트 완료".to_string()],
+            id: Some(crate::utils::id_generator::generate_id(&date, crate::utils::id_generator::IdPrefix::AI)),
+            ..Default::default()
         };
 
         // 헤더 행인지 체크 (키워드 매칭)

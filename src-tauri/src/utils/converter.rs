@@ -243,7 +243,7 @@ fn row_to_tx(row: &[String], col_map: &HashMap<String, usize>) -> Option<ParsedT
     }
 
     let mut tx = ParsedTransaction {
-        date: clean_date,
+        date: clean_date.clone(),
         amount: clean_amount.abs(),
         vat: (clean_amount.abs() / 11.0).round(),
         entry_type: if clean_amount < 0.0 || desc.contains("매출") { 
@@ -265,6 +265,7 @@ fn row_to_tx(row: &[String], col_map: &HashMap<String, usize>) -> Option<ParsedT
         // But the user specifically asked for "Payment Type" handling.
         // If ParsedTransaction doesn't have credit_account field exposed directly here, 
         // we might need to assume the classifier handles it or `account_name` is the MAIN account (Debit for Exp, Credit for Rev).
+        id: Some(crate::utils::id_generator::generate_id(&clean_date, crate::utils::id_generator::IdPrefix::AI)),
         ..Default::default()
     };
     

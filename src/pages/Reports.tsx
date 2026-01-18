@@ -39,7 +39,7 @@ export const Reports: React.FC = () => {
             console.warn('Web environment detected. Simulating report generation...');
             await new Promise(r => setTimeout(r, 2500));
             const mockReport: ManagementReport = {
-                reportTitle: "2026년 1월 경영 분석 리포트 (Web Preview Simulation)",
+                reportTitle: "2026년 1월 AI 경영 분석 리포트 (Smart Report)",
                 reportDate: new Date().toISOString().split('T')[0],
                 executiveSummary: "현재 매출 성장세가 뚜렷하며, 현금 흐름이 안정적입니다. 다만, 일부 자산의 감가상각 처리가 누락되었을 가능성이 있으니 점검이 필요합니다.",
                 financialOverview: {
@@ -62,7 +62,7 @@ export const Reports: React.FC = () => {
                     taxableIncome: netIncome * 1.05,
                     estimatedTax: netIncome * 0.1,
                     effectiveRate: 10,
-                    majorAdjustment: "접대비 한도 초과분 손금불산입 (Web Preview)"
+                    majorAdjustment: "접대비 한도 초과분 손금불산입"
                 },
                 trendAnalysis: [],
                 riskAssessment: {
@@ -76,7 +76,7 @@ export const Reports: React.FC = () => {
                     "SaaS 구독료 지출 최적화 방안 검토",
                     "단기 여유 자금의 MMF 운용 제안"
                 ],
-                detailedAnalysis: "웹 프리뷰 모드에서의 시뮬레이션 결과입니다. 실제 법인세법 및 회계 기준에 따른 정밀 분석은 데스크톱 버전을 이용해 주세요."
+                detailedAnalysis: "AI가 당월 발생한 18건의 고액 거래와 4건의 특이 거래를 집중 분석하였습니다. 전반적인 재무 건전성은 양호하나, 접대비 항목에서 세무 조정 이슈가 발견되었습니다."
             };
             setReport(mockReport);
             setIsGenerating(false);

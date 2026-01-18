@@ -4,6 +4,7 @@
 #[serde(rename_all = "camelCase")]
 pub struct ParsedTransaction {
     pub date: String,
+    pub id: Option<String>,
     #[serde(default)]
     pub amount: f64,
     #[serde(default)]

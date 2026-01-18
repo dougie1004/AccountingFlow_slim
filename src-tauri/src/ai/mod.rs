@@ -9,3 +9,4 @@ pub mod ai_cache;
 pub mod migration_engine;
 pub mod excel_parser;
 pub mod office_parser;
+pub mod hwp_parser;

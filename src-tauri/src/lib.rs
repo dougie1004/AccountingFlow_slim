@@ -45,7 +45,9 @@ pub fn run() {
             commands::get_bank_presets,
             commands::get_file_headers,
             commands::suggest_file_mapping,
-            commands::process_file_with_mapping
+            commands::process_file_with_mapping,
+            commands::load_demo_scenario,
+            commands::generate_journal_id
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

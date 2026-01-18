@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { Loader2, Database, CheckCircle2, AlertTriangle, MessageSquare, History, FileText, Zap, Download, Shield, Trash2, Landmark, Boxes, Plus, TrendingDown } from 'lucide-react';
+import { Loader2, Database, CheckCircle2, AlertTriangle, MessageSquare, History, FileText, Zap, Download, Shield, Trash2, Landmark, Boxes, Plus, TrendingDown, Calculator } from 'lucide-react';
 import { useAI } from '../../hooks/useAI';
 import { useMassProcessor } from '../../hooks/useMassProcessor';
 import { JournalEntry, Partner, ParsedTransaction } from '../../types';
@@ -7,6 +7,7 @@ import { AccountingContext } from '../../context/AccountingContext';
 import { ALL_ACCOUNTS } from '../../constants/accounts';
 import { invoke } from '@tauri-apps/api/core';
 import { cleanMarkdown } from '../../utils/textUtils';
+import { PiiText } from '../common/PiiText';
 
 // Check if running in Tauri environment (Desktop App)
 const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
@@ -203,12 +204,27 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 font-mono text-xs text-slate-400 whitespace-nowrap">{row.date || ''}</td>
+                                            <td className="px-6 py-4 font-mono text-xs text-slate-400 whitespace-nowrap">
+                                                <div>{row.date || ''}</div>
+                                                {row.id && (
+                                                    <div
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            alert(`Opening Source Evidence for Slip: ${row.id}\nTraceability: AI Generated Draft`);
+                                                        }}
+                                                        className="mt-1 text-[9px] text-indigo-400 font-bold cursor-pointer hover:underline"
+                                                    >
+                                                        {row.id}
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4">
-                                                <p className="text-white font-black leading-tight truncate max-w-[200px]">{cleanMarkdown(row.description) || '내용 없음'}</p>
-                                                <p className="text-[10px] font-bold text-slate-500 mt-0.5">
-                                                    {row.vendor && row.vendor.trim() !== '' ? row.vendor : '거래처 미지정'}
-                                                </p>
+                                                <div className="text-white font-black leading-tight truncate max-w-[200px]">
+                                                    <PiiText text={cleanMarkdown(row.description) || '내용 없음'} type="auto" />
+                                                </div>
+                                                <div className="text-[10px] font-bold text-slate-500 mt-0.5">
+                                                    <PiiText text={row.vendor && row.vendor.trim() !== '' ? row.vendor : '거래처 미지정'} type="auto" />
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <span className="font-black text-white text-base">₩{(row.amount || 0).toLocaleString()}</span>
@@ -256,15 +272,28 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Selected Transaction</h4>
-                                    <p className="text-xl font-black text-white mt-1">{cleanMarkdown(stagedData[selectedRow].description) || '내용 없음'}</p>
+                                    <div className="text-xl font-black text-white mt-1">
+                                        <PiiText text={cleanMarkdown(stagedData[selectedRow].description) || '내용 없음'} type="auto" />
+                                    </div>
                                 </div>
                                 <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${stagedData[selectedRow].confidence === 'High' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
                                     {stagedData[selectedRow].confidence} Confidence
                                 </div>
                             </div>
 
+                            {/* Expert Note (Reasoning) */}
+                            {stagedData[selectedRow].reasoning && (
+                                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-2">
+                                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                                        <Zap size={12} /> AI Expert Note
+                                    </h4>
+                                    <p className="text-sm font-bold text-slate-300 leading-relaxed indent-0">
+                                        {cleanMarkdown(stagedData[selectedRow].reasoning)}
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Compliance Callout */}
-                            {/* Compliance Callout (Alert Only) */}
                             {stagedData[selectedRow].needsClarification && (
                                 <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl space-y-2">
                                     <div className="flex items-center gap-2 text-rose-400">
@@ -449,6 +478,35 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                     </div>
                                 )}
 
+                            {/* TAX RISK ENGINE (New!) */}
+                            {(stagedData[selectedRow].accountName?.includes("접대비") || stagedData[selectedRow].vat > 0) && (
+                                <div className="p-5 bg-orange-500/10 border border-orange-500/20 rounded-2xl space-y-4 animate-in slide-in-from-bottom-2 duration-500">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-orange-400">
+                                            <Calculator size={18} />
+                                            <span className="text-xs font-black uppercase tracking-tight">Tax Risk Engine</span>
+                                        </div>
+                                        {stagedData[selectedRow].vat > 0 && stagedData[selectedRow].accountName?.includes("접대비") ? (
+                                            <div className="bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase">불공제 대상</div>
+                                        ) : (
+                                            <div className="bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase">공제 가능</div>
+                                        )}
+                                    </div>
+
+                                    {stagedData[selectedRow].accountName?.includes("접대비") && (
+                                        <p className="text-xs font-bold text-slate-300">
+                                            ⚠️ 접대비 관련 매입세액은 부가가치세법상 <span className="text-rose-400 underline">불공제 대상</span>입니다. 세무 신고 시 유의하십시오.
+                                        </p>
+                                    )}
+
+                                    {stagedData[selectedRow].vat > 0 && !stagedData[selectedRow].accountName?.includes("접대비") && (
+                                        <p className="text-xs font-bold text-slate-300">
+                                            ✅ 적격 증빙(세금계산서/카드/현금영수증)이 확인되면 매입세액 공제가 가능합니다.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Audit Trail */}
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2 text-indigo-400">
@@ -527,18 +585,33 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                 setIsValidating(true);
 
                                 try {
-                                    const entries = stagedData.filter(r => r.accountName).map(tx => ({
-                                        id: crypto.randomUUID(),
-                                        date: tx.date || new Date().toISOString().split('T')[0],
-                                        description: tx.description,
-                                        vendor: tx.vendor,
-                                        debitAccount: tx.accountName || '계정 미지정',
-                                        creditAccount: tx.entryType === 'Revenue' ? (tx.accountName || '현금/매수금') : '미지급금',
-                                        amount: tx.amount,
-                                        vat: tx.vat,
-                                        type: tx.entryType,
-                                        status: 'Unconfirmed',
-                                        complianceContext: tx.reasoning
+                                    // Desktop-only ID Generation (Smart Key)
+                                    const entries = await Promise.all(stagedData.filter(r => r.accountName).map(async (tx) => {
+                                        let id = crypto.randomUUID();
+                                        if (isTauri()) {
+                                            try {
+                                                id = await invoke('generate_journal_id', {
+                                                    date: tx.date || new Date().toISOString().split('T')[0],
+                                                    entryType: tx.entryType
+                                                });
+                                            } catch (e) {
+                                                console.error("ID Generation Failed, fallback to UUID", e);
+                                            }
+                                        }
+
+                                        return {
+                                            id,
+                                            date: tx.date || new Date().toISOString().split('T')[0],
+                                            description: tx.description,
+                                            vendor: tx.vendor,
+                                            debitAccount: tx.accountName || '계정 미지정',
+                                            creditAccount: tx.entryType === 'Revenue' ? (tx.accountName || '현금/매수금') : '미지급금',
+                                            amount: tx.amount,
+                                            vat: tx.vat,
+                                            type: tx.entryType,
+                                            status: 'Unconfirmed',
+                                            complianceContext: tx.reasoning
+                                        } as JournalEntry;
                                     }));
 
                                     if (entries.length === 0) {

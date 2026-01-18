@@ -188,6 +188,7 @@ export interface Partner {
  */
 export interface ParsedTransaction {
     date: string;
+    id?: string;
     amount: number;
     vat: number;
     entryType: EntryType;

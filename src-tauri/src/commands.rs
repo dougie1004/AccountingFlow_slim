@@ -64,47 +64,81 @@ async fn run_compliance_check(tx: &ParsedTransaction, _policy: &str) -> crate::c
     let mut status = "Safe".to_string();
     let mut review_logs = Vec::new();
     let mut issues = Vec::new();
+    let mut expert_notes = Vec::new();
 
     // 1. 고액 거래 검토 (3천만원 이상)
     if tx.amount > 30_000_000.0 {
         status = "Warning".to_string();
-        issues.push("고액 거래(3천만원 초과)가 감지되어 이사회 승인이 필요합니다.");
+        issues.push("고액 거래 플래그: 이사회 승인 필요");
+        expert_notes.push("3천만원 초과 건으로, 자금세탁방지법(AML) 모니터링 대상이 될 수 있으니 이사회 의사록을 첨부하십시오.");
         review_logs.push("고액 거래 플래그".to_string());
     }
 
     // 2. 접대비 한도 검토
     if tx.account_name.as_ref().map(|a| a.contains("접대비") || a.contains("Entertainment")).unwrap_or(false) {
-        if tx.amount > 100_000.0 {
-            status = "Warning".to_string();
-            issues.push("접대비 1인당 한도(3만원) 및 증빙 요건을 확인하세요.");
-            review_logs.push("접대비 한도 검토".to_string());
+        if tx.amount > 30_000.0 { // 법인세법상 접대비 기준
+             if tx.description.as_ref().map(|d| !d.contains("법인카드") && !d.contains("현금영수증")).unwrap_or(true) {
+                status = "Warning".to_string();
+                issues.push("접대비 증빙 주의: 적격증빙 미비");
+                expert_notes.push("3만원 초과 접대비는 반드시 법인카드나 현금영수증이어야 비용 인정됩니다. (기타 영수증 불인정)");
+             }
         }
     }
 
-    // 3. 증빙 누락 검토
-    if tx.amount > 30_000.0 && tx.description.as_ref().map(|d| !d.contains("영수증") && !d.contains("세금계산서")).unwrap_or(true) {
-        status = "Warning".to_string();
-        issues.push("3만원 초과 거래이나 적격증빙(세금계산서 등)이 명시되지 않았습니다.");
-        review_logs.push("적격증빙 확인 필요".to_string());
+    // 3. 주말/휴일 사용 내역 (요일 체크: chrono 활용)
+    if let Ok(date) = chrono::NaiveDate::parse_from_str(&tx.date, "%Y-%m-%d") {
+        let weekday = date.format("%a").to_string(); // "Sat", "Sun"
+        if weekday == "Sat" || weekday == "Sun" {
+             // 업무 관련성이 입증되어야 함
+             if tx.account_name.as_ref().map(|a| a.contains("식대") || a.contains("복리후생") || a.contains("차량")).unwrap_or(false) {
+                 status = "Warning".to_string();
+                 issues.push("휴일 업무 관련성 소명 필요");
+                 expert_notes.push("주말 사용분입니다. '휴일 근무일지'나 '출장 품의서' 등 업무 연관성을 입증하지 못하면 가지급금(대표자 상여) 처분될 리스크가 있습니다.");
+             }
+        }
+    }
+
+    // 4. 현금영수증 미수취 가산세
+    if tx.payment_method.as_ref().map(|m| m.contains("현금") || m.contains("Cash")).unwrap_or(false) {
+        if tx.amount > 30_000.0 && tx.description.as_ref().map(|d| !d.contains("현금영수증")).unwrap_or(true) {
+             status = "Warning".to_string();
+             issues.push("적격증빙 미수취 가산세 위험");
+             expert_notes.push("건당 3만원 초과 지출 시 적격증빙을 받지 않으면 2%의 가산세가 부과됩니다. 정규 영수증 수취를 독려하세요.");
+        }
     }
 
     // 5. 증빙-텍스트 교차 검증 (Cross-Check)
     if tx.reasoning.contains("불일치") || tx.reasoning.contains("다릅니다") || tx.reasoning.contains("마트") {
         status = "Warning".to_string();
-        issues.push("⚠️ 증빙과 입력 내용이 일치하지 않습니다. (금액 또는 용도 확인 필요)");
+        issues.push("증빙 불일치: 사적 사용 의심");
+        expert_notes.push("제출된 영수증과 내역이 다릅니다. 특히 마트/백화점 구매는 '가사 경비'로 간주되기 쉬우니 상세 품목을 확인하세요.");
         review_logs.push("교차 검증 불일치 감지".to_string());
     }
 
-    let mut message = if issues.is_empty() {
-        "규정 위반 사항이 발견되지 않은 안전한 거래입니다.".to_string()
+    let message = if issues.is_empty() {
+        if tx.entry_type == "Revenue" {
+            "세금계산서 발행 시기를 놓치지 않도록 주의하세요 (익월 10일까지).".to_string()
+        } else {
+            "적절한 비용 처리로 보입니다. (부가세 매입세액 공제 가능)".to_string()
+        }
     } else {
-        issues.join("\n")
+        // Build a rich Expert Note
+        let mut note = String::new();
+        note.push_str("[전문가 검토 의견]\n");
+        for (i, en) in expert_notes.iter().enumerate() {
+            note.push_str(&format!("• {}\n", en));
+        }
+        note
     };
 
     // 4. 정부지원금 특별 검토 (단순 키워드가 아닌 계정과목 기준으로 변경)
     if tx.account_name.as_ref().map(|a| a.contains("정부보조금") || a.contains("R&D")).unwrap_or(false) {
         review_logs.push("정부지원금 관련 거래 - 목적외 사용 여부 검토 필요".to_string());
-        message = format!("{}\n\n국책과제 및 정부지원금 계정입니다. 해당 협약서의 규정에 따른 정산 증빙(연구노트 등)을 추가로 준비하시기 바랍니다.", message);
+        if !message.contains("전문가 검토 의견") {
+            message = format!("{}\n\n[특이사항]\n국책과제 및 정부지원금 계정입니다. 해당 협약서의 규정에 따른 정산 증빙(연구노트 등)을 추가로 준비하시기 바랍니다.", message);
+        } else {
+            message.push_str("\n• 국책과제 및 정부지원금 계정입니다. 정산 증빙(연구노트)을 추가로 준비하세요.");
+        }
     }
 
     crate::core::models::ComplianceReview {
@@ -328,4 +362,70 @@ pub fn process_file_with_mapping(
     mapping: HashMap<String, String>
 ) -> Result<Vec<ParsedTransaction>, String> {
     crate::utils::converter::process_with_mapping(&file_bytes, &file_name, mapping)
+}
+
+#[tauri::command]
+pub fn load_demo_scenario() -> Vec<ParsedTransaction> {
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let prefix = crate::utils::id_generator::IdPrefix::AI;
+
+    vec![
+        // 1. Messy Excel (Reconstructed)
+        ParsedTransaction {
+            id: Some(crate::utils::id_generator::generate_id(&today, prefix)),
+            date: today.clone(),
+            amount: 1560000.0,
+            vat: 141818.0,
+            entry_type: "Expense".to_string(),
+            description: Some("사무실 인테리어 공사 잔금 (Messy Excel)".to_string()),
+            vendor: Some("다지이너스 (Designers)".to_string()),
+            account_name: Some("수선비".to_string()),
+            reasoning: "헤더가 없는 엑셀 파일에서 [일자:오늘, 금액:1560000] 패턴을 추출하여 정규화함.".to_string(),
+            confidence: Some("Medium".to_string()),
+            payment_method: Some("이체".to_string()),
+            audit_trail: vec!["Source: messy_expenses_v2.xlsx (ID: demo-excel)".to_string(), "Smart Splitter Activated".to_string()],
+            ..Default::default()
+        },
+        // 2. Blurry Receipt (Vision)
+        ParsedTransaction {
+            id: Some(crate::utils::id_generator::generate_id(&today, prefix)),
+            date: today.clone(),
+            amount: 48500.0,
+            vat: 4409.0,
+            entry_type: "Expense".to_string(),
+            description: Some("주말 팀 회식 (Blurry Image)".to_string()),
+            vendor: Some("이자카야 춘".to_string()),
+            account_name: Some("복리후생비".to_string()),
+            reasoning: "비전 AI가 흐릿한 영수증에서 [48,500원]과 [주류] 품목을 식별함. 주말 사용분이므로 전문가 검토 필요.".to_string(),
+            confidence: Some("Low".to_string()),
+            payment_method: Some("Card".to_string()),
+            needs_clarification: true,
+            clarification_prompt: Some("주말 저녁 주류가 포함된 식대입니다. 근무 관련성을 소명해주십시오.".to_string()),
+            clarification_options: Some(vec!["야근 식대", "팀 회식", "거래처 접대", "개인 사용(비용 제외)"].iter().map(|s| s.to_string()).collect()),
+            audit_trail: vec!["Source: blurry_receipt_001.jpg (ID: demo-vision)".to_string(), "Vision Analysis".to_string()],
+            ..Default::default()
+        },
+        // 3. HWP (Text Mining)
+        ParsedTransaction {
+            id: Some(crate::utils::id_generator::generate_id(&today, prefix)),
+            date: today.clone(),
+            amount: 8800000.0,
+            vat: 800000.0,
+            entry_type: "Expense".to_string(),
+            description: Some("3분기 외부 자문료 (HWP Draft)".to_string()),
+            vendor: Some("법무법인 태평".to_string()),
+            account_name: Some("지급수수료".to_string()),
+            reasoning: "HWP 바이너리에서 추출한 텍스트 [법률자문계약서] 기반 분석. 3.3% 원천징수 여부 확인 필요.".to_string(),
+            confidence: Some("High".to_string()),
+            payment_method: Some("Transfer".to_string()),
+            audit_trail: vec!["Source: 2026_advisory_contract.hwp (ID: demo-hwp)".to_string(), "HWP Text Mining".to_string()],
+            ..Default::default()
+        }
+    ]
+}
+
+#[tauri::command]
+pub fn generate_journal_id(date: String, entry_type: String) -> String {
+    let prefix = crate::utils::id_generator::determine_prefix(&entry_type);
+    crate::utils::id_generator::generate_id(&date, prefix)
 }

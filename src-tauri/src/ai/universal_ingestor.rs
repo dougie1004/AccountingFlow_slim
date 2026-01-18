@@ -1,6 +1,6 @@
 use crate::core::models::ParsedTransaction;
-use crate::ai::robust_parser::parse_robust_csv;
 use std::path::Path;
+use uuid::Uuid;
 
 pub async fn ingest_universal_file(
     file_bytes: Vec<u8>,
@@ -12,38 +12,71 @@ pub async fn ingest_universal_file(
         .map(|s| s.to_lowercase())
         .unwrap_or_default();
 
+    // 1. Generate Source Traceability ID
+    let source_id = Uuid::new_v4().to_string();
+    let source_info = format!("Source: {} (ID: {})", file_name, source_id);
+
+    // 2. Dispatch based on extension
     match extension.as_str() {
         "csv" | "tsv" => {
-            crate::ai::robust_parser::parse_robust_csv(file_bytes)
+            let mut results = crate::ai::robust_parser::parse_robust_csv(file_bytes)?;
+            attach_source_info(&mut results, &source_info);
+            Ok(results)
         }
-        "xlsx" | "xls" => {
-            crate::ai::excel_parser::parse_excel_file(file_bytes)
+        "xlsx" | "xls" | "xlsm" => {
+            let mut results = crate::ai::excel_parser::parse_excel_file(file_bytes)?;
+            attach_source_info(&mut results, &source_info);
+            Ok(results)
         }
         "txt" => {
-            // First try structured, if no records found or low confidence, try AI.
-            let structured = crate::ai::robust_parser::parse_robust_csv(file_bytes.clone());
-            if let Ok(ref res) = structured {
-                if !res.is_empty() && res[0].confidence.as_deref() == Some("High") {
-                    return structured;
-                }
-            }
+            // Unstructure Text -> PII Mask -> AI
+            let raw_text = String::from_utf8_lossy(&file_bytes).to_string();
+            let safe_text = crate::utils::pii_guard::apply_deidentification(&raw_text);
             
-            // Fallback for unstructured text (Email, Drafts, etc.)
-            let text = String::from_utf8_lossy(&file_bytes).to_string();
-            let ai_res = crate::ai::ai_service::call_journal_ai(&text, None, "Unstructured Data Policy", "default", "Pro").await?;
+            let mut ai_res = crate::ai::ai_service::call_journal_ai(&safe_text, None, "Unstructured Data Policy", "default", "Pro").await?;
+            ai_res.audit_trail.push(source_info);
+            Ok(vec![ai_res])
+        }
+        "hwp" => {
+            // HWP Heuristic Extraction -> PII Mask -> AI
+            let raw_text = crate::ai::hwp_parser::extract_text_from_hwp_binary(&file_bytes)?;
+            let safe_text = crate::utils::pii_guard::apply_deidentification(&raw_text);
+            
+            let prompt_context = format!("HWP Document Content:\n{}", safe_text);
+            let mut ai_res = crate::ai::ai_service::call_journal_ai(&prompt_context, None, "HWP Document Policy", "default", "Pro").await?;
+            
+            ai_res.audit_trail.push(source_info);
+            ai_res.reasoning.push_str(" | HWP Text Analysis with PII Guard");
+            Ok(vec![ai_res])
+        }
+        "docx" | "pptx" => {
+            // Office XML Text Extraction -> PII Mask -> AI
+            let raw_text = crate::ai::office_parser::extract_text_from_office(file_bytes, &extension)?;
+            let safe_text = crate::utils::pii_guard::apply_deidentification(&raw_text);
+            
+            let mut ai_res = crate::ai::ai_service::call_journal_ai(&safe_text, None, "Office Document Policy", "default", "Pro").await?;
+            
+            ai_res.audit_trail.push(source_info);
+            ai_res.reasoning.push_str(&format!(" | {} Analysis with PII Guard", extension.to_uppercase()));
             Ok(vec![ai_res])
         }
         "pdf" | "jpg" | "jpeg" | "png" | "image" => {
-            // Multi-modal AI Extraction
-            crate::ai::ai_service::extract_transaction_from_media(file_bytes, &extension).await
-                .map(|tx| vec![tx])
-        }
-        "docx" | "pptx" => {
-            // Office Document Text Extraction -> AI
-            let text_content = crate::ai::office_parser::extract_text_from_office(file_bytes, &extension)?;
-            let ai_res = crate::ai::ai_service::call_journal_ai(&text_content, None, "Office Document Policy", "default", "Pro").await?;
+            // Universal Media (Vision) -> AI
+            // Note: For Vision, we send the binary directly. PII masking on the image pixel level is not performed here.
+            // We rely on the AI's instruction to abstract sensitive data if needed, or the platform's security.
+            // However, the prompt in ai_service usually asks for JSON data which inherently structured and less PII-prone than raw text dumps.
+            let mut ai_res = crate::ai::ai_service::extract_transaction_from_media(file_bytes, &extension).await?;
+            
+            ai_res.audit_trail.push(source_info);
+            ai_res.reasoning.push_str(" | Vision Analysis");
             Ok(vec![ai_res])
         }
         _ => Err(format!("Unsupported file format: .{}", extension)),
+    }
+}
+
+fn attach_source_info(transactions: &mut Vec<ParsedTransaction>, source_info: &str) {
+    for tx in transactions {
+        tx.audit_trail.push(source_info.to_string());
     }
 }

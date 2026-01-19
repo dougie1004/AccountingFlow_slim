@@ -38,9 +38,9 @@ export const Inventory: React.FC = () => {
                     <div>
                         <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
                             <Database className="text-indigo-500" size={32} />
-                            지능형 재고 가치 경영 (Inventory Value Manager)
+                            재고 자산 가치 평가 및 거버넌스
                         </h1>
-                        <p className="text-slate-400 text-lg">K-IFRS/GAAP 기준 선입선출(FIFO) 및 저가법(LCM) 실시간 적용</p>
+                        <p className="text-slate-400 text-lg font-bold">K-IFRS/GAAP 기준 선입선출(FIFO) 및 저가법(LCM) 실시간 결산 시스템</p>
                     </div>
                     <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl font-black text-xs">
                         <ShieldCheck size={16} />
@@ -140,7 +140,7 @@ export const Inventory: React.FC = () => {
                 <div className="space-y-4">
                     <h3 className="text-lg font-black text-white px-2 flex items-center gap-2">
                         <Zap size={18} className="text-amber-400" />
-                        Value Insight
+                        재고 자산 평가 감사 로그
                     </h3>
                     <div className="bg-[#151D2E] p-6 rounded-[2.5rem] border border-white/5 space-y-4 shadow-xl">
                         {summary?.valuationLogs && summary.valuationLogs.length > 0 ? (
@@ -175,11 +175,11 @@ export const Inventory: React.FC = () => {
                                             taxCode: 'INVENTORY_LOSS' as any
                                         };
                                         addEntry(entry);
-                                        alert('세무조정이 연동된 재고 감액 전표가 생성되었습니다.');
+                                        alert('세무조정이 연동된 재고 감액 결산 전표가 생성되었습니다.');
                                     }}
                                     className="mt-3 w-full py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-black transition-all"
                                 >
-                                    자동 조정 전표 생성
+                                    기말 결산 조정 전표 생성
                                 </button>
                             </div>
                         )}

@@ -41,32 +41,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
     const [ledger, setLedger] = useState<JournalEntry[]>(INITIAL_DATA);
     const [partners, setPartners] = useState<Partner[]>([]);
     const [assets, setAssets] = useState<Asset[]>([]);
-    const [inventory, setInventory] = useState<InventoryItem[]>([
-        {
-            id: '1', name: '고성능 리튬 배터리 셀 (High-Cap BATT)', sku: 'BATT-500', category: 'Energy Storage',
-            valuationMethod: 'FIFO',
-            batches: [
-                { id: 'B1', acquisitionDate: '2026-01-05', quantity: 500, unitCost: 45000 },
-                { id: 'B2', acquisitionDate: '2026-02-15', quantity: 700, unitCost: 48000 }
-            ],
-            lastNrv: 46000
-        },
-        {
-            id: '2', name: '정밀 서보 모터 (Precision Servo)', sku: 'MOTR-X100', category: 'Robotics',
-            valuationMethod: 'FIFO',
-            batches: [
-                { id: 'B3', acquisitionDate: '2026-01-10', quantity: 50, unitCost: 1200000 }
-            ],
-            lastNrv: 1100000 // 저가법 평가 대상
-        },
-        {
-            id: '3', name: '광학 센서 모듈 (Optic Sensor)', sku: 'SENS-OPT', category: 'Sensors',
-            valuationMethod: 'FIFO',
-            batches: [
-                { id: 'B4', acquisitionDate: '2026-01-20', quantity: 1500, unitCost: 15000 }
-            ]
-        },
-    ]);
+    const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [scmOrders, setScmOrders] = useState<Order[]>([
         {
             id: 'PO-2026-102',

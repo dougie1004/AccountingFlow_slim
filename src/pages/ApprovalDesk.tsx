@@ -54,7 +54,7 @@ const ApprovalDesk: React.FC = () => {
 
                 const newEntries: JournalEntry[] = parsedResults.map(p => ({
                     id: crypto.randomUUID(),
-                    date: p.date,
+                    date: p.date || new Date().toISOString().split('T')[0],
                     description: p.description || '',
                     vendor: p.vendor && p.vendor.trim() !== '' ? p.vendor : undefined,
                     debitAccount: p.accountName || (p.entryType === 'Expense' ? 'Expenses' : 'Assets'),
@@ -81,8 +81,8 @@ const ApprovalDesk: React.FC = () => {
             {/* Header Area */}
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
                 <div>
-                    <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">미확정 전표 거버넌스</h1>
-                    <p className="text-slate-400 font-bold">AI가 생성한 전표를 검토하고 최종 승인하여 장부에 반영합니다.</p>
+                    <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">Audit & Compliance Desk</h1>
+                    <p className="text-slate-400 font-bold">미확정 전표 거버넌스 — AI가 분석한 거래 내역의 최종 권한 승인 및 컴플라이언스 검토</p>
                 </div>
 
                 <div className="flex items-center gap-4">

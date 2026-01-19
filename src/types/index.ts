@@ -16,7 +16,7 @@ export interface JournalEntry {
     amount: number;
     vat: number;
     type: EntryType;
-    status: 'Approved' | 'Unconfirmed' | 'Hold';
+    status: 'Approved' | 'Unconfirmed' | 'Hold' | 'Pending Review';
     taxCode?: TaxCode;
     // Audit Readiness
     version?: number;

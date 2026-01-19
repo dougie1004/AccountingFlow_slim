@@ -19,13 +19,11 @@ import {
 import { RecentTransactions } from '../components/dashboard/RecentTransactions';
 import { AIForecastPanel } from '../components/dashboard/AIForecastPanel';
 import { ManagementReportPanel } from '../components/dashboard/ManagementReportPanel';
-
-
 import { invoke } from '@tauri-apps/api/core';
 import { SimulationResult } from '../types';
 
 export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab }) => {
-    const { ledger, financials, loadSimulation } = useAccounting();
+    const { ledger, financials, loadSimulation, resetData } = useAccounting();
     const [isSimulating, setIsSimulating] = React.useState(false);
 
     const handleRunSimulation = async () => {
@@ -87,12 +85,10 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
             const desc = entry.description.toLowerCase();
             const accountD = entry.debitAccount;
 
-            // Inventory Logic: Assume specific accounts or descriptions
             if (accountD.includes('재고') || accountD.includes('상품') || desc.includes('stock')) {
                 inventory += entry.amount;
             }
 
-            // Fixed Asset Logic
             if (entry.type === 'Asset' && (accountD.includes('비품') || accountD.includes('기계') || accountD.includes('장치'))) {
                 fixedAssets += entry.amount;
             }
@@ -101,108 +97,132 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
         return { cashFlowData, inventory, fixedAssets };
     }, [ledger]);
 
-    // Financial Position Data (Directly from Context ensuring A = L + E)
     const positionData = [
         { name: 'Assets', value: financials.totalAssets, color: '#4f46e5' },
         { name: 'Liabilities', value: financials.totalLiabilities, color: '#e11d48' },
         { name: 'Equity', value: financials.totalEquity, color: '#10b981' }
     ];
 
-    // Tax Calendar Logic
-    const currentMonth = new Date().getMonth() + 1;
-    const taxEvents = [
-        { date: '1.25', title: 'VAT Filing (2nd Period)', type: 'MAJOR' },
-        { date: `${currentMonth}.10`, title: 'Withholding Tax', type: 'COMPLIANCE' },
-        { date: '3.31', title: 'Corporate Tax', type: 'MAJOR' }
-    ];
-
     const kpiCards = [
         {
-            label: 'Total AR (Receivables)',
-            value: financials.ar,
-            icon: TrendingUp,
-            color: 'text-emerald-500',
-            bg: 'bg-emerald-50',
-            trend: '+12.5%' // Logic to be refined with historical data comparison later
-        },
-        {
-            label: 'Total AP (Payables)',
-            value: financials.ap,
-            icon: CreditCard,
-            color: 'text-rose-500',
-            bg: 'bg-rose-50',
-            trend: '-2.4%'
-        },
-        {
-            label: 'Cash Reserve',
+            label: '현금 및 현금성 자산',
+            subLabel: 'Cash & Cash Equivalents',
             value: financials.cash,
             icon: Wallet,
-            color: 'text-blue-500',
-            bg: 'bg-blue-50',
-            trend: '+8.2%'
+            color: 'text-blue-400',
+            bg: 'bg-blue-500/10',
+            status: '가동 가능'
         },
         {
-            label: 'Fixed Assets',
-            value: analytics.fixedAssets,
-            icon: Building2,
-            color: 'text-indigo-500',
-            bg: 'bg-indigo-50',
-            trend: '+5.0%'
+            label: '매출채권 (AR)',
+            subLabel: 'Accounts Receivable',
+            value: financials.ar,
+            icon: TrendingUp,
+            color: 'text-emerald-400',
+            bg: 'bg-emerald-500/10',
+            status: '입금 예정'
+        },
+        {
+            label: '매입채무 (AP)',
+            subLabel: 'Accounts Payable',
+            value: financials.ap,
+            icon: CreditCard,
+            color: 'text-rose-400',
+            bg: 'bg-rose-500/10',
+            status: '지급 대기'
+        },
+        {
+            label: '순운전자본',
+            subLabel: 'Net Working Capital',
+            value: financials.ar - financials.ap,
+            icon: Activity,
+            color: 'text-indigo-400',
+            bg: 'bg-indigo-500/10',
+            status: '운영 자금'
         }
     ];
 
     if (ledger.length === 0) {
         return (
-            <div className="flex items-center justify-center h-full p-20">
-                <div className="text-center animate-pulse">
-                    <Activity className="mx-auto text-indigo-300 mb-4" size={48} />
-                    <h3 className="text-xl font-bold text-slate-700">Loading Financial Data...</h3>
-                    <p className="text-slate-400">Synchronizing with ledger...</p>
+            <div className="flex flex-col items-center justify-center h-[80vh] bg-[#0B1221] animate-in fade-in zoom-in duration-500">
+                <div className="relative">
+                    <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full" />
+                    <Activity className="relative text-indigo-400 mb-8 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" size={80} />
                 </div>
+                <h2 className="text-4xl font-black text-white mb-4 tracking-tight text-center">
+                    AccountingFlow에 오신 것을 환영합니다
+                </h2>
+                <p className="text-slate-400 text-lg mb-10 text-center max-w-md font-medium leading-relaxed">
+                    아직 등록된 장부가 없습니다.<br />
+                    <span className="text-indigo-400 font-bold">샘플 데이터</span>로 기능을 체험하거나,<br />
+                    새로운 장부를 만들어 시작해 보세요.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <button
+                        onClick={handleRunSimulation}
+                        disabled={isSimulating}
+                        className="group relative flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl text-lg font-black hover:scale-105 transition-all shadow-2xl shadow-indigo-500/40 active:scale-95 disabled:opacity-50 overflow-hidden"
+                    >
+                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                        {isSimulating ? (
+                            <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <Play size={20} className="fill-white" />
+                        )}
+                        샘플 데이터로 체험하기
+                    </button>
+                    <button
+                        onClick={() => {
+                            resetData();
+                            if (setTab) setTab('migration');
+                        }}
+                        className="px-8 py-4 bg-white/5 text-slate-400 rounded-2xl text-lg font-bold hover:bg-white/10 hover:text-white transition-all border border-white/5"
+                    >
+                        실제 데이터 업로드
+                    </button>
+                </div>
+                <p className="mt-6 text-xs font-bold text-slate-600 uppercase tracking-widest">
+                    Enterprise-Grade Security & AI Analysis
+                </p>
             </div>
         );
     }
 
     return (
         <div className="flex-1 bg-[#0B1221] space-y-6 animate-in fade-in duration-500">
-            {/* Header */}
             <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
                         <Activity className="text-indigo-400" size={32} />
-                        총괄 경영 대시보드
+                        전략적 재무 경영 대시보드
                     </h2>
-                    <p className="text-slate-400 font-bold mt-2 ml-1">실시간 재무 인텔리전스 및 회계 감사 준비 지표</p>
+                    <p className="text-slate-400 font-bold mt-2 ml-1 text-sm uppercase tracking-wider">Executive Financial Intelligence & Compliance Overview</p>
                 </div>
                 <div className="flex gap-3">
                     <button
                         onClick={handleRunSimulation}
                         disabled={isSimulating}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95 disabled:opacity-50"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-[#151D2E] text-indigo-400 border border-indigo-500/30 rounded-xl text-sm font-bold hover:bg-indigo-500/10 transition-all active:scale-95 disabled:opacity-50"
                     >
                         {isSimulating ? (
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
                         ) : (
                             <Play size={16} />
                         )}
-                        AI Tech Corp 데이터 로드 (시뮬레이션)
+                        샘플 데이터 리셋
                     </button>
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-300 bg-[#151D2E] px-4 py-2 rounded-xl border border-white/5 shadow-inner">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        실시간 데이터 동기화됨
+                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-4 py-2 rounded-xl border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+                        <span className="w-2 rounded-full h-2 bg-emerald-500 animate-pulse"></span>
+                        Live Sync Active
                     </div>
                 </div>
             </header>
 
-            {/* Bento Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 auto-rows-auto">
-
-                {/* AI 경영 분석 요약 (Full Width) */}
                 <div className="md:col-span-2 lg:col-span-4">
                     <ManagementReportPanel ledger={ledger} />
                 </div>
 
-                {/* 1. Cash Flow Chart (Span 3) */}
                 <div className="md:col-span-2 lg:col-span-3 bg-[#151D2E] p-6 rounded-[2rem] shadow-2xl border border-white/5 flex flex-col h-[400px]">
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex items-center gap-3">
@@ -250,7 +270,6 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                     </div>
                 </div>
 
-                {/* 2. Financial Position (Span 1) */}
                 <div className="bg-[#151D2E] p-6 rounded-[2rem] shadow-2xl border border-white/5 flex flex-col justify-center h-[400px]">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="p-2 bg-slate-100/10 rounded-xl text-slate-400">
@@ -280,34 +299,33 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                     </div>
                 </div>
 
-                {/* 3. KPI Cards Row */}
                 <div className="md:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {kpiCards.map((kpi, idx) => (
-                        <div key={idx} className="bg-[#151D2E] p-6 rounded-[2rem] shadow-lg border border-white/5 hover:-translate-y-1 hover:shadow-2xl transition-all duration-300">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className={`p-3 rounded-2xl ${kpi.bg.replace('bg-', 'bg-')}/10 ${kpi.color}`}>
-                                    <kpi.icon size={22} />
+                        <div key={idx} className="bg-[#151D2E] p-7 rounded-[2.5rem] shadow-lg border border-white/5 hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 relative overflow-hidden group">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className={`p-4 rounded-2xl ${kpi.bg} ${kpi.color}`}>
+                                    <kpi.icon size={24} />
                                 </div>
-                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${kpi.trend.startsWith('+') ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 bg-slate-500/10'}`}>
-                                    {kpi.trend}
+                                <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-white/5 text-slate-400 uppercase tracking-tighter">
+                                    {kpi.status}
                                 </span>
                             </div>
-                            <div>
-                                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-1">{kpi.label === 'Total AR (Receivables)' ? '매출채권 (AR)' : kpi.label === 'Total AP (Payables)' ? '매입채무 (AP)' : kpi.label === 'Cash Reserve' ? '현금성 자산' : '고정 자산'}</p>
-                                <h4 className="text-2xl font-black text-white tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                            <div className="relative z-10">
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">{kpi.label}</p>
+                                <p className="text-xs font-bold text-slate-400 mb-3">{kpi.subLabel}</p>
+                                <h4 className="text-3xl font-black text-white tracking-tighter">
                                     ₩{kpi.value.toLocaleString()}
                                 </h4>
                             </div>
+                            <div className={`absolute bottom-0 right-0 w-32 h-32 ${kpi.bg} blur-[60px] translate-x-10 translate-y-10 opacity-20 group-hover:opacity-40 transition-opacity`} />
                         </div>
                     ))}
                 </div>
 
-                {/* 4. AI Forecast Panel (Full Width) */}
                 <div className="md:col-span-2 lg:col-span-4">
                     <AIForecastPanel ledger={ledger} currentBalance={financials.cash} />
                 </div>
 
-                {/* 5. Recent Transactions (Full Width) */}
                 <div className="md:col-span-2 lg:col-span-4 h-[400px]">
                     <RecentTransactions
                         transactions={ledger}

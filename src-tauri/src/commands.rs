@@ -5,8 +5,9 @@ use crate::core::models::{
 use crate::core::bank_models::BankMapping;
 use std::collections::HashMap;
 use crate::ai::ai_service;
-use crate::accounting::{closing_engine, asset_manager, simulation_engine};
-use crate::tax::{tax_bridge, filing_engine, tax_validator};
+use crate::accounting::{simulation_engine, assets, inventory_bridge};
+use crate::tax::{tax_bridge, tax_validator, hometax::HometaxEngine};
+use crate::core::security::SecurityGuard;
 use crate::governance::{audit_manager, proof_manager};
 
 #[tauri::command]
@@ -178,8 +179,8 @@ pub async fn process_universal_file(
 }
 
 #[tauri::command]
-pub fn run_closing(assets: Vec<Asset>, date: String) -> Vec<JournalEntry> {
-    closing_engine::calculate_depreciation(assets, date)
+pub fn run_closing(mut assets: Vec<Asset>, date: String, tenant_id: String) -> Vec<JournalEntry> {
+    assets::generate_closing_entries(&mut assets, &date, &tenant_id, &vec![])
 }
 
 #[tauri::command]
@@ -234,19 +235,23 @@ pub fn check_modification_allowed(date: String, config: TenantConfig) -> bool {
 
 #[tauri::command]
 pub fn generate_filing(snapshot: AuditSnapshot, config: TenantConfig) -> Result<String, String> {
-    filing_engine::generate_electronic_filing(&snapshot, config.entity_metadata)
+    SecurityGuard::validate_tenant(&config.tenant_id)?;
+    let meta = config.entity_metadata.ok_or("엔티티 메타데이터가 없습니다.")?;
+    
+    let path = HometaxEngine::generate_vat_xml(&snapshot.ledger, &meta, &config.tenant_id)?;
+    Ok(format!("국세청 신고 파일(XML)이 성료되었습니다: {:?}", path))
 }
 
 #[tauri::command]
-pub fn run_depreciation(mut assets: Vec<Asset>, date: String) -> Vec<JournalEntry> {
-    let mut version = 1;
-    asset_manager::calculate_monthly_depreciation(&mut assets, date, &mut version)
+pub fn run_depreciation(mut assets: Vec<Asset>, date: String, tenant_id: String) -> Result<Vec<JournalEntry>, String> {
+    SecurityGuard::validate_tenant(&tenant_id)?;
+    Ok(assets::generate_closing_entries(&mut assets, &date, &tenant_id, &vec![]))
 }
 
 #[tauri::command]
-pub fn process_scm_order(order: Order) -> Result<Vec<JournalEntry>, String> {
-    let mut version = 1;
-    crate::scm::scm_service::process_order_journaling(&order, &mut version)
+pub fn process_scm_order(order: Order, tenant_id: String) -> Result<Vec<JournalEntry>, String> {
+    SecurityGuard::validate_tenant(&tenant_id)?;
+    Ok(inventory_bridge::convert_order_to_journal(&order, &tenant_id))
 }
 
 #[tauri::command]
@@ -262,6 +267,11 @@ pub fn run_validation_checks(snapshot: AuditSnapshot, config: TenantConfig) -> V
 #[tauri::command]
 pub fn run_simulation_data() -> SimulationResult {
     simulation_engine::run_simulation()
+}
+
+#[tauri::command]
+pub fn get_startup_insights(ledger: Vec<JournalEntry>) -> crate::accounting::insights::StartupInsights {
+    crate::accounting::insights::calculate_insights(&ledger)
 }
 
 #[tauri::command]

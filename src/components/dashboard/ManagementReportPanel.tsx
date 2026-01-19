@@ -86,8 +86,8 @@ export const ManagementReportPanel: React.FC<ManagementReportPanelProps> = ({ le
                             <Sparkles size={24} />
                         </div>
                         <div>
-                            <h3 className="text-xl font-black text-white tracking-tight">AI 경영 분석 요약</h3>
-                            <p className="text-sm font-bold text-slate-500">{report.reportDate} 기준 실시간 인사이트</p>
+                            <h3 className="text-xl font-black text-white tracking-tight">AIGC Financial Intelligence Insight</h3>
+                            <p className="text-sm font-bold text-slate-500">Real-time Analysis based on {report.reportDate}</p>
                         </div>
                     </div>
                     <button

@@ -92,8 +92,8 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
             creditAccount,
             amount: transaction.amount,
             vat: transaction.vat,
-            type: transaction.entryType,
-            status: 'Unconfirmed',
+            type: transaction.entryType as EntryType,
+            status: transaction.confidence === 'High' ? 'Unconfirmed' : 'Pending Review',
             complianceContext: complianceLog, // Knowledge sync from Compliance AI
             attachmentUrl: selectedFile?.url,
         };

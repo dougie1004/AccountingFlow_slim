@@ -118,14 +118,16 @@ const Journal: React.FC = () => {
 
             <div className="flex flex-col lg:flex-row lg:items-end justify-between pt-8 border-t border-white/5 gap-6">
                 <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="p-1.5 bg-indigo-500/10 rounded-lg">
-                            <FileText className="w-5 h-5 text-indigo-400" />
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <div className="p-1.5 bg-indigo-500/10 rounded-lg">
+                                <FileText className="w-5 h-5 text-indigo-400" />
+                            </div>
+                            <h2 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">Unified Digital Ledger</h2>
                         </div>
-                        <h2 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">거버넌스 통합 분개장</h2>
+                        <h1 className="text-3xl font-black text-white tracking-tight">AI 통합 분개장 및 원장 관리</h1>
+                        <p className="mt-2 text-slate-400 font-bold">Audit-Ready: 확정(Authorized)된 전표만 재무제표 및 공시 지표에 반영됩니다.</p>
                     </div>
-                    <h1 className="text-3xl font-black text-white tracking-tight">회계 원장 및 전표 관리</h1>
-                    <p className="mt-2 text-slate-400 font-bold">확정(Approved)된 전표만 재무제표에 반영됩니다.</p>
                 </div>
 
                 <div className="flex flex-wrap gap-3">

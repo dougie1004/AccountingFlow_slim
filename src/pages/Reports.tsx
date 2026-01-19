@@ -98,6 +98,16 @@ export const Reports: React.FC = () => {
         }
     };
 
+    const [insights, setInsights] = useState<any>(null);
+
+    React.useEffect(() => {
+        if (!insights && ledger.length > 0) {
+            invoke('get_startup_insights', { ledger })
+                .then((res) => setInsights(res))
+                .catch(err => console.error("Failed to fetch insights", err));
+        }
+    }, [ledger]);
+
     return (
         <div className="space-y-10 pb-20 p-6 bg-[#0B1221] min-h-screen">
             {/* Header */}
@@ -105,9 +115,9 @@ export const Reports: React.FC = () => {
                 <div>
                     <h1 className="text-4xl font-black text-white tracking-tight flex items-center gap-4">
                         <FileText className="text-indigo-500" size={40} />
-                        지능형 경영 분석 리포트
+                        Strategic Financial Intelligence Report
                     </h1>
-                    <p className="text-slate-400 font-bold mt-2">재무, SCM, 세무 데이터를 통합 분석한 AI 경영 인사이트</p>
+                    <p className="text-slate-400 font-bold mt-2 ml-1">지능형 재무 전략 보고서 — 통합 재무·SCM·세정 데이터 기반 AI 분석</p>
                 </div>
                 <button
                     onClick={handleGenerateAIReport}
@@ -122,6 +132,56 @@ export const Reports: React.FC = () => {
                     {isGenerating ? 'AI 분석 리포트 생성 중...' : 'AI 경영 리포트 생성'}
                 </button>
             </header>
+
+            {insights && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-700">
+                    <div className="bg-[#151D2E] rounded-[2rem] border border-white/5 p-6 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
+                            <TrendingUp size={80} />
+                        </div>
+                        <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">총 현금 보유액 (Cash Balance)</p>
+                        <h3 className="text-3xl font-black text-white tracking-tight">
+                            ₩{(insights.cashAnalysis.totalCashBalance / 1000000).toFixed(1)}M
+                        </h3>
+                        <div className="mt-4 space-y-1">
+                            <div className="flex justify-between items-center text-xs font-bold">
+                                <span className="text-slate-400">납부 예정 부가세</span>
+                                <span className="text-rose-400">- ₩{(insights.cashAnalysis.estimatedVatToPay / 1000000).toFixed(1)}M</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs font-bold pt-1 border-t border-white/5">
+                                <span className="text-indigo-400">실질 가용 자금</span>
+                                <span className="text-indigo-400">₩{(insights.cashAnalysis.realAvailableCash / 1000000).toFixed(1)}M</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-[#151D2E] rounded-[2rem] border border-white/5 p-6 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
+                            <Activity size={80} />
+                        </div>
+                        <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">Runway (생존 기간)</p>
+                        <h3 className={`text-3xl font-black tracking-tight ${insights.burnMetrics.runwayMonths < 6 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            {insights.burnMetrics.runwayMonths.toFixed(1)} Months
+                        </h3>
+                        <div className="mt-4 flex items-center gap-2 text-slate-400 text-xs font-bold">
+                            월 평균 Burn: ₩{(insights.burnMetrics.averageMonthlyBurn / 1000000).toFixed(1)}M
+                        </div>
+                    </div>
+
+                    <div className="bg-[#151D2E] rounded-[2rem] border border-white/5 p-6 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
+                            <ShieldCheck size={80} />
+                        </div>
+                        <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">정부지원금 잔액</p>
+                        <h3 className="text-3xl font-black text-indigo-400 tracking-tight">
+                            ₩{(insights.governmentGrants.reduce((acc: any, curr: any) => acc + curr.remainingBalance, 0) / 1000000).toFixed(1)}M
+                        </h3>
+                        <div className="mt-4 flex items-center gap-2 text-slate-400 text-xs font-bold">
+                            {insights.governmentGrants.length}건의 과제 수행 중
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {!report ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 opacity-70">
@@ -186,28 +246,30 @@ export const Reports: React.FC = () => {
 
                             {/* Inventory & Tax Compliance Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-[#151D2E] rounded-[2rem] border border-white/5 p-6 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="text-sm font-black text-slate-500 uppercase flex items-center gap-2">
-                                            <Package size={16} /> SCM & Inventory
-                                        </h4>
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${report.scmInsights.valuationLoss > 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                                            {report.scmInsights.alert}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between">
-                                            <span className="text-xs text-slate-400">재고 원가</span>
-                                            <span className="text-sm font-bold text-white">₩{report.scmInsights.inventoryCost.toLocaleString()}</span>
+                                {report.scmInsights.inventoryCost > 0 && (
+                                    <div className="bg-[#151D2E] rounded-[2rem] border border-white/5 p-6 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-black text-slate-500 uppercase flex items-center gap-2">
+                                                <Package size={16} /> SCM & Inventory
+                                            </h4>
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${report.scmInsights.valuationLoss > 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                                                {report.scmInsights.alert}
+                                            </span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-xs text-slate-400">평가 손실액</span>
-                                            <span className="text-sm font-bold text-rose-400">₩{report.scmInsights.valuationLoss.toLocaleString()}</span>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between">
+                                                <span className="text-xs text-slate-400">재고 원가</span>
+                                                <span className="text-sm font-bold text-white">₩{report.scmInsights.inventoryCost.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-xs text-slate-400">평가 손실액</span>
+                                                <span className="text-sm font-bold text-rose-400">₩{report.scmInsights.valuationLoss.toLocaleString()}</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
 
-                                <div className="bg-[#151D2E] rounded-[2rem] border border-white/5 p-6 space-y-4">
+                                <div className={`bg-[#151D2E] rounded-[2rem] border border-white/5 p-6 space-y-4 ${report.scmInsights.inventoryCost === 0 ? 'md:col-span-2' : ''}`}>
                                     <div className="flex items-center justify-between">
                                         <h4 className="text-sm font-black text-slate-500 uppercase flex items-center gap-2">
                                             <Calculator size={16} /> Tax Compliance

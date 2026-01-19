@@ -104,9 +104,9 @@ export const SCM: React.FC = () => {
             <header className="flex flex-col gap-2 mb-8">
                 <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
                     <ShoppingCart className="text-indigo-500" size={32} />
-                    실시간 공급망(SCM) 인텔리전스
+                    공급망(SCM) 거버넌스 및 자산 운영 인텔리전스
                 </h1>
-                <p className="text-slate-400 text-lg font-medium">전표 및 재고 데이터와 실시간 연동된 경영 지표입니다.</p>
+                <p className="text-slate-400 text-lg font-bold">자산 실물 흐름과 재무 원장(G/L)의 정합성이 실시간 검증되는 감사 체계입니다.</p>
             </header>
 
             {/* 1. 실제 데이터 기반 대시보드 */}
@@ -316,7 +316,7 @@ export const SCM: React.FC = () => {
                                 ) : (
                                     <div className="h-14 px-8 bg-white/5 text-slate-500 rounded-2xl font-black text-sm flex items-center gap-3 italic">
                                         <CheckCircle size={18} className="text-emerald-500" />
-                                        전표 자동 이관 완료
+                                        재무 원장(G/L) 통합 완료
                                     </div>
                                 )}
                             </div>
@@ -329,7 +329,7 @@ export const SCM: React.FC = () => {
             <div className="bg-[#151D2E] border border-white/5 p-8 rounded-[2rem] shadow-xl">
                 <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-3">
                     <HistoryIcon className="text-indigo-400" />
-                    실시간 SCM 감사 기록 (System Event)
+                    SCM 실시간 감사 추적 (Audit Trail)
                 </h3>
                 <div className="space-y-4">
                     <div className="flex items-center justify-between text-xs py-2 border-b border-white/5 last:border-0">

@@ -159,17 +159,15 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
                     <button
-                        onClick={handleRunSimulation}
-                        disabled={isSimulating}
+                        onClick={() => {
+                            resetData();
+                            if (setTab) setTab('migration');
+                        }}
                         className="group relative flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl text-lg font-black hover:scale-105 transition-all shadow-2xl shadow-indigo-500/40 active:scale-95 disabled:opacity-50 overflow-hidden"
                     >
                         <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                        {isSimulating ? (
-                            <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                            <Play size={20} className="fill-white" />
-                        )}
-                        샘플 데이터로 체험하기
+                        <Play size={20} className="fill-white" />
+                        샘플 데이터로 체험하기 (시연 시작)
                     </button>
                     <button
                         onClick={() => {
@@ -194,9 +192,9 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                 <div>
                     <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
                         <Activity className="text-indigo-400" size={32} />
-                        전략적 재무 경영 대시보드
+                        경영 관리 대시보드
                     </h2>
-                    <p className="text-slate-400 font-bold mt-2 ml-1 text-sm uppercase tracking-wider">Executive Financial Intelligence & Compliance Overview</p>
+                    <p className="text-slate-400 font-bold mt-2 ml-1 text-sm uppercase tracking-wider">AI Automated Accounting & Tax Overview</p>
                 </div>
                 <div className="flex gap-3">
                     <button
@@ -314,7 +312,7 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">{kpi.label}</p>
                                 <p className="text-xs font-bold text-slate-400 mb-3">{kpi.subLabel}</p>
                                 <h4 className="text-3xl font-black text-white tracking-tighter">
-                                    ₩{kpi.value.toLocaleString()}
+                                    {(kpi as any).isPercentage ? `${kpi.value.toLocaleString()}%` : (kpi as any).isUnit ? `${kpi.value.toLocaleString()}${(kpi as any).isUnit}` : `₩${kpi.value.toLocaleString()}`}
                                 </h4>
                             </div>
                             <div className={`absolute bottom-0 right-0 w-32 h-32 ${kpi.bg} blur-[60px] translate-x-10 translate-y-10 opacity-20 group-hover:opacity-40 transition-opacity`} />

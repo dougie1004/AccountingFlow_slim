@@ -46,17 +46,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
     }, []);
 
     const menuItems = [
-        { id: 'dashboard', label: '종합 대시보드 (Executive)', icon: LayoutDashboard },
-        { id: 'ledger', label: 'AI 자동 분개장 (Journal)', icon: BookOpen },
+        { id: 'dashboard', label: '경영 관리 대시보드', icon: LayoutDashboard },
+        { id: 'ledger', label: 'AI 자동 분개장', icon: BookOpen },
         { id: 'ledger-view', label: '총계정원장 (G/L)', icon: FileText },
-        { id: 'migration', label: 'ERP 데이터 이관 (Migration)', icon: Database },
-        { id: 'scm', label: '공급망(SCM) 거버넌스', icon: ShoppingCart },
-        { id: 'inventory', label: '재고 자산 실사 및 평가', icon: Package },
-        { id: 'assets', label: '고정자산 관리 (Assets)', icon: Landmark },
-        { id: 'partners', label: '거래처 네트워크 (CRM)', icon: Users },
-        { id: 'approval-desk', label: '감사 및 거버넌스 데스크 (Audit)', icon: ShieldCheck, badge: true },
+        { id: 'migration', label: 'ERP 데이터 이관', icon: Database },
+        { id: 'scm', label: '공급망(SCM) 관리', icon: ShoppingCart },
+        { id: 'inventory', label: '재고 자산 관리', icon: Package },
+        { id: 'assets', label: '고정자산 관리', icon: Landmark },
+        { id: 'partners', label: '거래처 네트워크', icon: Users },
+        { id: 'approval-desk', label: '전표 승인 및 거버넌스', icon: ShieldCheck, badge: true },
         { id: 'tax-adjustments', label: '세무 조정 엔진 (Tax)', icon: Calculator },
-        { id: 'reports', label: 'AI 경영 전략 보고서', icon: TrendingUp },
+        { id: 'reports', label: 'AI 경영 분석 리포트', icon: TrendingUp },
         { id: 'settings', label: '시스템 설정', icon: Settings },
     ];
 

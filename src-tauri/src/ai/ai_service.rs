@@ -77,16 +77,21 @@ pub async fn call_journal_ai(
         "generationConfig": { "response_mime_type": "application/json" }
     });
 
+    println!("[AI Service] Sending request to Gemini Pro/Flash (Input length: {})", input.len());
     let response = client
         .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={}", api_key))
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("네트워크 오류: {}", e))?;
+        .map_err(|e| {
+            println!("[AI Service] Network error: {}", e);
+            format!("네트워크 오류: {}", e)
+        })?;
 
     let json_res: serde_json::Value = response.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
     
     if let Some(error) = json_res.get("error") {
+        println!("[AI Service] API Error received: {}", error["message"]);
         // API 에러 발생 시 Fallback
         let mut fallback_tx = ParsedTransaction::default();
         fallback_tx.description = Some(input.to_string());
@@ -125,6 +130,7 @@ pub async fn call_journal_ai(
     };
 
     parsed.audit_trail.push(format!("[{}] Gemini 2.0 Flash 분석 완료", chrono::Local::now().format("%H:%M:%S")));
+    println!("[AI Service] Successfully parsed AI response for: {}", parsed.description.as_deref().unwrap_or("Unknown"));
 
     // STEP 3: 사용량 기록
     crate::core::quota_manager::QUOTA_MANAGER.record_usage(tenant_id, 0.00001);
@@ -178,12 +184,16 @@ JSON 응답 형식:
         }
     });
 
+    println!("[AI Service] Sending Media (Vision) request to Gemini (Mime: {})", mime_type);
     let response = client
         .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={}", api_key))
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("AI 시각 분석 오류 (네트워크): {}", e))?;
+        .map_err(|e| {
+            println!("[AI Service] Vision AI error: {}", e);
+            format!("AI 시각 분석 오류 (네트워크): {}", e)
+        })?;
 
     let json_res: serde_json::Value = response.json().await.map_err(|e| format!("AI 응답 분석 실패 (JSON): {}", e))?;
     
@@ -312,8 +322,12 @@ pub async fn consult_compliance_ai(
 
     let tx_context = if let Some(tx) = current_tx {
         format!(
-            "현재 전표 상태: [날짜: {:?}, 설명: {:?}, 금액: {:?}, 계정: {:?}, 증빙: {:?}]",
-            tx.date, tx.description, tx.amount, tx.account_name, tx.reasoning
+            "현재 전표 상태: [날짜: {}, 설명: {}, 금액: {}, 계정: {}, 증빙: {}]",
+            tx.date.as_deref().unwrap_or("N/A"),
+            tx.description.as_deref().unwrap_or("N/A"),
+            tx.amount,
+            tx.account_name.as_deref().unwrap_or("미지정"),
+            tx.reasoning
         )
     } else {
         "진행 중인 전표 없음".to_string()

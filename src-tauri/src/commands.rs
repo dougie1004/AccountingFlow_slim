@@ -86,15 +86,17 @@ async fn run_compliance_check(tx: &ParsedTransaction, _policy: &str) -> crate::c
     }
 
     // 3. 주말/휴일 사용 내역 (요일 체크: chrono 활용)
-    if let Ok(date) = chrono::NaiveDate::parse_from_str(&tx.date, "%Y-%m-%d") {
-        let weekday = date.format("%a").to_string(); // "Sat", "Sun"
-        if weekday == "Sat" || weekday == "Sun" {
-             // 업무 관련성이 입증되어야 함
-             if tx.account_name.as_ref().map(|a| a.contains("식대") || a.contains("복리후생") || a.contains("차량")).unwrap_or(false) {
-                 status = "Warning".to_string();
-                 issues.push("휴일 업무 관련성 소명 필요");
-                 expert_notes.push("주말 사용분입니다. '휴일 근무일지'나 '출장 품의서' 등 업무 연관성을 입증하지 못하면 가지급금(대표자 상여) 처분될 리스크가 있습니다.");
-             }
+    if let Some(ref d_str) = tx.date {
+        if let Ok(date) = chrono::NaiveDate::parse_from_str(d_str, "%Y-%m-%d") {
+            let weekday = date.format("%a").to_string(); // "Sat", "Sun"
+            if weekday == "Sat" || weekday == "Sun" {
+                 // 업무 관련성이 입증되어야 함
+                 if tx.account_name.as_ref().map(|a| a.contains("식대") || a.contains("복리후생") || a.contains("차량")).unwrap_or(false) {
+                     status = "Warning".to_string();
+                     issues.push("휴일 업무 관련성 소명 필요");
+                     expert_notes.push("주말 사용분입니다. '휴일 근무일지'나 '출장 품의서' 등 업무 연관성을 입증하지 못하면 가지급금(대표자 상여) 처분될 리스크가 있습니다.");
+                 }
+            }
         }
     }
 
@@ -108,15 +110,21 @@ async fn run_compliance_check(tx: &ParsedTransaction, _policy: &str) -> crate::c
     }
 
     // 5. 증빙-텍스트 교차 검증 (Cross-Check)
-    if tx.reasoning.contains("불일치") || tx.reasoning.contains("다릅니다") || tx.reasoning.contains("마트") {
-        status = "Warning".to_string();
-        issues.push("증빙 불일치: 사적 사용 의심");
-        expert_notes.push("제출된 영수증과 내역이 다릅니다. 특히 마트/백화점 구매는 '가사 경비'로 간주되기 쉬우니 상세 품목을 확인하세요.");
-        review_logs.push("교차 검증 불일치 감지".to_string());
+    if tx.reasoning.contains("불일치") || tx.reasoning.contains("다릅니다") || tx.reasoning.contains("마트") || tx.reasoning.contains("한도") {
+        if tx.reasoning.contains("한도") {
+            status = "Warning".to_string();
+            issues.push("회사 정책(한도) 위반 감지");
+            expert_notes.push("회사 내부 규정(예: 식대 한도)을 초과한 정황이 AI에 의해 감지되었습니다. 규정 준수 여부를 재확인하세요.");
+        } else {
+            status = "Warning".to_string();
+            issues.push("증빙 불일치: 사적 사용 의심");
+            expert_notes.push("제출된 영수증과 내역이 다릅니다. 특히 마트/백화점 구매는 '가사 경비'로 간주되기 쉬우니 상세 품목을 확인하세요.");
+        }
+        review_logs.push("정책/증빙 불일치 감지".to_string());
     }
 
     let mut message = if issues.is_empty() {
-        if tx.entry_type == "Revenue" {
+        if tx.entry_type.as_deref() == Some("Revenue") {
             "세금계산서 발행 시기를 놓치지 않도록 주의하세요 (익월 10일까지).".to_string()
         } else {
             "적절한 비용 처리로 보입니다. (부가세 매입세액 공제 가능)".to_string()
@@ -125,7 +133,7 @@ async fn run_compliance_check(tx: &ParsedTransaction, _policy: &str) -> crate::c
         // Build a rich Expert Note
         let mut note = String::new();
         note.push_str("[전문가 검토 의견]\n");
-        for (i, en) in expert_notes.iter().enumerate() {
+        for en in expert_notes.iter() {
             note.push_str(&format!("• {}\n", en));
         }
         note
@@ -373,10 +381,10 @@ pub fn load_demo_scenario() -> Vec<ParsedTransaction> {
         // 1. Messy Excel (Reconstructed)
         ParsedTransaction {
             id: Some(crate::utils::id_generator::generate_id(&today, prefix)),
-            date: today.clone(),
+            date: Some(today.clone()),
             amount: 1560000.0,
             vat: 141818.0,
-            entry_type: "Expense".to_string(),
+            entry_type: Some("Expense".to_string()),
             description: Some("사무실 인테리어 공사 잔금 (Messy Excel)".to_string()),
             vendor: Some("다지이너스 (Designers)".to_string()),
             account_name: Some("수선비".to_string()),
@@ -389,10 +397,10 @@ pub fn load_demo_scenario() -> Vec<ParsedTransaction> {
         // 2. Blurry Receipt (Vision)
         ParsedTransaction {
             id: Some(crate::utils::id_generator::generate_id(&today, prefix)),
-            date: today.clone(),
+            date: Some(today.clone()),
             amount: 48500.0,
             vat: 4409.0,
-            entry_type: "Expense".to_string(),
+            entry_type: Some("Expense".to_string()),
             description: Some("주말 팀 회식 (Blurry Image)".to_string()),
             vendor: Some("이자카야 춘".to_string()),
             account_name: Some("복리후생비".to_string()),
@@ -408,10 +416,10 @@ pub fn load_demo_scenario() -> Vec<ParsedTransaction> {
         // 3. HWP (Text Mining)
         ParsedTransaction {
             id: Some(crate::utils::id_generator::generate_id(&today, prefix)),
-            date: today.clone(),
+            date: Some(today.clone()),
             amount: 8800000.0,
             vat: 800000.0,
-            entry_type: "Expense".to_string(),
+            entry_type: Some("Expense".to_string()),
             description: Some("3분기 외부 자문료 (HWP Draft)".to_string()),
             vendor: Some("법무법인 태평".to_string()),
             account_name: Some("지급수수료".to_string()),

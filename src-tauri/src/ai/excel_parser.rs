@@ -18,6 +18,7 @@ pub fn parse_excel_file(bytes: Vec<u8>) -> Result<Vec<ParsedTransaction>, String
     let mut col_map = std::collections::HashMap::new();
 
     // 1. Smart Header Mapping
+    println!("[Excel Parser] Starting extraction from sheet: {} (Total {} rows)", sheet_name, range.rows().count());
     if let Some(header_row) = range.rows().next() {
         for (i, cell) in header_row.iter().enumerate() {
             let val = cell.to_string().to_lowercase().replace(" ", "");
@@ -54,10 +55,10 @@ pub fn parse_excel_file(bytes: Vec<u8>) -> Result<Vec<ParsedTransaction>, String
         if date.is_empty() && amount == 0.0 { continue; }
 
         let mut tx = ParsedTransaction {
-            date: date.clone(),
+            date: Some(date.clone()),
             amount,
             vat: (amount / 11.0).round(),
-            entry_type: "Expense".to_string(),
+            entry_type: Some("Expense".to_string()),
             description: Some(description),
             vendor: Some(vendor),
             vendor_reg_no: None,

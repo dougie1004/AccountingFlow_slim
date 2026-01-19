@@ -187,11 +187,11 @@ export interface Partner {
  * AI 분석 결과 (Rust에서 넘어오는 데이터)
  */
 export interface ParsedTransaction {
-    date: string;
+    date?: string | null;
     id?: string;
     amount: number;
     vat: number;
-    entryType: EntryType;
+    entryType?: EntryType | null;
     description: string;
     vendor?: string; // Optional
     vendorRegNo?: string;
@@ -205,6 +205,8 @@ export interface ParsedTransaction {
     isConsultation?: boolean;
     confidence?: string;
     paymentMethod?: 'Card' | 'Cash' | 'Transfer';
+    bankName?: string;      // NEW - 지급 요청용
+    bankAccount?: string;   // NEW - 지급 요청용
     quantity?: number;      // NEW - 수량 추출
     unitPrice?: number;     // NEW - 단가 추출
     auditTrail?: string[];

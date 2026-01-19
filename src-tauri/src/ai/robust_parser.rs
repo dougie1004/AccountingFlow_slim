@@ -15,6 +15,7 @@ pub fn parse_robust_csv(data: Vec<u8>) -> Result<Vec<ParsedTransaction>, String>
         .from_reader(Cursor::new(decoded_content));
 
     let mut results = Vec::new();
+    println!("[Robust Parser] Starting CSV decoding and parsing (Data size: {} bytes)", data.len());
 
     for result in rdr.records() {
         let record = result.map_err(|e| format!("CSV 레코드 읽기 실패: {}", e))?;
@@ -60,10 +61,10 @@ pub fn parse_robust_csv(data: Vec<u8>) -> Result<Vec<ParsedTransaction>, String>
         if date.is_empty() { date = fields.get(0).cloned().unwrap_or_default(); }
 
         let mut tx = ParsedTransaction {
-            date: date.clone(),
+            date: Some(date.clone()),
             amount,
             vat: (amount / 11.0).round(),
-            entry_type: "Expense".to_string(),
+            entry_type: Some("Expense".to_string()),
             description: Some(description.clone()),
             vendor: Some(vendor.clone()),
             vendor_reg_no: None,
@@ -94,7 +95,7 @@ pub fn parse_robust_csv(data: Vec<u8>) -> Result<Vec<ParsedTransaction>, String>
         }
 
         // 데이터 무결성 체크
-        if tx.amount == 0.0 || tx.date.len() < 8 {
+        if tx.amount == 0.0 || tx.date.as_ref().map(|d| d.len()).unwrap_or(0) < 8 {
             tx.needs_clarification = true;
             tx.clarification_prompt = Some("필수 데이터 누락 또는 금액 인식 실패. 수동 검토가 필요합니다.".to_string());
             tx.confidence = Some("Low".to_string());

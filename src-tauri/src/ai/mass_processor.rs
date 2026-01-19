@@ -13,6 +13,7 @@ pub async fn process_mass_batch(
 ) -> Result<Vec<ParsedTransaction>, String> {
     let chunk_size = 20; // Process 20 items per batch to avoid rate limits
     let mut enhanced_transactions = Vec::new();
+    println!("[Mass Ingestor] Starting parallel AI enhancement for {} transactions", transactions.len());
     
     for chunk in transactions.chunks(chunk_size) {
         let mut tasks = JoinSet::new();
@@ -58,7 +59,7 @@ async fn enhance_transaction_with_ai(
     
     let input = format!(
         "Date: {}, Description: {}, Amount: {}, Vendor: {}, VAT: {}",
-        tx.date,
+        tx.date.as_deref().unwrap_or("Unknown"),
         tx.description.as_deref().unwrap_or(""),
         tx.amount,
         tx.vendor.as_deref().unwrap_or(""),
@@ -116,7 +117,7 @@ pub async fn process_gemini_batch_native(
                 "parts": [{
                     "text": format!(
                         "Analyze this transaction: Date: {}, Desc: {}, Amount: {}, Vendor: {}",
-                        tx.date,
+                        tx.date.as_deref().unwrap_or("N/A"),
                         tx.description.as_deref().unwrap_or(""),
                         tx.amount,
                         tx.vendor.as_deref().unwrap_or("")

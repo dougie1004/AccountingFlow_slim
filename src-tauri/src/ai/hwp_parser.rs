@@ -1,4 +1,4 @@
-use encoding_rs::{EUC_KR, UTF_16LE};
+use encoding_rs::EUC_KR;
 
 
 /// HWP Binary Parser (Heuristic)
@@ -11,6 +11,7 @@ use encoding_rs::{EUC_KR, UTF_16LE};
 pub fn extract_text_from_hwp_binary(bytes: &[u8]) -> Result<String, String> {
     let mut extracted_text = String::new();
 
+    println!("[HWP Parser] Starting text mining from binary ({} bytes)", bytes.len());
     // Strategy 1: Attempt to decode chunks as UTF-16LE (common in modern HWP / OLE streams)
     // We look for sequences of valid UTF-16LE characters that form readable Korean/English text.
     let text_utf16 = extract_meaningful_text(bytes, "utf-16le");

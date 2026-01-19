@@ -28,7 +28,7 @@ pub fn detect_and_apply_tax_logic(tx: &mut ParsedTransaction) {
 
     // 4. 부가세 자동 계산 (10%)
     if tx.vat == 0.0 && tx.amount > 0.0 {
-        if tx.entry_type == "Expense" || tx.entry_type == "Asset" {
+        if tx.entry_type.as_deref() == Some("Expense") || tx.entry_type.as_deref() == Some("Asset") {
             tx.vat = (tx.amount / 11.0).round(); // 공급가액의 10% 가정 (합계금액 기준)
         }
     }

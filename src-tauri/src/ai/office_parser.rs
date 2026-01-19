@@ -3,6 +3,7 @@ use zip::ZipArchive;
 use regex::Regex;
 
 pub fn extract_text_from_office(bytes: Vec<u8>, ext: &str) -> Result<String, String> {
+    println!("[Office Parser] Parsing {} file (Size: {} bytes)", ext, bytes.len());
     let cursor = Cursor::new(bytes);
     let mut archive = ZipArchive::new(cursor).map_err(|e| format!("ZIP 아카이브 열기 실패: {}", e))?;
 

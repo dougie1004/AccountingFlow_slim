@@ -48,7 +48,7 @@ pub fn process_batch_export(entries: Vec<JournalEntry>) -> Result<BatchExportRes
         // 3-1. 고액 거래 플래그
         if entry.amount > 50_000_000.0 {
             anomalies.push(format!(
-                "#{} 고액 거래 감지: {} - ₩{:.0} (이사회 승인 필요)",
+                "#{} 고액 거래 감지: {} - ₩{:.0} (내부 승인문서 첨부 및 승인 확인 필요)",
                 idx + 1, entry.description, entry.amount
             ));
         }

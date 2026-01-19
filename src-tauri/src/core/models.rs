@@ -3,13 +3,13 @@
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ParsedTransaction {
-    pub date: String,
+    pub date: Option<String>,
     pub id: Option<String>,
     #[serde(default)]
     pub amount: f64,
     #[serde(default)]
     pub vat: f64,
-    pub entry_type: String,
+    pub entry_type: Option<String>,
     pub description: Option<String>,
     pub vendor: Option<String>,
     pub vendor_reg_no: Option<String>,
@@ -25,6 +25,8 @@ pub struct ParsedTransaction {
     pub is_consultation: bool,
     pub confidence: Option<String>,
     pub payment_method: Option<String>,
+    pub bank_name: Option<String>,
+    pub bank_account: Option<String>,
     #[serde(default)]
     pub audit_trail: Vec<String>,
 }

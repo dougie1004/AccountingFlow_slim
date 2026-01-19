@@ -18,7 +18,7 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
     if combined.contains("관리비") || combined.contains("관리실") || combined.contains("아파트") {
         tx.account_name = Some("관리비".to_string());
         tx.reasoning = "규칙: 관리비 키워드".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
@@ -28,7 +28,7 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
         || combined.contains("과제") || combined.contains("협약") || combined.contains("지원금") {
         tx.account_name = Some("정부보조금".to_string());
         tx.reasoning = "규칙: 정부지원금 키워드".to_string();
-        tx.entry_type = "Revenue".to_string();
+        tx.entry_type = Some("Revenue".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
@@ -38,7 +38,7 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
         || combined.contains("salary") || combined.contains("4대보험") {
         tx.account_name = Some("급여".to_string());
         tx.reasoning = "규칙: 급여 키워드".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
@@ -48,17 +48,16 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
         || combined.contains("월세") || combined.contains("사무실") {
         tx.account_name = Some("임차료".to_string());
         tx.reasoning = "규칙: 임차료 키워드".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
 
     // 5. 접대비 패턴
-    if combined.contains("접대") || combined.contains("회식") || combined.contains("식사") 
-        || combined.contains("커피") || combined.contains("카페") {
+    if combined.contains("접대") || (combined.contains("선물") && combined.contains("거래처")) {
         tx.account_name = Some("접대비".to_string());
-        tx.reasoning = "규칙: 접대비 키워드".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.reasoning = "규칙: 접대비/거래처 선물 키워드".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("Medium".to_string());
         return;
     }
@@ -68,7 +67,7 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
         || combined.contains("kt") || combined.contains("skt") || combined.contains("lg유플러스") {
         tx.account_name = Some("통신비".to_string());
         tx.reasoning = "규칙: 통신비 키워드".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
@@ -77,7 +76,7 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
     if combined.contains("소모품") || combined.contains("문구") || combined.contains("용품") {
         tx.account_name = Some("소모품비".to_string());
         tx.reasoning = "규칙: 소모품비 키워드".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
@@ -86,18 +85,18 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
         || combined.contains("컴퓨터") || combined.contains("노트북") || combined.contains("가전") {
         tx.account_name = Some("비품".to_string());
         tx.reasoning = "규칙: 비품/자산성 가전 키워드".to_string();
-        tx.entry_type = "Asset".to_string();
+        tx.entry_type = Some("Asset".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
 
-    // 8. 보안/시스템 패턴 (NEW!)
+    // 8. 보안/시스템/자문 패턴 (NEW!)
     if combined.contains("보안") || combined.contains("시스템") || combined.contains("이용료") 
-        || combined.contains("서비스") {
+        || combined.contains("서비스") || combined.contains("자문") || combined.contains("컨설팅") {
         tx.account_name = Some("지급수수료".to_string());
-        tx.reasoning = "규칙: 시스템/서비스 이용료".to_string();
-        tx.entry_type = "Expense".to_string();
-        tx.confidence = Some("Medium".to_string());
+        tx.reasoning = "규칙: 시스템/서비스 이용료 및 자문료".to_string();
+        tx.entry_type = Some("Expense".to_string());
+        tx.confidence = Some("High".to_string());
         return;
     }
 
@@ -106,7 +105,7 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
         || combined.contains("배송") {
         tx.account_name = Some("운반비".to_string());
         tx.reasoning = "규칙: 우편/택배 키워드".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
@@ -116,17 +115,18 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
         || combined.contains("gs칼텍스") || combined.contains("차량") {
         tx.account_name = Some("차량유지비".to_string());
         tx.reasoning = "규칙: 주유/차량 키워드".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
 
-    // 11. 식사/복리후생 패턴 (NEW!)
+    // 11. 복리후생비 패턴 (식사, 커피, 회식 등)
     if combined.contains("식사") || combined.contains("점심") || combined.contains("저녁") 
-        || combined.contains("구내식당") {
+        || combined.contains("회식") || combined.contains("고기집") || combined.contains("스타벅스")
+        || combined.contains("커피") || combined.contains("카페") || combined.contains("구내식당") {
         tx.account_name = Some("복리후생비".to_string());
-        tx.reasoning = "규칙: 복리후생 키워드".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.reasoning = "규칙: 복리후생(직원 식대/차비) 키워드".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("Medium".to_string());
         return;
     }
@@ -135,7 +135,7 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
     if combined.contains("광고") || combined.contains("마케팅") || combined.contains("홍보") {
         tx.account_name = Some("광고선전비".to_string());
         tx.reasoning = "규칙: 광고/마케팅 키워드".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
@@ -144,7 +144,7 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
     if combined.contains("자본금") || combined.contains("증자") || combined.contains("납입") {
         tx.account_name = Some("자본금".to_string());
         tx.reasoning = "규칙: 자본금/증자 키워드".to_string();
-        tx.entry_type = "Equity".to_string();
+        tx.entry_type = Some("Equity".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
@@ -153,7 +153,7 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
     if combined.contains("원재료") || combined.contains("부품") || combined.contains("반도체") {
         tx.account_name = Some("원재료".to_string());
         tx.reasoning = "규칙: 원재료/부품 매입".to_string();
-        tx.entry_type = "Asset".to_string();
+        tx.entry_type = Some("Asset".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
@@ -162,7 +162,7 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
         || (combined.contains("재고") && combined.contains("손실")) {
         tx.account_name = Some("재고자산감모손실".to_string());
         tx.reasoning = "규칙: 재고 감모/실사 손실".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
@@ -170,7 +170,7 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
     if combined.contains("관세") || (combined.contains("운반비") && combined.contains("수입")) {
         tx.account_name = Some("상품 (재고자산)".to_string());
         tx.reasoning = "규칙: 재고 부대비용 가산 (Landed Cost)".to_string();
-        tx.entry_type = "Asset".to_string();
+        tx.entry_type = Some("Asset".to_string());
         tx.confidence = Some("Medium".to_string());
         return;
     }
@@ -178,16 +178,17 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
     if combined.contains("원가확정") || combined.contains("cogs") {
         tx.account_name = Some("매출원가".to_string());
         tx.reasoning = "규칙: 매출원가 인식".to_string();
-        tx.entry_type = "Expense".to_string();
+        tx.entry_type = Some("Expense".to_string());
         tx.confidence = Some("High".to_string());
         return;
     }
 
-    // 13. 기본값 (분류 불가) - 하지만 "일반관리비"로 처리
-    tx.account_name = Some("일반관리비".to_string());
-    tx.reasoning = "규칙: 기본 분류 (일반관리비)".to_string();
+    // 13. 기본값 (분류 불가)
+    tx.account_name = Some("계정 미지정".to_string());
+    tx.entry_type = Some("Expense".to_string());
+    tx.reasoning = "규칙: 자동 분류 불가 (검토 필요)".to_string();
     tx.needs_clarification = true;
-    tx.clarification_prompt = Some("자동 분류되었으나 확인이 필요합니다. 더 정확한 계정과목을 선택해주세요.".to_string());
+    tx.clarification_prompt = Some("정확한 계정과목을 파악하기 어렵습니다. 수동으로 지정해주세요.".to_string());
     tx.confidence = Some("Low".to_string());
 }
 

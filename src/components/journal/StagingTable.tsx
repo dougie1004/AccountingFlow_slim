@@ -210,7 +210,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                                     <div
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            alert(`Opening Source Evidence for Slip: ${row.id}\nTraceability: AI Generated Draft`);
+                                                            alert(`전표 원천 증빙 정보: ${row.id}\n추적성: AI 생성 초안 (데이터 맵핑 기반)`);
                                                         }}
                                                         className="mt-1 text-[9px] text-indigo-400 font-bold cursor-pointer hover:underline"
                                                     >
@@ -343,7 +343,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                     />
                                     <datalist id="staging-account-list">
                                         {ALL_ACCOUNTS.map(acc => (
-                                            <option key={acc.code} value={acc.name}>{acc.code} {acc.description}</option>
+                                            <option key={acc.code} value={acc.name}>{acc.name} ({acc.code} - {acc.description})</option>
                                         ))}
                                     </datalist>
                                 </div>
@@ -424,7 +424,12 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                             {/* Asset Detection & Registration (NEW!) */}
                             {(stagedData[selectedRow].accountName?.includes('비품') ||
                                 stagedData[selectedRow].accountName?.includes('차량') ||
-                                stagedData[selectedRow].amount > (config.taxPolicy?.aiGovernanceThreshold || 1000000)) && (
+                                (stagedData[selectedRow].amount > (config.taxPolicy?.aiGovernanceThreshold || 1000000) &&
+                                    !stagedData[selectedRow].accountName?.includes('수수료') &&
+                                    !stagedData[selectedRow].accountName?.includes('급여') &&
+                                    !stagedData[selectedRow].accountName?.includes('임차료') &&
+                                    !stagedData[selectedRow].accountName?.includes('비용') &&
+                                    !stagedData[selectedRow].accountName?.includes('자문'))) && (
                                     <div className="p-5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl space-y-4 animate-in slide-in-from-bottom-2 duration-500">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2 text-indigo-400">
@@ -478,32 +483,46 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                     </div>
                                 )}
 
-                            {/* TAX RISK ENGINE (New!) */}
-                            {(stagedData[selectedRow].accountName?.includes("접대비") || stagedData[selectedRow].vat > 0) && (
-                                <div className="p-5 bg-orange-500/10 border border-orange-500/20 rounded-2xl space-y-4 animate-in slide-in-from-bottom-2 duration-500">
+                            {/* AI 지능형 인사이트 (Accounting & Tax) */}
+                            {(stagedData[selectedRow].accountName || stagedData[selectedRow].vat > 0) && (
+                                <div className="p-5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl space-y-4 animate-in slide-in-from-bottom-2 duration-500">
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-orange-400">
+                                        <div className="flex items-center gap-2 text-indigo-400">
                                             <Calculator size={18} />
-                                            <span className="text-xs font-black uppercase tracking-tight">Tax Risk Engine</span>
+                                            <span className="text-xs font-black uppercase tracking-tight">AI Accounting Insight</span>
                                         </div>
-                                        {stagedData[selectedRow].vat > 0 && stagedData[selectedRow].accountName?.includes("접대비") ? (
-                                            <div className="bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase">불공제 대상</div>
+                                        {stagedData[selectedRow].accountName?.includes("접대비") ? (
+                                            <div className="bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase">세무 주의</div>
                                         ) : (
-                                            <div className="bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase">공제 가능</div>
+                                            <div className="bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase">검토 완료</div>
                                         )}
                                     </div>
 
-                                    {stagedData[selectedRow].accountName?.includes("접대비") && (
-                                        <p className="text-xs font-bold text-slate-300">
-                                            ⚠️ <span className="text-orange-400">CFE 관점:</span> 접대비 관련 매입세액은 부가가치세법상 <span className="text-rose-400 underline font-black">불공제 대상</span>입니다. 세무 신고 시 가산세 리스크가 <span className="text-rose-400">85% 확률</span>로 존재합니다.
-                                        </p>
-                                    )}
+                                    <div className="space-y-3">
+                                        {/* Accounting Note */}
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black text-indigo-400 uppercase">회계 처리 의견</span>
+                                            <p className="text-xs font-bold text-slate-300">
+                                                {stagedData[selectedRow].accountName === '복리후생비' ?
+                                                    '임직원의 사기 진작 및 복리후생을 위한 지출로 판단되어 복리후생비로 분류되었습니다.' :
+                                                    stagedData[selectedRow].accountName === '접대비' ?
+                                                        '외부 이해관계자와의 원활한 업무 협력을 위한 지출로 판단되어 접대비로 분류되었습니다.' :
+                                                        '거래의 성격과 적격증빙 여부를 고려하여 가장 적합한 계정과목으로 분류되었습니다.'}
+                                            </p>
+                                        </div>
 
-                                    {stagedData[selectedRow].vat > 0 && !stagedData[selectedRow].accountName?.includes("접대비") && (
-                                        <p className="text-xs font-bold text-slate-300">
-                                            ✅ 적격 증빙(세금계산서/카드/현금영수증)이 확인되면 매입세액 공제가 가능합니다.
-                                        </p>
-                                    )}
+                                        {/* Tax Note */}
+                                        <div className="space-y-1 border-t border-white/5 pt-2">
+                                            <span className="text-[10px] font-black text-orange-400 uppercase">세무 리스크 진단</span>
+                                            <p className="text-xs font-bold text-slate-300">
+                                                {stagedData[selectedRow].accountName?.includes("접대비") ?
+                                                    '⚠️ 접대비 관련 매입세액은 부가가치세법상 매입세액 불공제 대상입니다. 법인세법상 한도 초과 여부 확인이 필요합니다.' :
+                                                    stagedData[selectedRow].vat > 0 ?
+                                                        '✅ 신용카드 매출전표 등 적격증빙이 확인되므로 부가가치세 매입세액 공제가 가능합니다.' :
+                                                        '증빙 서류의 적정성을 재검토하여 비용 인정 여부를 확정하시기 바랍니다.'}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings2, ArrowRight, CheckCircle2, AlertCircle, X, Columns, CreditCard } from 'lucide-react';
+import { Settings2, ArrowRight, CheckCircle2, AlertCircle, X, Columns, CreditCard, Loader2, Zap } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 
 interface DataMapperProps {
@@ -13,11 +13,11 @@ interface DataMapperProps {
 }
 
 const STANDARD_FIELDS = [
-    { id: 'tx_date', label: '거래 일자 (Date)', required: true, description: 'YYYY-MM-DD 형식으로 변환됩니다.' },
-    { id: 'amount', label: '합계 금액 (Amount)', required: true, description: '콤마와 단위가 자동으로 제거됩니다.' },
-    { id: 'vendor', label: '거래처명 (Vendor)', required: false, description: '가맹점이나 상호명이 들어갑니다.' },
-    { id: 'description', label: '거래 내용 (Description)', required: false, description: '적요 또는 품명으로 사용됩니다.' },
-    { id: 'payment_type', label: '결제 수단 (Payment)', required: false, description: '카드/현금/계좌이체 등' },
+    { key: 'tx_date', label: '거래 날짜 (Date)', info: 'YYYY-MM-DD 형식이 권장됩니다.', required: true },
+    { key: 'vendor', label: '거래처명 (Vendor)', info: '가맹점이나 상호명이 들어갑니다.', required: false },
+    { key: 'description', label: '거래 내용 (Description)', info: '적요 또는 품명으로 사용됩니다.', required: false },
+    { key: 'amount', label: '금액 (Amount)', info: '숫자 형식만 지원합니다.', required: true },
+    { key: 'payment_type', label: '결제 수단 (Payment)', info: '카드/현금/계좌이체 등', required: false },
 ];
 
 export const DataMapper: React.FC<DataMapperProps> = ({ fileName, headers: rawHeaders, initialMapping, onConfirm, onCancel, error, isProcessing }) => {
@@ -69,14 +69,13 @@ export const DataMapper: React.FC<DataMapperProps> = ({ fileName, headers: rawHe
         setSelectedPreset(presetName);
     };
 
-    const handleConfirm = () => {
-        // Validation
-        const missingRequired = STANDARD_FIELDS
-            .filter(f => f.required && !fieldToHeader[f.id])
-            .map(f => f.label);
+    const isMissingRequired = STANDARD_FIELDS.filter(f => f.required).some(f => !fieldToHeader[f.key]);
 
-        if (missingRequired.length > 0) {
-            alert(`필수 필드가 매핑되지 않았습니다: ${missingRequired.join(', ')}`);
+    const handleConfirm = () => {
+        if (isMissingRequired) {
+            // This error message will be handled by the parent component if `error` prop is used.
+            // For now, we'll use an alert as per the original structure.
+            alert('필수 권고 항목(날짜, 금액)이 매핑되지 않았습니다. 데이터를 인식할 수 없습니다.');
             return;
         }
 
@@ -104,7 +103,7 @@ export const DataMapper: React.FC<DataMapperProps> = ({ fileName, headers: rawHe
                             <Columns className="text-white" size={24} />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-black text-white tracking-tight">지능형 컬럼 매핑 (Data Mapper)</h2>
+                            <h2 className="text-2xl font-black text-white tracking-tight">AI 컬럼 매핑 (AI Data Mapper)</h2>
                             <p className="text-slate-400 text-sm font-bold flex items-center gap-2 mt-0.5">
                                 <span className="text-indigo-400">{fileName}</span> 분석을 위한 데이터 구조를 확인합니다.
                             </p>
@@ -151,21 +150,32 @@ export const DataMapper: React.FC<DataMapperProps> = ({ fileName, headers: rawHe
 
                     <div className="grid grid-cols-1 gap-4">
                         {STANDARD_FIELDS.map((field) => (
-                            <div key={field.id} className="group flex items-center gap-6 p-6 bg-white/[0.02] border border-white/5 rounded-3xl hover:border-indigo-500/30 transition-all hover:bg-white/[0.04]">
+                            <div key={field.key} className="group flex items-center gap-6 p-6 bg-white/[0.02] border border-white/5 rounded-3xl hover:border-indigo-500/30 transition-all hover:bg-white/[0.04]">
                                 <div className="w-48 shrink-0">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-black text-white">{field.label}</span>
-                                        {field.required && <span className="w-1 h-1 bg-rose-500 rounded-full"></span>}
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h4 className="text-white font-black text-lg">
+                                                {field.label}
+                                                {field.required && <span className="text-rose-500 ml-1">*</span>}
+                                            </h4>
+                                            <p className="text-xs font-bold text-slate-500 mt-1">{field.info}</p>
+                                        </div>
+                                        {fieldToHeader[field.key] ? (
+                                            <div className="p-1 px-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
+                                                <CheckCircle2 size={16} />
+                                            </div>
+                                        ) : (
+                                            field.required && <div className="p-1 px-2 bg-rose-500/10 text-rose-500 rounded-lg text-[10px] font-black uppercase tracking-tighter">Required</div>
+                                        )}
                                     </div>
-                                    <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">{field.description}</p>
                                 </div>
 
                                 <ArrowRight className="text-slate-700" size={20} />
 
                                 <div className="flex-1">
                                     <select
-                                        value={fieldToHeader[field.id] || ""}
-                                        onChange={(e) => setFieldToHeader({ ...fieldToHeader, [field.id]: e.target.value })}
+                                        value={fieldToHeader[field.key] || ""}
+                                        onChange={(e) => setFieldToHeader({ ...fieldToHeader, [field.key]: e.target.value })}
                                         className="w-full px-5 py-3.5 bg-[#0B1221] border border-white/10 rounded-2xl text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all cursor-pointer appearance-none"
                                     >
                                         <option value="">-- 컬럼 선택 --</option>
@@ -173,14 +183,6 @@ export const DataMapper: React.FC<DataMapperProps> = ({ fileName, headers: rawHe
                                             <option key={h} value={h}>{h}</option>
                                         ))}
                                     </select>
-                                </div>
-
-                                <div className="w-12 flex justify-center">
-                                    {fieldToHeader[field.id] ? (
-                                        <CheckCircle2 className="text-emerald-500" size={22} />
-                                    ) : (
-                                        <div className="w-5 h-5 rounded-full border-2 border-slate-800"></div>
-                                    )}
                                 </div>
                             </div>
                         ))}
@@ -216,18 +218,18 @@ export const DataMapper: React.FC<DataMapperProps> = ({ fileName, headers: rawHe
                             e.stopPropagation();
                             if (!isProcessing) handleConfirm();
                         }}
-                        disabled={isProcessing}
+                        disabled={isProcessing || headers.length === 0 || isMissingRequired}
                         className="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm transition-all shadow-xl shadow-indigo-600/20 active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isProcessing ? (
                             <>
-                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                <Loader2 className="animate-spin" size={20} />
                                 <span>데이터 분석 및 변환 중...</span>
                             </>
                         ) : (
                             <>
-                                <Settings2 size={18} />
-                                매핑 적용 및 데이터 분석 시작
+                                <Zap size={20} />
+                                <span>{isMissingRequired ? '필수 항목 매핑 필요' : '매핑 적용 및 분석 시작'}</span>
                             </>
                         )}
                     </button>

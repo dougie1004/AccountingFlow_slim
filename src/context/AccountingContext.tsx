@@ -276,6 +276,23 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         const totalLiabilities = ap + vatPayable + otherLiabilities;
         const totalEquity = capital + netIncome;
 
+        // "Truthful" Cash: Cash - Accounts Payable - VAT Payable - (Government Grant balance which is restricted)
+        // We find Grant Cash by looking for transactions with "보조금" or "출연금"
+        let totalGrantCash = 0;
+        approvedLedger.forEach(e => {
+            const isGrant = e.description.includes('보조금') || e.description.includes('출연금');
+            if (isGrant) {
+                if (e.creditAccount.includes('보조금') || e.creditAccount.includes('출연금')) {
+                    totalGrantCash += e.amount;
+                }
+                if (e.debitAccount.includes('보조금') || e.debitAccount.includes('출연금')) {
+                    totalGrantCash -= e.amount;
+                }
+            }
+        });
+
+        const realAvailableCash = Math.max(0, cash - ap - vatPayable - totalGrantCash);
+
         return {
             cash, revenue, expenses, ar, ap,
             fixedAssets, vatNet: vatPayable - vatReceivable,
@@ -283,7 +300,9 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
             totalEquity,
             inventoryValue,
             totalAssets,
-            totalLiabilities
+            totalLiabilities,
+            realAvailableCash,
+            totalGrantCash
         };
     }, [ledger]);
 

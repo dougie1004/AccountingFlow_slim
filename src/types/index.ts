@@ -90,6 +90,8 @@ export interface FinancialSummary {
     inventoryValue: number;
     totalAssets: number;
     totalLiabilities: number;
+    realAvailableCash: number;
+    totalGrantCash: number;
 }
 
 export interface OrderItem {

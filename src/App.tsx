@@ -13,6 +13,7 @@ import { DataMigration } from './pages/DataMigration';
 import { SCM } from './pages/SCM';
 import { Assets } from './pages/Assets';
 import { Inventory } from './pages/Inventory';
+import { AdvancedLedger } from './pages/AdvancedLedger';
 
 import { AccountingProvider } from './context/AccountingContext';
 import { ConfigProvider, useConfig } from './context/ConfigContext';
@@ -65,6 +66,7 @@ const AppContent = () => {
                         {activeTab === 'partners' && <Partners />}
                         {activeTab === 'reports' && <Reports />}
                         {activeTab === 'tax-adjustments' && <TaxAdjustments />}
+                        {activeTab === 'advanced-ledger' && <AdvancedLedger />}
                         {activeTab === 'approval-desk' && <ApprovalDesk />}
                         {activeTab === 'migration' && <DataMigration setTab={setActiveTab} />}
                         {activeTab === 'settings' && <Settings />}

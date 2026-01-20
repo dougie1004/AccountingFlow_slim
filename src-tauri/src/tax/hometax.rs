@@ -87,14 +87,54 @@ impl HometaxEngine {
         Ok(())
     }
 
-    /// 세무사 전송용 고유 포맷 (.af_audit) 생성
+    /// 세무사 전송용 고유 포맷 (.af_audit) 생성 (AES-256 암호화 적용)
     pub fn generate_bridge_file(
         entries: &[JournalEntry],
         tenant_id: &str
-    ) -> Result<String, String> {
+    ) -> Result<PathBuf, String> {
+        use crate::core::security::SecurityGuard;
+
+        // 1. 데이터 직렬화
         let serialized = serde_json::to_string(entries).map_err(|e| e.to_string())?;
-        // 원래는 여기서 테넌트별 AES 키로 암호화해야 함 (Logic Placeholder)
-        let encrypted = format!("ENCRYPTED_DATA_FOR_{}:{}", tenant_id, serialized);
-        Ok(encrypted)
+        
+        // 2. 테넌트 키로 암호화 (AES-256-GCM)
+        let encrypted_payload = SecurityGuard::encrypt_data(tenant_id, &serialized)?;
+
+        // 3. 파일 생성 (.af_audit)
+        let audit_dir = PathBuf::from("./audit_packages").join(tenant_id);
+        fs::create_dir_all(&audit_dir).map_err(|e| e.to_string())?;
+        
+        let file_name = format!("Audit_Package_{}.af_audit", chrono::Local::now().format("%Y%m%d_%H%M"));
+        let file_path = audit_dir.join(file_name);
+        
+        // 헤더와 함께 저장 (Audit Metadata)
+        let package = serde_json::json!({
+            "version": "1.0",
+            "format": "AF_SECURE_AUDIT",
+            "timestamp": chrono::Local::now().to_rfc3339(),
+            "tenant_id": tenant_id,
+            "payload": encrypted_payload
+        });
+
+        fs::write(&file_path, package.to_string()).map_err(|e| e.to_string())?;
+
+        Ok(file_path)
+    }
+
+    /// [진단] 암호화된 패키지 복호화 테스트 (Audit Trail 용)
+    pub fn verify_bridge_file(
+        package_path: PathBuf,
+        tenant_id: &str
+    ) -> Result<usize, String> {
+        use crate::core::security::SecurityGuard;
+
+        let content = fs::read_to_string(package_path).map_err(|e| e.to_string())?;
+        let package: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+        
+        let encrypted_payload = package["payload"].as_str().ok_or("Invalid package format")?;
+        let decrypted = SecurityGuard::decrypt_data(tenant_id, encrypted_payload)?;
+        
+        let entries: Vec<JournalEntry> = serde_json::from_str(&decrypted).map_err(|e| e.to_string())?;
+        Ok(entries.len())
     }
 }

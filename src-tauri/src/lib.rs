@@ -49,7 +49,11 @@ pub fn run() {
             commands::process_file_with_mapping,
             commands::load_demo_scenario,
             commands::generate_journal_id,
-            commands::get_startup_insights
+            commands::get_startup_insights,
+            commands::process_advanced_ledger,
+            commands::generate_bridge_package,
+            commands::get_compliance_mappings,
+            commands::get_ir_financial_summary
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -170,9 +170,12 @@ export const AIForecastPanel: React.FC<AIForecastPanelProps> = ({ ledger, curren
 
             {/* Metrics */}
             <div className="grid grid-cols-3 gap-4">
-                <div className="bg-[#0B1221] p-4 rounded-2xl border border-white/5">
-                    <p className="text-xs font-bold text-slate-500 uppercase mb-1">현재 잔액</p>
-                    <p className="text-xl font-black text-white">₩{forecast.currentBalance.toLocaleString()}</p>
+                <div className="bg-[#0B1221] p-4 rounded-2xl border border-white/5 border-indigo-500/30">
+                    <p className="text-xs font-bold text-indigo-400 uppercase mb-1 flex items-center gap-1">
+                        <Sparkles size={12} /> 실질 가용 자산
+                    </p>
+                    <p className="text-xl font-black text-white">₩{currentBalance.toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Cash - 확정부채 - 보조금</p>
                 </div>
                 <div className="bg-[#0B1221] p-4 rounded-2xl border border-white/5">
                     <p className="text-xs font-bold text-slate-500 uppercase mb-1">월평균 지출</p>

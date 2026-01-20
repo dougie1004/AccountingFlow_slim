@@ -10,7 +10,8 @@ import {
     ArrowDownRight,
     Activity,
     Wallet,
-    Play
+    Play,
+    ShieldCheck
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -19,6 +20,8 @@ import {
 import { RecentTransactions } from '../components/dashboard/RecentTransactions';
 import { AIForecastPanel } from '../components/dashboard/AIForecastPanel';
 import { ManagementReportPanel } from '../components/dashboard/ManagementReportPanel';
+import { CFOReportCard } from '../components/dashboard/CFOReportCard';
+import { CEOQuickBar } from '../components/dashboard/CEOQuickBar';
 import { invoke } from '@tauri-apps/api/core';
 import { SimulationResult } from '../types';
 
@@ -77,13 +80,18 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
             expense: val.expense
         }));
 
-        // B. Metrics & Inventory
+        // B. Metrics & Inventory & Advanced
         let inventory = 0;
         let fixedAssets = 0;
+        let rndAssetValue = 0;
+        let stockOptionExpense = 0;
+        let fxGainLoss = 0;
+        let fxExposure = 0;
 
         ledger.forEach(entry => {
             const desc = entry.description.toLowerCase();
             const accountD = entry.debitAccount;
+            const accountC = entry.creditAccount;
 
             if (accountD.includes('재고') || accountD.includes('상품') || desc.includes('stock')) {
                 inventory += entry.amount;
@@ -92,9 +100,34 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
             if (entry.type === 'Asset' && (accountD.includes('비품') || accountD.includes('기계') || accountD.includes('장치'))) {
                 fixedAssets += entry.amount;
             }
+
+            // Advanced Ledger Metrics extraction
+            if (accountD.includes('무형자산(개발비)')) {
+                rndAssetValue += entry.amount;
+            }
+            if (accountD.includes('주식보상비용')) {
+                stockOptionExpense += entry.amount;
+            }
+            if (accountD.includes('외화예금(평가)') || accountD.includes('외화환산')) {
+                if (accountC.includes('외화환산이익')) fxGainLoss += entry.amount;
+                if (accountD.includes('외화환산손실')) fxGainLoss -= entry.amount;
+                fxExposure += entry.amount;
+            }
+
+            // Tax Credit Estimation (R&D 25%)
+            if ((accountD.includes('급여') || accountD.includes('인건비')) && (desc.includes('연구') || desc.includes('개발'))) {
+                rndAssetValue += 0; // Don't add twice
+            }
         });
 
-        return { cashFlowData, inventory, fixedAssets };
+        // Simplified Tax Credit: 25% of R&D labor
+        const estimatedTaxCredit = rndAssetValue * 0.25;
+
+        // C. Burn Rate calculation (Average of last 3 months expense)
+        const totalExpenseLast3m = cashFlowData.slice(-3).reduce((sum, d) => sum + d.expense, 0);
+        const averageMonthlyBurn = totalExpenseLast3m / Math.min(3, cashFlowData.length || 1);
+
+        return { cashFlowData, inventory, fixedAssets, rndAssetValue, stockOptionExpense, fxGainLoss, fxExposure, estimatedTaxCredit, averageMonthlyBurn };
     }, [ledger]);
 
     const positionData = [
@@ -216,6 +249,16 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                 </div>
             </header>
 
+            <CEOQuickBar
+                financials={financials}
+                avgMonthlyBurn={analytics.averageMonthlyBurn}
+            />
+
+            <div className="flex items-center gap-2 px-6 py-3 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl w-fit">
+                <ShieldCheck className="text-indigo-400" size={16} />
+                <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Local-First Architecture: Your data never leaves this machine.</span>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 auto-rows-auto">
                 <div className="md:col-span-2 lg:col-span-4">
                     <ManagementReportPanel ledger={ledger} />
@@ -321,7 +364,19 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                 </div>
 
                 <div className="md:col-span-2 lg:col-span-4">
-                    <AIForecastPanel ledger={ledger} currentBalance={financials.cash} />
+                    <CFOReportCard
+                        metrics={{
+                            rndAssetValue: analytics.rndAssetValue,
+                            stockOptionExpense: analytics.stockOptionExpense,
+                            fxGainLoss: analytics.fxGainLoss,
+                            fxExposure: analytics.fxExposure,
+                            estimatedTaxCredit: analytics.estimatedTaxCredit
+                        }}
+                    />
+                </div>
+
+                <div className="md:col-span-2 lg:col-span-4">
+                    <AIForecastPanel ledger={ledger} currentBalance={financials.realAvailableCash} />
                 </div>
 
                 <div className="md:col-span-2 lg:col-span-4 h-[400px]">

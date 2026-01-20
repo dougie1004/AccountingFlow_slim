@@ -16,7 +16,8 @@ import {
     ShieldCheck,
     Database,
     RotateCcw,
-    FileText
+    FileText,
+    Zap
 } from 'lucide-react';
 import { useContext } from 'react';
 import { AccountingContext } from '../../context/AccountingContext';
@@ -56,6 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
         { id: 'partners', label: '거래처 네트워크', icon: Users },
         { id: 'approval-desk', label: '전표 승인 및 거버넌스', icon: ShieldCheck, badge: true },
         { id: 'tax-adjustments', label: '세무 조정 엔진 (Tax)', icon: Calculator },
+        { id: 'advanced-ledger', label: '[Advanced] 특수 회계', icon: Zap },
         { id: 'reports', label: 'AI 경영 분석 리포트', icon: TrendingUp },
         { id: 'settings', label: '시스템 설정', icon: Settings },
     ];

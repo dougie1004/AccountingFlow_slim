@@ -9,6 +9,7 @@ use crate::accounting::{simulation_engine, assets, inventory_bridge};
 use crate::tax::{tax_bridge, tax_validator, hometax::HometaxEngine};
 use crate::core::security::SecurityGuard;
 use crate::governance::{audit_manager, proof_manager};
+use crate::accounting::advanced_ledger::{AdvancedAccountingModule, AdvancedLedgerInput, AdvancedLedgerOutput, RndCapitalizationEngine};
 
 #[tauri::command]
 pub async fn parse_transaction(
@@ -239,7 +240,22 @@ pub fn generate_filing(snapshot: AuditSnapshot, config: TenantConfig) -> Result<
     let meta = config.entity_metadata.ok_or("엔티티 메타데이터가 없습니다.")?;
     
     let path = HometaxEngine::generate_vat_xml(&snapshot.ledger, &meta, &config.tenant_id)?;
-    Ok(format!("국세청 신고 파일(XML)이 성료되었습니다: {:?}", path))
+    Ok(format!("국세청 신고 파일(XML)이 성공적으로 생성되었습니다: {:?}", path))
+}
+
+#[tauri::command]
+pub fn generate_bridge_package(ledger: Vec<JournalEntry>, tenant_id: String) -> Result<String, String> {
+    SecurityGuard::validate_tenant(&tenant_id)?;
+    let path = HometaxEngine::generate_bridge_file(&ledger, &tenant_id)?;
+    Ok(format!("전문가 전송용 보안 패키지(.af_audit)가 생성되었습니다. AES-256으로 암호화되어 안전합니다.\n경로: {:?}", path))
+}
+
+#[tauri::command]
+pub fn get_compliance_mappings() -> serde_json::Value {
+    serde_json::json!({
+        "vat": crate::tax::nts_mapping::get_hometax_vat_mapping(),
+        "corp": crate::tax::nts_mapping::get_hometax_corp_tax_mapping()
+    })
 }
 
 #[tauri::command]
@@ -446,4 +462,35 @@ pub fn load_demo_scenario() -> Vec<ParsedTransaction> {
 pub fn generate_journal_id(date: String, entry_type: String) -> String {
     let prefix = crate::utils::id_generator::determine_prefix(&entry_type);
     crate::utils::id_generator::generate_id(&date, prefix)
+}
+
+#[tauri::command]
+pub async fn process_advanced_ledger(
+    input: AdvancedLedgerInput,
+    ledger: Vec<JournalEntry>
+) -> Result<AdvancedLedgerOutput, String> {
+    match input.module_id.as_str() {
+        "rnd_capitalization" => {
+            let engine = RndCapitalizationEngine;
+            engine.process_logic(input, &ledger)
+        },
+        "stock_compensation" => {
+            let engine = crate::accounting::advanced_ledger::StockCompensationEngine;
+            engine.process_logic(input, &ledger)
+        },
+        "currency_revaluation" => {
+            let engine = crate::accounting::advanced_ledger::CurrencyRevaluationEngine;
+            engine.process_logic(input, &ledger)
+        },
+        "tax_credit_finder" => {
+            let engine = crate::accounting::advanced_ledger::TaxCreditFinderEngine;
+            engine.process_logic(input, &ledger)
+        },
+        _ => Err(format!("지원하지 않는 특수 회계 모듈입니다: {}", input.module_id)),
+    }
+}
+
+#[tauri::command]
+pub fn get_ir_financial_summary(ledger: Vec<JournalEntry>) -> crate::accounting::ir_engine::IRFinancialSummary {
+    crate::accounting::ir_engine::generate_ir_summary(&ledger)
 }

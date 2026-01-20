@@ -79,4 +79,50 @@ impl SecurityGuard {
         
         hex::encode(result) // 64 chars hex string = 32 bytes = 256 bits
     }
+
+    /// 데이터를 테넌트 키로 AES-256-GCM 암호화
+    pub fn encrypt_data(tenant_id: &str, plaintext: &str) -> Result<String, String> {
+        use aes_gcm::{Aes256Gcm, Key, Nonce};
+        use aes_gcm::aead::{Aead, KeyInit};
+
+        let key_hex = Self::get_tenant_key(tenant_id);
+        let key_bytes = hex::decode(key_hex).map_err(|e| e.to_string())?;
+        let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
+        let cipher = Aes256Gcm::new(key);
+
+        // 고유 Nonce 생성 (12 bytes)
+        let nonce_bytes = Uuid::new_v4().as_bytes()[..12].to_vec();
+        let nonce = Nonce::from_slice(&nonce_bytes);
+
+        let ciphertext = cipher.encrypt(nonce, plaintext.as_bytes())
+            .map_err(|e| format!("Encryption failed: {}", e))?;
+
+        // Format: nonce(hex) + ciphertext(hex)
+        Ok(format!("{}:{}", hex::encode(nonce_bytes), hex::encode(ciphertext)))
+    }
+
+    /// 데이터를 테넌트 키로 AES-256-GCM 복호화
+    pub fn decrypt_data(tenant_id: &str, encrypted_payload: &str) -> Result<String, String> {
+        use aes_gcm::{Aes256Gcm, Key, Nonce};
+        use aes_gcm::aead::{Aead, KeyInit};
+
+        let parts: Vec<&str> = encrypted_payload.split(':').collect();
+        if parts.len() != 2 {
+            return Err("Invalid encrypted payload format".to_string());
+        }
+
+        let nonce_bytes = hex::decode(parts[0]).map_err(|e| e.to_string())?;
+        let ciphertext = hex::decode(parts[1]).map_err(|e| e.to_string())?;
+
+        let key_hex = Self::get_tenant_key(tenant_id);
+        let key_bytes = hex::decode(key_hex).map_err(|e| e.to_string())?;
+        let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
+        let cipher = Aes256Gcm::new(key);
+
+        let nonce = Nonce::from_slice(&nonce_bytes);
+        let plaintext_bytes = cipher.decrypt(nonce, ciphertext.as_slice())
+            .map_err(|e| format!("Decryption failed: {}", e))?;
+
+        String::from_utf8(plaintext_bytes).map_err(|e| e.to_string())
+    }
 }

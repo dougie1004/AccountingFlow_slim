@@ -11,12 +11,14 @@ import {
     Activity,
     Wallet,
     Play,
-    ShieldCheck
+    ShieldCheck,
+    Sparkles
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     BarChart, Bar, Cell
 } from 'recharts';
+import { motion } from 'framer-motion';
 import { RecentTransactions } from '../components/dashboard/RecentTransactions';
 import { AIForecastPanel } from '../components/dashboard/AIForecastPanel';
 import { ManagementReportPanel } from '../components/dashboard/ManagementReportPanel';
@@ -221,32 +223,52 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
 
     return (
         <div className="flex-1 bg-[#0B1221] space-y-6 animate-in fade-in duration-500">
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div>
-                    <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                        <Activity className="text-indigo-400" size={32} />
-                        경영 관리 대시보드
-                    </h2>
-                    <p className="text-slate-400 font-bold mt-2 ml-1 text-sm uppercase tracking-wider">AI Automated Accounting & Tax Overview</p>
-                </div>
-                <div className="flex gap-3">
-                    <button
-                        onClick={handleRunSimulation}
-                        disabled={isSimulating}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-[#151D2E] text-indigo-400 border border-indigo-500/30 rounded-xl text-sm font-bold hover:bg-indigo-500/10 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        {isSimulating ? (
-                            <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
-                        ) : (
-                            <Play size={16} />
-                        )}
-                        샘플 데이터 리셋
-                    </button>
-                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-4 py-2 rounded-xl border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-                        <span className="w-2 rounded-full h-2 bg-emerald-500 animate-pulse"></span>
-                        Live Sync Active
+            <header className="flex flex-col gap-6">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div>
+                        <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                            <Activity className="text-indigo-400" size={32} />
+                            경영 관리 대시보드
+                        </h2>
+                        <p className="text-slate-400 font-bold mt-2 ml-1 text-sm uppercase tracking-wider">AI Automated Accounting & Tax Overview</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleRunSimulation}
+                            disabled={isSimulating}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-[#151D2E] text-indigo-400 border border-indigo-500/30 rounded-xl text-sm font-bold hover:bg-indigo-500/10 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {isSimulating ? (
+                                <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                            ) : (
+                                <Play size={16} />
+                            )}
+                            샘플 데이터 리셋
+                        </button>
+                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-4 py-2 rounded-xl border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+                            <span className="w-2 rounded-full h-2 bg-emerald-500 animate-pulse"></span>
+                            Live Sync Active
+                        </div>
                     </div>
                 </div>
+
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-6 bg-indigo-500/5 border border-indigo-500/20 rounded-3xl flex items-center gap-5"
+                >
+                    <div className="p-3 bg-indigo-600 rounded-full shadow-lg shadow-indigo-600/20">
+                        <Sparkles className="text-white" size={24} />
+                    </div>
+                    <div>
+                        <h3 className="text-white font-black text-lg">
+                            {ledger.length > 0 ? "대표님, 오늘 하루도 성장에 집중하시느라 정말 고생 많으셨습니다." : "반갑습니다 대표님, 새로운 여정을 AccountingFlow가 든든하게 지원하겠습니다."}
+                        </h3>
+                        <p className="text-slate-400 text-sm font-bold mt-1">
+                            {ledger.length > 0 ? "복잡한 재무 정리는 제가 완벽하게 마쳤습니다. 이제 이 숫자들이 대표님의 다음 결정을 도와드릴 거예요." : "데이터를 입력하시면 제가 가장 먼저 달려가 분석 리포트를 준비해 드릴게요."}
+                        </p>
+                    </div>
+                </motion.div>
             </header>
 
             <CEOQuickBar
@@ -384,6 +406,37 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                         transactions={ledger}
                         onNavigate={setTab}
                     />
+                </div>
+
+                <div className="md:col-span-2 lg:col-span-4">
+                    <div className="bg-gradient-to-r from-indigo-600/10 to-violet-600/10 border border-indigo-500/20 p-8 rounded-[2.5rem] flex items-center justify-between group hover:border-indigo-500/40 transition-all">
+                        <div className="flex items-center gap-6">
+                            <div className="p-4 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-600/20 group-hover:scale-110 transition-transform">
+                                <Sparkles className="text-white" size={28} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-white tracking-tight">오늘의 재무 요약 (AI Daily Briefing)</h3>
+                                <p className="text-slate-300 font-bold mt-1">
+                                    {analytics.averageMonthlyBurn === 0 ?
+                                        "아직 지출 데이터가 기록되지 않았습니다. 샘플 데이터를 로드하여 분석을 체험해 보세요!" :
+                                        (financials.realAvailableCash / analytics.averageMonthlyBurn) >= 6 ?
+                                            "현재 자금 흐름이 매우 건강합니다. 런웨이가 충분하니 새로운 성장 동력 확보에 집중하셔도 좋습니다." :
+                                            (financials.realAvailableCash / analytics.averageMonthlyBurn) >= 3 ?
+                                                "완만한 성장을 유지 중입니다. 예정된 지출 계획을 재점검하며 현금 흐름을 최적화하세요." :
+                                                "자금 확보가 시급한 시점입니다. 비용 절감 및 추가 펀딩 전략을 즉시 검토하는 것을 권장합니다."
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                        <div className="hidden lg:block">
+                            <button
+                                onClick={() => setTab?.('advanced')}
+                                className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-black rounded-xl border border-white/10 transition-all active:scale-95"
+                            >
+                                전략 모듈 가동 <ArrowUpRight size={18} />
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

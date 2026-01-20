@@ -72,6 +72,7 @@ const ApprovalDesk: React.FC = () => {
             reader.readAsText(file);
         } catch (err) {
             console.error("Batch Import Failed:", err);
+            alert("대표님, 제 분석 엔진에 잠시 착오가 있었던 것 같습니다. 다시 정밀하게 분석할 수 있도록 한 번 더 업로드 부탁드려도 될까요? 제가 더 꼼꼼히 챙기겠습니다.");
             setIsImporting(false);
         }
     };
@@ -138,9 +139,9 @@ const ApprovalDesk: React.FC = () => {
                         <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-500/20">
                             <CheckCircle size={40} className="text-emerald-500" />
                         </div>
-                        <h2 className="text-2xl font-black text-white mb-2 underline decoration-emerald-500/30 decoration-4 underline-offset-8">모든 전표가 확정되었습니다</h2>
+                        <h2 className="text-2xl font-black text-white mb-2 underline decoration-emerald-500/30 decoration-4 underline-offset-8">대표님, 모든 전표가 완벽하게 정리되었습니다</h2>
                         <p className="text-slate-500 font-bold max-w-sm mx-auto leading-relaxed">
-                            검토 대기 중인 전표가 없습니다. 지능형 AI 어시스턴트가 새로운 거래를 감지할 때까지 기다려 주세요.
+                            현재 검토가 필요한 내역이 없습니다. 이번 달도 비즈니스 성장에 집중하시느라 고생 많으셨습니다. 재무 정리는 제가 빈틈없이 마쳤습니다.
                         </p>
                     </div>
                 ) : viewMode === 'card' ? (
@@ -212,8 +213,8 @@ const ApprovalDesk: React.FC = () => {
                                             </div>
                                             <p className="text-xs font-bold text-slate-300 leading-relaxed">
                                                 {entry.amount > 5000000
-                                                    ? `해당 거래는 고액 거래로 분류되어 AI가 계정과목 매핑 정합성을 추가 검증했습니다. 과거 유사 전표 처리 이력과 94% 일치합니다.`
-                                                    : `과거 거래 패턴 및 표준 계정 체계를 분석한 결과, 99.8%의 정확도로 자동 분개가 완료되었습니다. 이상 징후 없습니다.`
+                                                    ? `대표님, 이 지출은 금액이 커서 제가 좀 더 꼼꼼히 살펴봤어요. 회계 정합성에 문제는 없지만, 나중에 세무적으로 질문을 받으실 수 있으니 관련 증빙을 한 번 더 챙겨두시면 제가 더 든든하게 지켜드릴 수 있습니다.`
+                                                    : `대표님이 본업에 집중하시는 동안 제가 과거 패턴을 분석해 자동으로 분류를 마쳤습니다. 99.8%의 정확도로 이상 징후 없이 깨끗하게 처리되었으니 안심하셔도 좋습니다.`
                                                 }
                                             </p>
                                         </div>

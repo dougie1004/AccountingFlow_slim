@@ -17,40 +17,13 @@ import { AdvancedLedger } from './pages/AdvancedLedger';
 
 import { AccountingProvider } from './context/AccountingContext';
 import { ConfigProvider, useConfig } from './context/ConfigContext';
-import { OnboardingWizard } from './features/onboarding/OnboardingWizard';
 
 const AppContent = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
-    const { isInitialized, updateConfig } = useConfig();
 
     return (
         <div className="flex h-screen bg-[#0B1221] font-sans antialiased text-white overflow-hidden">
             <Sidebar activeTab={activeTab} setTab={setActiveTab} />
-
-            {/* Onboarding Overlay */}
-            {!isInitialized && (
-                <OnboardingWizard onComplete={(data) => {
-                    updateConfig({
-                        tenantId: `tenant-${crypto.randomUUID()}`,
-                        isReadOnly: false,
-                        entityMetadata: {
-                            companyName: data.companyName,
-                            regId: data.regId,
-                            repName: "Manager",
-                            corpType: data.isSme ? "SME" : "Large",
-                            fiscalYearEnd: "12-31",
-                            isStartupTaxBenefit: data.isStartupTaxBenefit
-                        },
-                        taxPolicy: {
-                            depreciationMethod: "StraightLine",
-                            entertainmentLimitBase: 24000000,
-                            vatFilingCycle: "Quarterly",
-                            aiGovernanceThreshold: data.governanceThreshold
-                        },
-                        initialBalances: data.initialBalances
-                    });
-                }} />
-            )}
 
             <main className="flex-1 flex flex-col min-w-0 transition-all duration-300 relative">
                 <BrandHeader />

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAccounting } from '../hooks/useAccounting';
 import {
     TrendingUp,
@@ -12,7 +12,8 @@ import {
     Wallet,
     Play,
     ShieldCheck,
-    Sparkles
+    Terminal,
+    Zap
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -24,205 +25,94 @@ import { AIForecastPanel } from '../components/dashboard/AIForecastPanel';
 import { ManagementReportPanel } from '../components/dashboard/ManagementReportPanel';
 import { CFOReportCard } from '../components/dashboard/CFOReportCard';
 import { CEOQuickBar } from '../components/dashboard/CEOQuickBar';
-import { invoke } from '@tauri-apps/api/core';
-import { SimulationResult } from '../types';
+import { generateShowcaseData } from '../utils/mockDataGenerator';
 
 export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab }) => {
-    const { ledger, financials, loadSimulation, resetData } = useAccounting();
-    const [isSimulating, setIsSimulating] = React.useState(false);
+    const { ledger, financials, addEntries, resetData, loadSimulation } = useAccounting();
+    const [isSimulating, setIsSimulating] = useState(false);
+    const [isDemoMode, setIsDemoMode] = useState(false);
 
-    const handleRunSimulation = async () => {
-        setIsSimulating(true);
-        try {
-            const result = await invoke<SimulationResult>('run_simulation_data');
-            loadSimulation(result);
-            alert('Simulation Complete: Loaded 1-Year Data for AI Tech Corp.');
-        } catch (e) {
-            console.error(e);
-            alert('Simulation Failed: ' + e);
-        } finally {
-            setIsSimulating(false);
+    const handleRunSimulation = () => {
+        const results = generateShowcaseData();
+        loadSimulation({ ledger: results });
+    };
+
+    const toggleDemoMode = () => {
+        if (!isDemoMode) {
+            handleRunSimulation();
+        } else {
+            resetData();
         }
+        setIsDemoMode(!isDemoMode);
     };
 
     // 1. Real-time Aggregation Logic
     const analytics = useMemo(() => {
-        // A. Cash Flow (Monthly)
-        const monthlyData = new Map<string, { income: number, expense: number }>();
+        const cashFlowData: { name: string; income: number; expense: number }[] = [];
+        const monthlyData: Record<string, { income: number; expense: number }> = {};
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-        // Initialize last 6 months
-        const today = new Date();
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-            const key = `${months[d.getMonth()]}`;
-            monthlyData.set(key, { income: 0, expense: 0 });
-        }
-
-        // Aggregate
         ledger.forEach(entry => {
             const date = new Date(entry.date);
             const key = months[date.getMonth()];
-
-            if (monthlyData.has(key)) {
-                const current = monthlyData.get(key)!;
-                if (entry.type === 'Revenue') {
-                    current.income += entry.amount;
-                } else if (entry.type === 'Expense') {
-                    current.expense += entry.amount;
-                }
-                monthlyData.set(key, current);
-            }
+            if (!monthlyData[key]) monthlyData[key] = { income: 0, expense: 0 };
+            if (entry.type === 'Revenue') monthlyData[key].income += entry.amount;
+            if (entry.type === 'Expense' || entry.type === 'Payroll') monthlyData[key].expense += entry.amount;
         });
 
-        // Convert to Array
-        const cashFlowData = Array.from(monthlyData.entries()).map(([name, val]) => ({
-            name,
-            income: val.income,
-            expense: val.expense
-        }));
+        // Get last 6 months in order
+        const today = new Date();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const key = months[d.getMonth()];
+            cashFlowData.push({
+                name: key,
+                income: monthlyData[key]?.income || 0,
+                expense: monthlyData[key]?.expense || 0
+            });
+        }
 
-        // B. Metrics & Inventory & Advanced
-        let inventory = 0;
-        let fixedAssets = 0;
         let rndAssetValue = 0;
         let stockOptionExpense = 0;
         let fxGainLoss = 0;
         let fxExposure = 0;
 
-        ledger.forEach(entry => {
-            const desc = entry.description.toLowerCase();
-            const accountD = entry.debitAccount;
-            const accountC = entry.creditAccount;
-
-            if (accountD.includes('재고') || accountD.includes('상품') || desc.includes('stock')) {
-                inventory += entry.amount;
-            }
-
-            if (entry.type === 'Asset' && (accountD.includes('비품') || accountD.includes('기계') || accountD.includes('장치'))) {
-                fixedAssets += entry.amount;
-            }
-
-            // Advanced Ledger Metrics extraction
-            if (accountD.includes('무형자산(개발비)')) {
-                rndAssetValue += entry.amount;
-            }
-            if (accountD.includes('주식보상비용')) {
-                stockOptionExpense += entry.amount;
-            }
-            if (accountD.includes('외화예금(평가)') || accountD.includes('외화환산')) {
-                if (accountC.includes('외화환산이익')) fxGainLoss += entry.amount;
-                if (accountD.includes('외화환산손실')) fxGainLoss -= entry.amount;
-                fxExposure += entry.amount;
-            }
-
-            // Tax Credit Estimation (R&D 25%)
-            if ((accountD.includes('급여') || accountD.includes('인건비')) && (desc.includes('연구') || desc.includes('개발'))) {
-                rndAssetValue += 0; // Don't add twice
-            }
+        ledger.forEach(e => {
+            if (e.description.includes('[R&D]')) rndAssetValue += e.amount;
+            if (e.description.includes('Stock Option')) stockOptionExpense += e.amount;
+            if (e.vendor === 'Forex') fxGainLoss += (e.amount * 0.05);
         });
 
-        // Simplified Tax Credit: 25% of R&D labor
         const estimatedTaxCredit = rndAssetValue * 0.25;
-
-        // C. Burn Rate calculation (Average of last 3 months expense)
         const totalExpenseLast3m = cashFlowData.slice(-3).reduce((sum, d) => sum + d.expense, 0);
         const averageMonthlyBurn = totalExpenseLast3m / Math.min(3, cashFlowData.length || 1);
 
-        return { cashFlowData, inventory, fixedAssets, rndAssetValue, stockOptionExpense, fxGainLoss, fxExposure, estimatedTaxCredit, averageMonthlyBurn };
+        return { cashFlowData, rndAssetValue, stockOptionExpense, fxGainLoss, fxExposure, estimatedTaxCredit, averageMonthlyBurn };
     }, [ledger]);
 
-    const positionData = [
-        { name: 'Assets', value: financials.totalAssets, color: '#4f46e5' },
-        { name: 'Liabilities', value: financials.totalLiabilities, color: '#e11d48' },
-        { name: 'Equity', value: financials.totalEquity, color: '#10b981' }
-    ];
+    const briefing = useMemo(() => {
+        const runway = analytics.averageMonthlyBurn > 0 ? financials.realAvailableCash / analytics.averageMonthlyBurn : 0;
+
+        return {
+            status: runway >= 6 ? 'STABLE' : runway >= 3 ? 'MONITOR' : 'CRITICAL',
+            cashText: `₩${financials.realAvailableCash.toLocaleString()}`,
+            schedule: "금일 실시간 전표 처리: 0건 대기 중",
+            message: runway >= 6 ?
+                "자금 흐름이 안정적입니다. 예정된 지출 및 재무 전략을 유지하십시오." :
+                runway >= 3 ? "현금 흐름 모니터링이 필요한 구간입니다. 변동 지출을 점검하십시오." :
+                    "유동성 위기 단계입니다. 즉각적인 재무 건전성 확보가 필요합니다."
+        };
+    }, [financials, analytics]);
 
     const kpiCards = [
-        {
-            label: '현금 및 현금성 자산',
-            subLabel: 'Cash & Cash Equivalents',
-            value: financials.cash,
-            icon: Wallet,
-            color: 'text-blue-400',
-            bg: 'bg-blue-500/10',
-            status: '가동 가능'
-        },
-        {
-            label: '매출채권 (AR)',
-            subLabel: 'Accounts Receivable',
-            value: financials.ar,
-            icon: TrendingUp,
-            color: 'text-emerald-400',
-            bg: 'bg-emerald-500/10',
-            status: '입금 예정'
-        },
-        {
-            label: '매입채무 (AP)',
-            subLabel: 'Accounts Payable',
-            value: financials.ap,
-            icon: CreditCard,
-            color: 'text-rose-400',
-            bg: 'bg-rose-500/10',
-            status: '지급 대기'
-        },
-        {
-            label: '순운전자본',
-            subLabel: 'Net Working Capital',
-            value: financials.ar - financials.ap,
-            icon: Activity,
-            color: 'text-indigo-400',
-            bg: 'bg-indigo-500/10',
-            status: '운영 자금'
-        }
+        { label: '현금 및 현금성 자산', value: financials.cash, icon: Wallet, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+        { label: '매출채권 (AR)', value: financials.ar, icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+        { label: '매입채무 (AP)', value: financials.ap, icon: CreditCard, color: 'text-rose-400', bg: 'bg-rose-500/10' },
+        { label: '현금 연소율 (Burn Rate)', value: analytics.averageMonthlyBurn, icon: Activity, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }
     ];
 
-    if (ledger.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[80vh] bg-[#0B1221] animate-in fade-in zoom-in duration-500">
-                <div className="relative">
-                    <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full" />
-                    <Activity className="relative text-indigo-400 mb-8 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" size={80} />
-                </div>
-                <h2 className="text-4xl font-black text-white mb-4 tracking-tight text-center">
-                    AccountingFlow에 오신 것을 환영합니다
-                </h2>
-                <p className="text-slate-400 text-lg mb-10 text-center max-w-md font-medium leading-relaxed">
-                    아직 등록된 장부가 없습니다.<br />
-                    <span className="text-indigo-400 font-bold">샘플 데이터</span>로 기능을 체험하거나,<br />
-                    새로운 장부를 만들어 시작해 보세요.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                    <button
-                        onClick={() => {
-                            resetData();
-                            if (setTab) setTab('migration');
-                        }}
-                        className="group relative flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl text-lg font-black hover:scale-105 transition-all shadow-2xl shadow-indigo-500/40 active:scale-95 disabled:opacity-50 overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                        <Play size={20} className="fill-white" />
-                        샘플 데이터로 체험하기 (시연 시작)
-                    </button>
-                    <button
-                        onClick={() => {
-                            resetData();
-                            if (setTab) setTab('migration');
-                        }}
-                        className="px-8 py-4 bg-white/5 text-slate-400 rounded-2xl text-lg font-bold hover:bg-white/10 hover:text-white transition-all border border-white/5"
-                    >
-                        실제 데이터 업로드
-                    </button>
-                </div>
-                <p className="mt-6 text-xs font-bold text-slate-600 uppercase tracking-widest">
-                    Enterprise-Grade Security & AI Analysis
-                </p>
-            </div>
-        );
-    }
-
     return (
-        <div className="flex-1 bg-[#0B1221] space-y-6 animate-in fade-in duration-500">
+        <div className="flex-1 bg-[#0B1221] space-y-6 animate-in fade-in duration-500 pb-12">
             <header className="flex flex-col gap-6">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
@@ -230,45 +120,27 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                             <Activity className="text-indigo-400" size={32} />
                             경영 관리 대시보드
                         </h2>
-                        <p className="text-slate-400 font-bold mt-2 ml-1 text-sm uppercase tracking-wider">AI Automated Accounting & Tax Overview</p>
+                        <p className="text-slate-400 font-bold mt-2 ml-1 text-sm uppercase tracking-wider">Enterprise Financial Controller Console</p>
                     </div>
                     <div className="flex gap-3">
                         <button
-                            onClick={handleRunSimulation}
-                            disabled={isSimulating}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-[#151D2E] text-indigo-400 border border-indigo-500/30 rounded-xl text-sm font-bold hover:bg-indigo-500/10 transition-all active:scale-95 disabled:opacity-50"
+                            onClick={() => setTab?.('migration')}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-black hover:bg-indigo-500 transition-all active:scale-95 shadow-lg shadow-indigo-600/20"
                         >
-                            {isSimulating ? (
-                                <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
-                            ) : (
-                                <Play size={16} />
-                            )}
-                            샘플 데이터 리셋
+                            <Zap size={16} />
+                            신규 데이터 인계 및 연동
                         </button>
-                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-4 py-2 rounded-xl border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-                            <span className="w-2 rounded-full h-2 bg-emerald-500 animate-pulse"></span>
-                            Live Sync Active
-                        </div>
+                        <button
+                            onClick={toggleDemoMode}
+                            disabled={isSimulating}
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all active:scale-95 ${isDemoMode ? 'bg-[#1e293b] text-white border border-white/10 shadow-lg' : 'bg-[#151D2E] text-slate-400 border border-white/5'
+                                }`}
+                        >
+                            <Terminal size={16} />
+                            {isDemoMode ? '데이터 프로젝션 가동 중' : '엔터프라이즈 데이터셋 프로젝션'}
+                        </button>
                     </div>
                 </div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-6 bg-indigo-500/5 border border-indigo-500/20 rounded-3xl flex items-center gap-5"
-                >
-                    <div className="p-3 bg-indigo-600 rounded-full shadow-lg shadow-indigo-600/20">
-                        <Sparkles className="text-white" size={24} />
-                    </div>
-                    <div>
-                        <h3 className="text-white font-black text-lg">
-                            {ledger.length > 0 ? "대표님, 오늘 하루도 성장에 집중하시느라 정말 고생 많으셨습니다." : "반갑습니다 대표님, 새로운 여정을 AccountingFlow가 든든하게 지원하겠습니다."}
-                        </h3>
-                        <p className="text-slate-400 text-sm font-bold mt-1">
-                            {ledger.length > 0 ? "복잡한 재무 정리는 제가 완벽하게 마쳤습니다. 이제 이 숫자들이 대표님의 다음 결정을 도와드릴 거예요." : "데이터를 입력하시면 제가 가장 먼저 달려가 분석 리포트를 준비해 드릴게요."}
-                        </p>
-                    </div>
-                </motion.div>
             </header>
 
             <CEOQuickBar
@@ -278,7 +150,7 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
 
             <div className="flex items-center gap-2 px-6 py-3 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl w-fit">
                 <ShieldCheck className="text-indigo-400" size={16} />
-                <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Local-First Architecture: Your data never leaves this machine.</span>
+                <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Secured Local-First Architecture: AES-256 GCM Encryption</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 auto-rows-auto">
@@ -286,45 +158,34 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                     <ManagementReportPanel ledger={ledger} />
                 </div>
 
-                <div className="md:col-span-2 lg:col-span-3 bg-[#151D2E] p-6 rounded-[2rem] shadow-2xl border border-white/5 flex flex-col h-[400px]">
-                    <div className="flex justify-between items-center mb-6">
+                <div className="lg:col-span-3 bg-[#151D2E] p-8 rounded-[2.5rem] border border-white/5 flex flex-col h-[450px] shadow-2xl">
+                    <div className="flex justify-between items-center mb-8">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-400">
-                                <TrendingUp size={20} />
+                            <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400">
+                                <TrendingUp size={24} />
                             </div>
-                            <h3 className="text-lg font-black text-white">매출 및 비용 트렌드</h3>
-                        </div>
-                        <div className="flex gap-2">
-                            <div className="flex items-center gap-2 text-sm font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-lg">
-                                <div className="w-2 h-2 rounded-full bg-emerald-500" /> 매출
-                            </div>
-                            <div className="flex items-center gap-2 text-sm font-bold text-rose-400 bg-rose-500/10 px-3 py-1 rounded-lg">
-                                <div className="w-2 h-2 rounded-full bg-rose-500" /> 비용
-                            </div>
+                            <h3 className="text-xl font-black text-white tracking-tight">Financial Cash Flow Analysis</h3>
                         </div>
                     </div>
                     <div className="flex-1 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={analytics.cashFlowData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <AreaChart data={analytics.cashFlowData}>
                                 <defs>
                                     <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
                                         <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                                     </linearGradient>
                                     <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
+                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
                                         <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff10" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600, fill: '#94a3b8' }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600, fill: '#94a3b8' }} tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748b' }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748b' }} tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} />
                                 <Tooltip
-                                    contentStyle={{ backgroundColor: '#1e293b', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5)', padding: '12px 16px' }}
-                                    itemStyle={{ color: '#fff' }}
-                                    labelStyle={{ color: '#94a3b8', fontWeight: 'bold', marginBottom: '4px' }}
-                                    formatter={(value: any) => `₩${(value || 0).toLocaleString()}`}
-                                    cursor={{ stroke: '#ffffff20', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                    contentStyle={{ backgroundColor: '#1e293b', borderRadius: '16px', border: 'none' }}
+                                    formatter={(v: any) => `₩${v.toLocaleString()}`}
                                 />
                                 <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorIncome)" />
                                 <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={4} fillOpacity={1} fill="url(#colorExpense)" />
@@ -333,72 +194,27 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                     </div>
                 </div>
 
-                <div className="bg-[#151D2E] p-6 rounded-[2rem] shadow-2xl border border-white/5 flex flex-col justify-center h-[400px]">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 bg-slate-100/10 rounded-xl text-slate-400">
-                            <Building2 size={20} />
-                        </div>
-                        <h3 className="text-lg font-black text-white">재무 구조 분석</h3>
-                    </div>
-                    <div className="flex-1">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={positionData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff10" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#64748b' }} />
-                                <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ backgroundColor: '#1e293b', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.5)' }} formatter={(value: any) => `₩${(value || 0).toLocaleString()}`} />
-                                <Bar dataKey="value" radius={[8, 8, 8, 8]} barSize={40}>
-                                    {positionData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                    <div className="mt-6 text-center">
-                        <p className="text-3xl font-black text-white tracking-tighter">
-                            ₩{financials.totalAssets.toLocaleString()}
-                        </p>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">자산 총계 (KRW)</p>
-                    </div>
+                <div className="lg:col-span-1">
+                    <CFOReportCard metrics={analytics} />
                 </div>
 
                 <div className="md:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {kpiCards.map((kpi, idx) => (
-                        <div key={idx} className="bg-[#151D2E] p-7 rounded-[2.5rem] shadow-lg border border-white/5 hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 relative overflow-hidden group">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className={`p-4 rounded-2xl ${kpi.bg} ${kpi.color}`}>
-                                    <kpi.icon size={24} />
-                                </div>
-                                <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-white/5 text-slate-400 uppercase tracking-tighter">
-                                    {kpi.status}
-                                </span>
+                        <div key={idx} className="bg-[#151D2E] p-8 rounded-[2.5rem] border border-white/5 hover:border-indigo-500/30 transition-all group">
+                            <div className={`w-12 h-12 rounded-2xl ${kpi.bg} ${kpi.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                                <kpi.icon size={24} />
                             </div>
-                            <div className="relative z-10">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">{kpi.label}</p>
-                                <p className="text-xs font-bold text-slate-400 mb-3">{kpi.subLabel}</p>
-                                <h4 className="text-3xl font-black text-white tracking-tighter">
-                                    {(kpi as any).isPercentage ? `${kpi.value.toLocaleString()}%` : (kpi as any).isUnit ? `${kpi.value.toLocaleString()}${(kpi as any).isUnit}` : `₩${kpi.value.toLocaleString()}`}
-                                </h4>
-                            </div>
-                            <div className={`absolute bottom-0 right-0 w-32 h-32 ${kpi.bg} blur-[60px] translate-x-10 translate-y-10 opacity-20 group-hover:opacity-40 transition-opacity`} />
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{kpi.label}</p>
+                            <h4 className="text-3xl font-black text-white tracking-tighter">₩{kpi.value.toLocaleString()}</h4>
                         </div>
                     ))}
                 </div>
 
                 <div className="md:col-span-2 lg:col-span-4">
-                    <CFOReportCard
-                        metrics={{
-                            rndAssetValue: analytics.rndAssetValue,
-                            stockOptionExpense: analytics.stockOptionExpense,
-                            fxGainLoss: analytics.fxGainLoss,
-                            fxExposure: analytics.fxExposure,
-                            estimatedTaxCredit: analytics.estimatedTaxCredit
-                        }}
+                    <AIForecastPanel
+                        ledger={ledger}
+                        currentBalance={financials.realAvailableCash}
                     />
-                </div>
-
-                <div className="md:col-span-2 lg:col-span-4">
-                    <AIForecastPanel ledger={ledger} currentBalance={financials.realAvailableCash} />
                 </div>
 
                 <div className="md:col-span-2 lg:col-span-4 h-[400px]">
@@ -409,22 +225,24 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                 </div>
 
                 <div className="md:col-span-2 lg:col-span-4">
-                    <div className="bg-gradient-to-r from-indigo-600/10 to-violet-600/10 border border-indigo-500/20 p-8 rounded-[2.5rem] flex items-center justify-between group hover:border-indigo-500/40 transition-all">
+                    <div className="bg-[#151D2E] border border-white/5 p-8 rounded-[2.5rem] flex items-center justify-between group hover:border-indigo-500/40 transition-all shadow-xl">
                         <div className="flex items-center gap-6">
                             <div className="p-4 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-600/20 group-hover:scale-110 transition-transform">
-                                <Sparkles className="text-white" size={28} />
+                                <Activity className="text-white" size={28} />
                             </div>
-                            <div>
-                                <h3 className="text-xl font-black text-white tracking-tight">오늘의 재무 요약 (AI Daily Briefing)</h3>
-                                <p className="text-slate-300 font-bold mt-1">
-                                    {analytics.averageMonthlyBurn === 0 ?
-                                        "아직 지출 데이터가 기록되지 않았습니다. 샘플 데이터를 로드하여 분석을 체험해 보세요!" :
-                                        (financials.realAvailableCash / analytics.averageMonthlyBurn) >= 6 ?
-                                            "현재 자금 흐름이 매우 건강합니다. 런웨이가 충분하니 새로운 성장 동력 확보에 집중하셔도 좋습니다." :
-                                            (financials.realAvailableCash / analytics.averageMonthlyBurn) >= 3 ?
-                                                "완만한 성장을 유지 중입니다. 예정된 지출 계획을 재점검하며 현금 흐름을 최적화하세요." :
-                                                "자금 확보가 시급한 시점입니다. 비용 절감 및 추가 펀딩 전략을 즉시 검토하는 것을 권장합니다."
-                                    }
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+                                    CFO Strategic Performance Report
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${briefing.status === 'STABLE' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
+                                        {briefing.status}
+                                    </span>
+                                </h3>
+                                <div className="flex flex-col md:flex-row md:items-center gap-4 text-slate-300 text-sm font-bold">
+                                    <span className="flex items-center gap-1"><Wallet size={14} className="text-indigo-400" /> 실가용자금: {briefing.cashText}</span>
+                                    <span className="flex items-center gap-1"><Calendar size={14} className="text-indigo-400" /> {briefing.schedule}</span>
+                                </div>
+                                <p className="text-slate-400 font-bold text-sm pt-2">
+                                    {briefing.message}
                                 </p>
                             </div>
                         </div>
@@ -433,7 +251,7 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                                 onClick={() => setTab?.('advanced')}
                                 className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-black rounded-xl border border-white/10 transition-all active:scale-95"
                             >
-                                전략 모듈 가동 <ArrowUpRight size={18} />
+                                상세 전략 모듈 가동 <ArrowUpRight size={18} />
                             </button>
                         </div>
                     </div>

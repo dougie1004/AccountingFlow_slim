@@ -9,7 +9,7 @@ export interface AccountingContextType {
     addPartner: (partner: Partner) => void;
     updatePartner: (id: string, updates: Partial<Partner>) => void;
     financials: FinancialSummary;
-    loadSimulation: (result: SimulationResult) => void;
+    loadSimulation: (result: Partial<SimulationResult>) => void;
     approvePartner: (partner: Partner) => Promise<void>;
     approveEntry: (id: string) => void;
     bulkApprove: (ids: string[]) => void;
@@ -167,9 +167,11 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         }));
     };
 
-    const loadSimulation = (result: SimulationResult) => {
-        // Simulation data usually comes as Approved
-        setLedger(result.ledger.map(e => ({ ...e, status: 'Approved' })));
+    const loadSimulation = (result: Partial<SimulationResult>) => {
+        if (result.ledger) setLedger(result.ledger.map(e => ({ ...e, status: 'Approved' })));
+        if (result.assets) setAssets(result.assets);
+        if (result.orders) setScmOrders(result.orders);
+        if (result.companyConfig) setConfig(result.companyConfig);
     };
 
     const approvePartner = async (partner: Partner) => {

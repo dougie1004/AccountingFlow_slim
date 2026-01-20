@@ -155,3 +155,79 @@ export const simulateAIParsing = (entry: Partial<JournalEntry>): JournalEntry =>
         }) : undefined
     };
 };
+
+export const generateShowcaseData = (): JournalEntry[] => {
+    const entries: JournalEntry[] = [];
+    const now = new Date();
+    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+
+    // 1. Initial Capital Injection (Series A)
+    entries.push({
+        id: 'DEMO-001',
+        date: threeMonthsAgo.toISOString().split('T')[0],
+        description: '[Series A] 신규 투자금 납입 (Antigravity VC)',
+        vendor: 'Antigravity VC',
+        debitAccount: '보통예금',
+        creditAccount: '자본금',
+        amount: 2000000000, // 20억
+        vat: 0,
+        type: 'Equity',
+        status: 'Approved'
+    });
+
+    // 2. Heavy R&D Payroll (to showcase capitalization)
+    for (let i = 0; i < 3; i++) {
+        const monthDate = new Date(threeMonthsAgo.getFullYear(), threeMonthsAgo.getMonth() + i, 25);
+        entries.push({
+            id: `DEMO-RD-${i}`,
+            date: monthDate.toISOString().split('T')[0],
+            description: `[R&D] 연구소 인력 급여 및 개발비용 - ${monthDate.getMonth() + 1}월`,
+            vendor: '임직원 급여',
+            debitAccount: '급여',
+            creditAccount: '보통예금',
+            amount: 150000000, // Monthly 1.5억
+            vat: 0,
+            type: 'Payroll',
+            status: 'Approved'
+        });
+    }
+
+    // 3. SaaS Sales Growth
+    for (let i = 0; i < 30; i++) {
+        const date = new Date(threeMonthsAgo.getTime() + Math.random() * (now.getTime() - threeMonthsAgo.getTime()));
+        const amount = 5000000 + Math.random() * 10000000;
+        entries.push({
+            id: `DEMO-SALE-${i}`,
+            date: date.toISOString().split('T')[0],
+            description: 'Enterprise SaaS Solution License - Yearly',
+            vendor: ['Samsung', 'LG', 'SK', 'Hyundai'][i % 4] + ' Group',
+            debitAccount: '보통예금',
+            creditAccount: '상품매출',
+            amount: amount,
+            vat: amount * 0.1,
+            type: 'Revenue',
+            status: 'Approved'
+        });
+    }
+
+    // 4. Clean Operating Expenses
+    const vendors = ['AWS Korea', 'Slack', 'ChatGPT Enterprise', 'FastFive'];
+    for (let i = 0; i < 15; i++) {
+        const date = new Date(threeMonthsAgo.getTime() + Math.random() * (now.getTime() - threeMonthsAgo.getTime()));
+        entries.push({
+            id: `DEMO-EXP-${i}`,
+            date: date.toISOString().split('T')[0],
+            description: vendors[i % vendors.length] + ' Monthly Subscription',
+            vendor: vendors[i % vendors.length],
+            debitAccount: '소모품비',
+            creditAccount: '보통예금',
+            amount: 2000000 + Math.random() * 5000000,
+            vat: 200000,
+            type: 'Expense',
+            status: 'Approved',
+            attachmentUrl: 'https://demo.accountingflow.ai/receipt.jpg'
+        });
+    }
+
+    return entries;
+};

@@ -79,7 +79,7 @@ pub async fn call_journal_ai(
 
     println!("[AI Service] Sending request to Gemini Pro/Flash (Input length: {})", input.len());
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={}", api_key))
+        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={}", api_key))
         .json(&body)
         .send()
         .await
@@ -129,7 +129,7 @@ pub async fn call_journal_ai(
         }
     };
 
-    parsed.audit_trail.push(format!("[{}] Gemini 2.0 Flash 분석 완료", chrono::Local::now().format("%H:%M:%S")));
+    parsed.audit_trail.push(format!("[{}] Gemini 1.5 Pro (Enterprise) 분석 완료", chrono::Local::now().format("%H:%M:%S")));
     println!("[AI Service] Successfully parsed AI response for: {}", parsed.description.as_deref().unwrap_or("Unknown"));
 
     // STEP 3: 사용량 기록
@@ -186,7 +186,7 @@ JSON 응답 형식:
 
     println!("[AI Service] Sending Media (Vision) request to Gemini (Mime: {})", mime_type);
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={}", api_key))
+        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={}", api_key))
         .json(&body)
         .send()
         .await
@@ -226,7 +226,7 @@ JSON 응답 형식:
     let mut parsed: ParsedTransaction = serde_json::from_str(&text)
         .map_err(|e| format!("JSON 변환 실패: {} | 원문: {}", e, text))?;
 
-    parsed.audit_trail.push(format!("[{}] Gemini 2.0 Flash 시각 분석 완료", chrono::Local::now().format("%H:%M:%S")));
+    parsed.audit_trail.push(format!("[{}] Gemini 1.5 Pro (Enterprise) 시각 분석 완료", chrono::Local::now().format("%H:%M:%S")));
 
     // 사용량 기록
     crate::core::quota_manager::QUOTA_MANAGER.record_usage("default", 0.00002);
@@ -285,7 +285,7 @@ pub async fn verify_receipt_compliance(
     });
 
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={}", api_key))
+        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={}", api_key))
         .json(&body)
         .send()
         .await
@@ -364,7 +364,7 @@ pub async fn consult_compliance_ai(
     });
 
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={}", api_key))
+        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={}", api_key))
         .json(&body)
         .send()
         .await

@@ -48,29 +48,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
 
     const menuItems = [
         { id: 'dashboard', label: '경영 관리 대시보드', icon: LayoutDashboard },
-        { id: 'ledger', label: 'AI 자동 분개장', icon: BookOpen },
+        { id: 'ledger', label: '거래 전표 관리', icon: BookOpen },
         { id: 'ledger-view', label: '총계정원장 (G/L)', icon: FileText },
-        { id: 'migration', label: 'ERP 데이터 이관', icon: Database },
+        { id: 'migration', label: '데이터 연동 및 이관', icon: Database },
         { id: 'scm', label: '공급망(SCM) 관리', icon: ShoppingCart },
         { id: 'inventory', label: '재고 자산 관리', icon: Package },
         { id: 'assets', label: '고정자산 관리', icon: Landmark },
         { id: 'partners', label: '거래처 네트워크', icon: Users },
         { id: 'approval-desk', label: '전표 승인 및 거버넌스', icon: ShieldCheck, badge: true },
         { id: 'tax-adjustments', label: '세무 조정 엔진 (Tax)', icon: Calculator },
-        { id: 'advanced-ledger', label: '[Advanced] 특수 회계', icon: Zap },
-        { id: 'reports', label: 'AI 경영 분석 리포트', icon: TrendingUp },
+        { id: 'advanced-ledger', label: '특수 회계 관리', icon: Zap },
+        { id: 'reports', label: '경영 분석 리포트', icon: TrendingUp },
         { id: 'settings', label: '시스템 설정', icon: Settings },
     ];
 
     const SidebarContent = () => {
-        const { ledger } = useContext(AccountingContext)!;
+        const { ledger, resetData } = useContext(AccountingContext)!;
         const unconfirmedCount = ledger.filter(e => e.status === 'Unconfirmed').length;
 
         return (
             <div className="flex flex-col h-full bg-[#070C18] text-slate-400 border-r border-[#151D2E] shadow-2xl overflow-hidden">
                 {/* Header */}
                 <div className="h-[73px] flex items-center justify-between px-6 border-b border-white/5 shrink-0">
-                    <span className="text-white font-bold text-lg lg:text-xs lg:uppercase lg:tracking-[0.2em] lg:text-slate-500">Navigation Menu</span>
+                    <span className="text-white font-bold text-lg lg:text-xs lg:uppercase lg:tracking-[0.2em] lg:text-slate-500">Professional Controller</span>
                     <button onClick={() => setIsOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
                         <X size={24} />
                     </button>
@@ -90,7 +90,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                                 }`}
                         >
                             <item.icon size={20} className={`transition-colors shrink-0 ${activeTab === item.id ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
-                            <span className="font-semibold tracking-wide truncate">{item.label}</span>
+                            <span className="font-semibold tracking-wide truncate">
+                                {item.id === 'migration' ? '데이터 연동 및 이관' : item.label}
+                            </span>
 
                             {item.id === 'approval-desk' && unconfirmedCount > 0 && (
                                 <span className="ml-auto bg-rose-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md min-w-[20px] text-center shadow-lg shadow-rose-600/20">
@@ -108,19 +110,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                 <div className="p-4 border-t border-white/5 bg-slate-950/50 backdrop-blur-sm shrink-0 space-y-2">
                     <button
                         onClick={() => {
-                            if (window.confirm('시연을 위해 모든 데이터를 초기화하시겠습니까?')) {
-                                (window as any).resetData?.();
+                            if (window.confirm('현재 장부의 모든 데이터를 초기화하시겠습니까? (이 작업은 되돌릴 수 없습니다)')) {
+                                resetData();
                                 setTab('dashboard');
                             }
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-500/10 hover:text-orange-400 transition-all duration-300 group"
                     >
                         <RotateCcw size={20} className="text-slate-500 group-hover:text-orange-400 shrink-0" />
-                        <span className="font-semibold tracking-wide truncate">시연 환경 초기화</span>
+                        <span className="font-semibold tracking-wide truncate">장부 데이터 초기화</span>
                     </button>
                     <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/10 hover:text-red-400 transition-all duration-300 group">
                         <LogOut size={20} className="text-slate-500 group-hover:text-red-400 shrink-0" />
-                        <span className="font-semibold tracking-wide truncate">로그아웃</span>
+                        <span className="font-semibold tracking-wide truncate">시스템 로그아웃</span>
                     </button>
                 </div>
             </div>

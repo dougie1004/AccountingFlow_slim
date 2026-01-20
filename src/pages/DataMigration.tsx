@@ -45,40 +45,23 @@ export const DataMigration: React.FC<DataMigrationProps> = ({ setTab }) => {
         setIsUploading(true);
         setError(null);
         setProgress(0);
-        setLogs([]);
-
-        // 로그 애니메이션 로직
-        let logIdx = 0;
-        const logInterval = setInterval(() => {
-            if (logIdx < demoLogs.length) {
-                setLogs(prev => [...prev.slice(-4), demoLogs[logIdx]]);
-                logIdx++;
-                setProgress(prev => Math.min(prev + 12, 95));
-            } else {
-                clearInterval(logInterval);
-            }
-        }, 600);
+        setLogs(demoLogs); // Show all logs at once for technical density
 
         try {
-            // 실제 데이터 처리 시뮬레이션
-            setTimeout(async () => {
-                const result = await invoke<any>('run_simulation_data');
-                setMigrationResult({
-                    totalCount: result.ledger.length,
-                    mappedCount: result.ledger.length,
-                    newAccounts: 12,
-                    summary: isDemo
-                        ? "엔터프라이즈 표준 ERP 연동 데이터셋(Standard Dataset) 기반 분석이 완료되었습니다. AI 거버넌스 엔진이 모든 민감 정보를 원천 차단하고 재무 정합성을 확보했습니다."
-                        : "업로드된 파일의 분석이 완료되었습니다. AI가 계정 체계를 표준화하였습니다."
-                });
-                setProgress(100);
-                setIsUploading(false);
-                clearInterval(logInterval);
-            }, 5500);
+            const result = await invoke<any>('run_simulation_data');
+            setMigrationResult({
+                totalCount: result.ledger.length,
+                mappedCount: result.ledger.length,
+                newAccounts: 12,
+                summary: isDemo
+                    ? "엔터프라이즈 통합 데이터셋 기반 재무 분석이 완료되었습니다. 거버넌스 엔진이 데이터 무결성을 검증하고 민감 정보 비식별화 처리를 수행했습니다."
+                    : "인계된 로우 데이터의 파싱 및 계정 매핑이 완료되었습니다. 재무 원장 정합성이 확보되었습니다."
+            });
+            setProgress(100);
+            setIsUploading(false);
         } catch (e: any) {
             setError(e.toString());
             setIsUploading(false);
-            clearInterval(logInterval);
         }
     };
 

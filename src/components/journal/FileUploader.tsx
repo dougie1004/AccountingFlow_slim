@@ -185,30 +185,10 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
 
                 {!isUploading && (
                     <div className="mt-4 flex gap-2">
-                        <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5">STRUCTURED DATA</span>
-                        <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5">AI OCR VISION</span>
+                        <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 uppercase tracking-widest">G/L Integration</span>
+                        <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 uppercase tracking-widest">Image/PDF Parsing</span>
                     </div>
                 )}
-
-                <div onClick={(e) => e.stopPropagation()} className="mt-4">
-                    <button
-                        onClick={async () => {
-                            if ((window as any).__TAURI_INTERNALS__) {
-                                try {
-                                    const results = await invoke<ParsedTransaction[]>('load_demo_scenario');
-                                    onTransactionsLoaded(results);
-                                } catch (e) {
-                                    setError('데모 시나리오 로드 실패: ' + String(e));
-                                }
-                            } else {
-                                alert('데모 로드는 데스크탑 앱에서만 가능합니다.');
-                            }
-                        }}
-                        className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 underline underline-offset-4 opacity-50 hover:opacity-100 transition-opacity"
-                    >
-                        [시연용] 골든 시나리오 데이터 로드 (Golden Scenario)
-                    </button>
-                </div>
             </div>
         </div>
     );

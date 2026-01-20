@@ -35,13 +35,13 @@ export const CFOReportCard: React.FC<CFOReportCardProps> = ({ metrics }) => {
                             <ShieldCheck className="text-white" size={24} />
                         </div>
                         <div>
-                            <h3 className="text-xl font-black text-white tracking-tight">CFO 전략적 리포트 카드</h3>
-                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-0.5">Strategic Finance Overview</p>
+                            <h3 className="text-xl font-black text-white tracking-tight">CFO Strategic Intelligence</h3>
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-0.5">Automated Financial Controller</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        REAL-TIME OPTIMIZED
+                    <div className="flex items-center gap-2 text-[10px] font-black text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20">
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                        SYSTEM_LEVEL_VERIFIED
                     </div>
                 </div>
 
@@ -53,16 +53,16 @@ export const CFOReportCard: React.FC<CFOReportCardProps> = ({ metrics }) => {
                                 <Cpu size={20} />
                             </div>
                             <InfoTooltip
-                                title="R&D CapEx"
-                                content="비용으로 사라질 돈을 회사의 가치(자산)로 바꾼 금액입니다."
-                                contextualTip={`인건비 중 개발비로 분류되어 주당순자산(BPS)이 약 ${((metrics.rndAssetValue / 1000000) / 10).toFixed(2)}% 개선되었습니다.`}
+                                title="R&D 자산화 (CapEx)"
+                                content="연구개발비 중 자산화 요건을 충족하여 무형자산으로 계상된 금액입니다."
+                                contextualTip={`개발 부문 활동 비중을 기반으로 산출되었으며, BPS(주당순자산)가 약 ${((metrics.rndAssetValue / 1000000) / 10).toFixed(2)}% 개선되는 효과가 있습니다.`}
                             />
                         </div>
                         <p className="text-xs font-bold text-slate-400 mb-1">R&D Capitalization</p>
                         <div className="flex items-end gap-2 text-white">
                             <span className="text-2xl font-black">₩{(metrics.rndAssetValue / 10000).toLocaleString()}만</span>
                             <div className="flex items-center text-emerald-400 text-[10px] mb-1 font-black">
-                                <ArrowUpRight size={12} /> BPS 상승
+                                <ArrowUpRight size={12} /> BPS Accrued
                             </div>
                         </div>
                     </div>
@@ -74,16 +74,16 @@ export const CFOReportCard: React.FC<CFOReportCardProps> = ({ metrics }) => {
                                 <Coins size={20} />
                             </div>
                             <InfoTooltip
-                                title="Stock Compensation"
-                                content="임직원에게 부여한 스톡옵션이 재무제표상 비용으로 인식된 금액입니다."
-                                contextualTip="실제 현금이 나가는 것이 아닌 장부상 비용이므로 VC 실사 시 가산될 금액입니다."
+                                title="주식보상비용 (SBC)"
+                                content="주식선택권(Stock Option) 부여에 따라 발생한 보상비용을 발생주의 원칙에 의거하여 계상한 금액입니다."
+                                contextualTip="비현금성 비용(Non-cash items)으로, 기업 현금 흐름에는 실질적 영향이 없음을 유의 바랍니다."
                             />
                         </div>
                         <p className="text-xs font-bold text-slate-400 mb-1">Stock Compensation</p>
                         <div className="flex items-end gap-2 text-white">
                             <span className="text-2xl font-black">₩{(metrics.stockOptionExpense / 10000).toLocaleString()}만</span>
                             <div className="flex items-center text-slate-500 text-[10px] mb-1 font-black">
-                                <AlertCircle size={12} className="mr-1" /> 비현금성
+                                <AlertCircle size={12} className="mr-1" /> Non-cash
                             </div>
                         </div>
                     </div>
@@ -95,9 +95,9 @@ export const CFOReportCard: React.FC<CFOReportCardProps> = ({ metrics }) => {
                                 <Globe size={20} />
                             </div>
                             <InfoTooltip
-                                title="FX Exposure"
-                                content="환율 변동에 따라 위험해질 수 있는 외화 자산 규모입니다."
-                                contextualTip={metrics.fxGainLoss >= 0 ? "현재 환율 상승으로 이익 구간입니다." : "환율 하락에 따른 평가 손실 리스크가 있습니다."}
+                                title="외환 익스포저 (FX)"
+                                content="외화 표기 자산 및 부채의 환율 변동에 따른 기말 환산 손익입니다."
+                                contextualTip={metrics.fxGainLoss >= 0 ? "현재 환율 상승에 따른 평가 이익 구간입니다." : "환율 하락에 따른 평가 손실 리스크가 관측됩니다."}
                             />
                         </div>
                         <p className="text-xs font-bold text-slate-400 mb-1">FX Exposure</p>
@@ -118,17 +118,17 @@ export const CFOReportCard: React.FC<CFOReportCardProps> = ({ metrics }) => {
                         <TrendingUp className="text-indigo-400" size={18} />
                         <div className="flex items-center gap-2">
                             <p className="text-sm text-slate-300 font-bold">
-                                <span className="text-indigo-400">AI CFO Insight:</span> 현재 세액공제 최적화로 약 <span className="text-emerald-400">₩{(metrics.estimatedTaxCredit / 10000).toFixed(0)}만원</span>의 가처분 이익이 추가 확보되었습니다.
+                                <span className="text-indigo-400">Tactical Insight:</span> 기 분석된 세액공제 최적화 엔진을 통해 <span className="text-emerald-400">₩{(metrics.estimatedTaxCredit / 10000).toFixed(0)}만원</span> 규모의 조세 절감액이 추산되었습니다.
                             </p>
                             <InfoTooltip
-                                title="Tax Optimization"
-                                content="정부의 조세특례제한법에 따른 세액공제 혜택 추정치입니다."
-                                contextualTip="연구인력개발비 및 청년고용 공제가 주로 반영되었습니다."
+                                title="조세 최적화 시뮬레이션"
+                                content="조세특례제한법에 근거한 연구인력개발비 및 고용증대 세액공제 추정치입니다."
+                                contextualTip="해당 데이터는 가결산용 추정치이므로, 기말 정산 시 확정 세무 조정이 수반되어야 합니다."
                             />
                         </div>
                     </div>
                     <button className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:text-white transition-colors">
-                        상세 리포트 보기
+                        Report Details
                     </button>
                 </div>
             </div>

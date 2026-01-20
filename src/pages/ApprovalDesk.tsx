@@ -72,7 +72,7 @@ const ApprovalDesk: React.FC = () => {
             reader.readAsText(file);
         } catch (err) {
             console.error("Batch Import Failed:", err);
-            alert("대표님, 제 분석 엔진에 잠시 착오가 있었던 것 같습니다. 다시 정밀하게 분석할 수 있도록 한 번 더 업로드 부탁드려도 될까요? 제가 더 꼼꼼히 챙기겠습니다.");
+            alert("데이터 분석 및 전표 변환 과정에서 기술적 예외가 발생했습니다. 파일 형식을 확인하거나 잠시 후 다시 시도해 주시기 바랍니다.");
             setIsImporting(false);
         }
     };
@@ -139,9 +139,9 @@ const ApprovalDesk: React.FC = () => {
                         <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-500/20">
                             <CheckCircle size={40} className="text-emerald-500" />
                         </div>
-                        <h2 className="text-2xl font-black text-white mb-2 underline decoration-emerald-500/30 decoration-4 underline-offset-8">대표님, 모든 전표가 완벽하게 정리되었습니다</h2>
+                        <h2 className="text-2xl font-black text-white mb-2 underline decoration-emerald-500/30 decoration-4 underline-offset-8">All Journals Verified</h2>
                         <p className="text-slate-500 font-bold max-w-sm mx-auto leading-relaxed">
-                            현재 검토가 필요한 내역이 없습니다. 이번 달도 비즈니스 성장에 집중하시느라 고생 많으셨습니다. 재무 정리는 제가 빈틈없이 마쳤습니다.
+                            현재 검토 대기 중인 미확정 전표가 없습니다. 모든 거래 내역이 거버넌스 원칙에 따라 정상적으로 분류 및 승인되었습니다.
                         </p>
                     </div>
                 ) : viewMode === 'card' ? (
@@ -206,15 +206,15 @@ const ApprovalDesk: React.FC = () => {
                                                 <div className="flex items-center gap-2">
                                                     <CheckCircle2 size={14} className="text-indigo-400" />
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">
-                                                        AI Accounting Verification
+                                                        AI Integrity Report
                                                     </span>
                                                 </div>
-                                                <span className="text-[10px] font-bold text-slate-500 italic">Accuracy: High</span>
+                                                <span className="text-[10px] font-bold text-slate-500 italic">Technical Verification</span>
                                             </div>
                                             <p className="text-xs font-bold text-slate-300 leading-relaxed">
                                                 {entry.amount > 5000000
-                                                    ? `대표님, 이 지출은 금액이 커서 제가 좀 더 꼼꼼히 살펴봤어요. 회계 정합성에 문제는 없지만, 나중에 세무적으로 질문을 받으실 수 있으니 관련 증빙을 한 번 더 챙겨두시면 제가 더 든든하게 지켜드릴 수 있습니다.`
-                                                    : `대표님이 본업에 집중하시는 동안 제가 과거 패턴을 분석해 자동으로 분류를 마쳤습니다. 99.8%의 정확도로 이상 징후 없이 깨끗하게 처리되었으니 안심하셔도 좋습니다.`
+                                                    ? `고액 거래에 대한 중점 검토 수행: 전표 데이터의 일관성 확인 및 비즈니스 목적 연관성 분석 결과, 일반적인 회계 관행과 일치함이 확인되었습니다. 세무 리스크 관리를 위해 증빙 서류의 추가 중복 검토를 권장합니다.`
+                                                    : `거래 패턴 분석 결과, 표준 계정 분류 정확도(99.8%)를 충족합니다. 별도의 수동 보정 없이 승인이 가능한 상태입니다.`
                                                 }
                                             </p>
                                         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Target, ShieldAlert, CheckCircle, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { FileText, Download, Target, ShieldAlert, CheckCircle, Loader2, Terminal, AlertCircle } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { JournalEntry } from '../../types';
 import { cleanMarkdown } from '../../utils/textUtils';
@@ -69,7 +69,7 @@ export const ManagementReportPanel: React.FC<ManagementReportPanelProps> = ({ le
         return (
             <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 flex flex-col items-center justify-center min-h-[300px]">
                 <Loader2 size={40} className="text-indigo-400 animate-spin mb-4" />
-                <p className="text-sm font-black text-slate-400">AI 경영 분석관이 전표를 정밀 검토 중입니다...</p>
+                <p className="text-sm font-black text-slate-400">데이터 엔진 기반 재무 프로젝션 생성 중...</p>
             </div>
         );
     }
@@ -83,11 +83,11 @@ export const ManagementReportPanel: React.FC<ManagementReportPanelProps> = ({ le
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex items-center gap-3">
                         <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-400">
-                            <Sparkles size={24} />
+                            <Terminal size={24} />
                         </div>
                         <div>
-                            <h3 className="text-xl font-black text-white tracking-tight">AIGC Financial Intelligence Insight</h3>
-                            <p className="text-sm font-bold text-slate-500">Real-time Analysis based on {report.reportDate}</p>
+                            <h3 className="text-xl font-black text-white tracking-tight">CFO Strategic Performance Insights</h3>
+                            <p className="text-sm font-bold text-slate-500">Automated Financial Controller Analysis: {report.reportDate}</p>
                         </div>
                     </div>
                     <button

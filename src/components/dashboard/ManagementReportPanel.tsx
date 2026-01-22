@@ -47,11 +47,16 @@ export const ManagementReportPanel: React.FC<ManagementReportPanelProps> = ({ le
         if (ledger.length === 0) return;
         setIsGenerating(true);
         try {
-            // 이번 달 날짜 범위 설정 (임시)
+            // Use current month/year dynamically to match mock data (which uses current date)
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const lastDay = new Date(year, today.getMonth() + 1, 0).getDate();
+
             const result = await invoke<ManagementReport>('generate_management_report', {
                 ledger,
-                periodStart: '2025-01-01',
-                periodEnd: '2025-01-31'
+                periodStart: `${year}-${month}-01`,
+                periodEnd: `${year}-${month}-${lastDay}`
             });
             setReport(result);
         } catch (error) {

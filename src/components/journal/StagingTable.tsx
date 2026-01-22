@@ -32,6 +32,61 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
     const [isValidating, setIsValidating] = useState(false);
     const [filterMode, setFilterMode] = useState<'all' | 'critical'>('all');
 
+    // --- Validation Logic ---
+    const validateCompositeEntries = () => {
+        const groups: Record<string, ParsedTransaction[]> = {};
+        const singles: ParsedTransaction[] = [];
+
+        // 1. Grouping
+        stagedData.forEach(row => {
+            if (row.transactionId) {
+                if (!groups[row.transactionId]) groups[row.transactionId] = [];
+                groups[row.transactionId].push(row);
+            } else {
+                singles.push(row);
+            }
+        });
+
+        const imbalancedGroups: { id: string; debit: number; credit: number; diff: number }[] = [];
+
+        // 2. Validate Groups
+        Object.entries(groups).forEach(([id, rows]) => {
+            let totalDebit = 0;
+            let totalCredit = 0;
+
+            rows.forEach(r => {
+                // Should strictly use 'position' if imported from CSV that supports it
+                // Or fallback to entryType if simple
+                if (r.position === 'Debit') totalDebit += r.amount;
+                else if (r.position === 'Credit') totalCredit += r.amount;
+                else {
+                    // Fallback heuristics if 'position' is missing in early MVP data
+                    // Expense/Asset usually Debit, Revenue/Liab/Equity usually Credit
+                    // BUT in a composite journal, position MUST be explicit.
+                    // For now, if position is missing, we assume it's a single-line simple entry that AI hasn't fully parsed for composite yet.
+                    if (['Expense', 'Asset'].includes(r.entryType || '')) totalDebit += r.amount;
+                    else totalCredit += r.amount;
+                }
+            });
+
+            if (Math.abs(totalDebit - totalCredit) > 10) { // Tolerance for minor floating point
+                imbalancedGroups.push({
+                    id,
+                    debit: totalDebit,
+                    credit: totalCredit,
+                    diff: Math.abs(totalDebit - totalCredit)
+                });
+            }
+        });
+
+        setValidationResult({ imbalancedGroups });
+    };
+
+    React.useEffect(() => {
+        validateCompositeEntries();
+    }, [stagedData]);
+
+
     // Derived data for display: Sorted and Filtered
     const getProcessedData = () => {
         let items = stagedData.map((item, originalIndex) => ({ ...item, originalIndex }));
@@ -119,7 +174,20 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                     </div>
                     <div>
                         <h3 className="text-xl font-black text-white tracking-tight">일괄 처리 대기 목록 ({stagedData.length}건)</h3>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">Batch Data Processing Workspace</p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">Batch Data Processing Workspace</p>
+                            {/* Composite Validation Badge */}
+                            {validationResult?.imbalancedGroups?.length > 0 ? (
+                                <span className="px-2 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded text-[10px] font-black uppercase animate-pulse">
+                                    ⚠️ {validationResult.imbalancedGroups.length} Composite Errors
+                                </span>
+                            ) : (
+                                <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-[10px] font-black uppercase">
+                                    ✅ Composite Balanced
+                                </span>
+                            )}
+                        </div>
+
                         {processProgress && (
                             <div className="mt-2 flex items-center gap-2">
                                 <div className="w-32 h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -608,6 +676,13 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                 }
 
                                 if (isMassProcessing || isValidating) return;
+
+                                // --- BLOCK CONFIRM if Imbalanced ---
+                                if (validationResult?.imbalancedGroups?.length > 0) {
+                                    alert(`⚠️ [복합 전표 검증 실패]\n\n${validationResult.imbalancedGroups.length}개의 전표 그룹에서 차변/대변 금액이 일치하지 않습니다.\n상단 배지를 확인하고 데이터를 수정해주세요.`);
+                                    return;
+                                }
+
                                 setIsValidating(true);
 
                                 try {

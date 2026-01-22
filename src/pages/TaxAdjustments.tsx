@@ -284,7 +284,7 @@ export const TaxAdjustments: React.FC = () => {
                         <div className="relative z-10 space-y-8">
                             <div>
                                 <p className="text-slate-400 font-bold text-sm uppercase tracking-wider mb-1">회계상 당기순이익 (GAAP)</p>
-                                <p className="text-3xl font-black">₩{financials.netIncome.toLocaleString()}</p>
+                                <p className="text-3xl font-black">₩{financials.netIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                             </div>
 
                             <div className="flex items-center gap-4 text-rose-300">
@@ -297,7 +297,7 @@ export const TaxAdjustments: React.FC = () => {
                                         {adjustments.length > 0 ? (
                                             adjustments.reduce((acc, c) => acc + c.difference, 0) > 0 ? '+' : ''
                                         ) : ''}
-                                        ₩{adjustments.reduce((acc, c) => acc + c.difference, 0).toLocaleString()}
+                                        ₩{adjustments.reduce((acc, c) => acc + c.difference, 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                     </p>
                                 </div>
                             </div>
@@ -305,7 +305,7 @@ export const TaxAdjustments: React.FC = () => {
                             <div className="pt-8 border-t border-white/10 space-y-4">
                                 <div>
                                     <p className="text-indigo-400 font-bold text-sm uppercase tracking-wider mb-1">최종 과세 대상 소득</p>
-                                    <p className="text-4xl font-black text-white">₩{(financials.netIncome + adjustments.reduce((acc, c) => acc + c.difference, 0)).toLocaleString()}</p>
+                                    <p className="text-4xl font-black text-white">₩{(financials.netIncome + adjustments.reduce((acc, c) => acc + c.difference, 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                                 </div>
 
                                 {estimation && (
@@ -314,9 +314,9 @@ export const TaxAdjustments: React.FC = () => {
                                             <p className="text-emerald-400 font-bold text-xs uppercase tracking-wider">예상 법인세액 (Estim.)</p>
                                             <span className="text-[10px] font-black bg-emerald-500 text-white px-2 py-0.5 rounded-full">EFF {estimation.effectiveRate.toFixed(1)}%</span>
                                         </div>
-                                        <p className="text-2xl font-black text-white leading-tight">₩{estimation.finalTax.toLocaleString()}</p>
+                                        <p className="text-2xl font-black text-white leading-tight">₩{estimation.finalTax.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                                         <p className="text-[9px] text-slate-500 mt-2 font-medium leading-relaxed">
-                                            * 산출세액: ₩{estimation.baseTax.toLocaleString()} <br />
+                                            * 산출세액: ₩{estimation.baseTax.toLocaleString(undefined, { maximumFractionDigits: 0 })} <br />
                                             * 중소기업 세액감면(10%) 적용됨
                                         </p>
                                     </div>

@@ -7,7 +7,7 @@ import { SetupWizard } from '../components/onboarding/SetupWizard';
 import { EntityMetadata, TaxPolicy } from '../types';
 
 const Settings: React.FC = () => {
-    const { addEntry, addAsset, ledger } = useAccounting();
+    const { addEntry, addAsset, ledger, addScmOrder, updateInventory } = useAccounting();
     const [closingDate, setClosingDate] = useState('');
     const [isReadOnly, setIsReadOnly] = useState(false);
     const [showWizard, setShowWizard] = useState(false);
@@ -33,9 +33,10 @@ const Settings: React.FC = () => {
                     ocrData: item.ocrData
                 });
 
-                // 2. If Asset, add to Asset Registry
-                if (item.type === 'Asset') {
-                    const assetName = item.description?.replace('고정자산 취득 - ', '') || 'New Asset';
+                // 2. If Asset, add to Asset Registry (Refined Logic)
+                const fixedAssetAccounts = ['기계장치', '비품', '차량운반구', '건물', '토지', '소프트웨어', '공구와기구'];
+                if (item.type === 'Asset' && fixedAssetAccounts.includes(item.debitAccount || '')) {
+                    const assetName = item.description?.replace('설비 취득 - ', '').replace('고정자산 취득 - ', '') || 'New Asset';
                     addAsset({
                         id: `ASSET-${Math.floor(Math.random() * 10000)}`,
                         name: assetName,
@@ -47,6 +48,64 @@ const Settings: React.FC = () => {
                         accumulatedDepreciation: 0,
                         currentValue: item.amount || 0,
                         quantity: 1
+                    });
+                }
+
+                // 3. If SCM Purchase (Materials), add to SCM Orders & Inventory
+                if (item.description?.includes('원자재') || item.debitAccount === '원재료' || item.debitAccount === '상품') {
+                    // Create Purchase Order
+                    const ocrObj = item.ocrData ? JSON.parse(item.ocrData) : {};
+                    const orderId = `PO-${Math.floor(Math.random() * 10000)}`;
+
+                    // Add SCM Order
+                    addScmOrder({
+                        id: orderId,
+                        date: item.date || new Date().toISOString(),
+                        partnerId: item.vendor || 'Unknown Vendor',
+                        typeField: 'PURCHASE',
+                        status: 'CONFIRMED',
+                        totalAmount: item.amount || 0,
+                        vat: item.vat || 0,
+                        items: [{
+                            sku: ocrObj.item || 'RAW-MAT-001',
+                            quantity: ocrObj.quantity || 100,
+                            unitPrice: ocrObj.unitPrice || (item.amount || 0) / 100,
+                            amount: item.amount || 0
+                        }]
+                    });
+
+                    // Add to Inventory Batch
+                    updateInventory(ocrObj.item || 'RAW-MAT-001', {
+                        id: ocrObj.item || 'RAW-MAT-001',
+                        name: ocrObj.item || 'Raw Material',
+                        sku: ocrObj.item || 'RAW-MAT-001',
+                        category: 'Raw Materials',
+                        valuationMethod: 'FIFO',
+                        batches: [{
+                            id: `BATCH-${Math.floor(Math.random() * 1000)}`,
+                            acquisitionDate: item.date || new Date().toISOString(),
+                            quantity: ocrObj.quantity || 100,
+                            unitCost: ocrObj.unitPrice || (item.amount || 0) / 100
+                        }]
+                    });
+                }
+
+                // 4. If SCM Sales, add to SCM Orders (Sales Order)
+                if (item.type === 'Revenue' && (item.creditAccount === '매출' || item.creditAccount === '상품매출')) {
+                    addScmOrder({
+                        id: `SO-${Math.floor(Math.random() * 10000)}`,
+                        date: item.date || new Date().toISOString(),
+                        partnerId: item.vendor || 'Customer',
+                        typeField: 'SALES',
+                        status: 'INVOICED',
+                        totalAmount: item.amount || 0,
+                        vat: item.vat || 0,
+                        items: [{
+                            sku: 'CLOUD-SERVICE-001',
+                            quantity: 1,
+                            unitPrice: item.amount || 0,
+                            amount: item.amount || 0
+                        }]
                     });
                 }
             } else {

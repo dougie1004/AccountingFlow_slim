@@ -101,7 +101,25 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     const updateInventory = (id: string, updates: Partial<InventoryItem>) => {
-        setInventory(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+        setInventory(prev => {
+            const index = prev.findIndex(item => item.id === id);
+            if (index >= 0) {
+                // Update existing
+                const newInventory = [...prev];
+                newInventory[index] = { ...newInventory[index], ...updates };
+                // Special handling to merge batches if provided, instead of overwriting? 
+                // For now, let's assume overwriting or smart merging isn't strictly requested, 
+                // but for safety with multiple generations, let's append batches if both exist.
+                if (updates.batches && prev[index].batches) {
+                    newInventory[index].batches = [...prev[index].batches, ...updates.batches];
+                }
+                return newInventory;
+            } else {
+                // Insert new (Upsert)
+                // Ensure the updates constitute a valid item (Settings.tsx provides enough data)
+                return [...prev, updates as InventoryItem];
+            }
+        });
     };
 
     const addScmOrder = (order: Order) => {

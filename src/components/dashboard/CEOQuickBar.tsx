@@ -6,18 +6,21 @@ import { InfoTooltip } from '../ui/InfoTooltip';
 interface CEOQuickBarProps {
     financials: FinancialSummary;
     avgMonthlyBurn: number;
+    isProfitable?: boolean;
 }
 
-export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthlyBurn }) => {
+export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthlyBurn, isProfitable = false }) => {
     const runway = useMemo(() => {
+        if (isProfitable) return 999;
         if (financials.realAvailableCash === 0) return 0;
         if (avgMonthlyBurn <= 0) return 999; // Infinite runway if logic valid
         return financials.realAvailableCash / avgMonthlyBurn;
-    }, [financials.realAvailableCash, avgMonthlyBurn]);
+    }, [financials.realAvailableCash, avgMonthlyBurn, isProfitable]);
 
     const taxReserve = financials.vatNet > 0 ? financials.vatNet : 0;
 
     const runwayEndDate = useMemo(() => {
+        if (runway >= 999) return "지속 가능 (Surplus)";
         const date = new Date();
         date.setMonth(date.getMonth() + Math.floor(runway));
         return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
@@ -25,6 +28,7 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
 
     // 🛡️ Strategic Zone Coloring
     const statusColor = useMemo(() => {
+        if (runway >= 999) return { text: 'text-indigo-400', bg: 'bg-indigo-500/20', gradient: 'from-[#1e293b] to-[#0f172a]', label: 'GROWTH', message: '흑자 경영 지속 중. 잉여 현금 재투자 전략 수립 권장.' };
         if (runway >= 6) return { text: 'text-emerald-400', bg: 'bg-emerald-500/20', gradient: 'from-[#1e293b] to-[#0f172a]', label: 'STABLE', message: '현금 흐름 정상 범위. 자본 활용 효율성 극대화 가능.' };
         if (runway >= 3) return { text: 'text-amber-400', bg: 'bg-amber-500/20', gradient: 'from-[#1e293b] to-[#0f172a]', label: 'MONITOR', message: '가변 비용 지출 정밀 모니터링 및 유동성 추적 필요.' };
         return { text: 'text-rose-400', bg: 'bg-rose-500/20', gradient: 'from-rose-900/40 to-[#0f172a]', label: 'RISK', message: '유동성 결핍 리스크 감지. 자본 충원 전략 수립 시급.' };
@@ -49,18 +53,22 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
                             <InfoTooltip
                                 title="Runway Analysis"
                                 content="현재의 순현금 유출 속도(Burn Rate)를 기반으로 산출된 가용 자산의 소진 예상 기간입니다."
-                                contextualTip={`현재 지출 추세 기준, ${runwayEndDate} 전후로 자산 소진이 예상됩니다.`}
+                                contextualTip={runway >= 999 ? "현재 흑자 상태로, 현금 소진 우려가 없습니다." : `현재 지출 추세 기준, ${runwayEndDate} 전후로 자산 소진이 예상됩니다.`}
                             />
                         </div>
                         <h4 className="text-white/60 font-bold text-sm tracking-tight mb-4">Burnout Projection (Runway)</h4>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-6xl font-black text-white tracking-tighter">{(runway * 30.4).toFixed(0)}</span>
-                            <span className="text-2xl font-bold text-white/40">DYS</span>
+                            <span className="text-6xl font-black text-white tracking-tighter">
+                                {runway >= 999 ? '∞' : (runway * 30.4).toFixed(0)}
+                            </span>
+                            <span className="text-2xl font-bold text-white/40">
+                                {runway >= 999 ? '' : 'DYS'}
+                            </span>
                         </div>
                     </div>
                     <div className="mt-6 flex flex-col gap-2">
                         <span className={`w-fit px-3 py-1 ${statusColor.bg} rounded-full text-[10px] font-black ${statusColor.text} uppercase`}>
-                            {runway.toFixed(1)} Months Left
+                            {runway >= 999 ? 'Profitable' : `${runway.toFixed(1)} Months Left`}
                         </span>
                         <p className="text-slate-500 text-[10px] font-bold leading-relaxed">{statusColor.message}</p>
                     </div>
@@ -82,11 +90,11 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
                 </div>
                 <h4 className="text-slate-400 font-bold text-sm tracking-tight mb-4">Unrestricted Operating Liquidity</h4>
                 <div className="flex flex-col gap-1">
-                    <span className="text-4xl font-black text-white tracking-tighter">₩{financials.realAvailableCash.toLocaleString()}</span>
+                    <span className="text-4xl font-black text-white tracking-tighter">₩{financials.realAvailableCash.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                     <div className="flex items-center gap-2 mt-4 p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/10">
                         <Zap size={14} className="text-indigo-400" />
                         <p className="text-[10px] text-indigo-300 font-black uppercase tracking-tight">
-                            Free Cash Est: ₩{operationalFreeCash.toLocaleString()}
+                            Free Cash Est: ₩{operationalFreeCash.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </p>
                     </div>
                 </div>
@@ -109,7 +117,7 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                         <span className={`text-4xl font-black tracking-tighter ${taxReserve > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                            {taxReserve > 0 ? `₩${taxReserve.toLocaleString()}` : "CLEAN"}
+                            {taxReserve > 0 ? `₩${taxReserve.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "CLEAN"}
                         </span>
                         {taxReserve === 0 && <ShieldCheck className="text-emerald-400" size={24} />}
                     </div>

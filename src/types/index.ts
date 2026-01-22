@@ -214,6 +214,8 @@ export interface ParsedTransaction {
     quantity?: number;      // NEW - 수량 추출
     unitPrice?: number;     // NEW - 단가 추출
     auditTrail?: string[];
+    transactionId?: string; // NEW - 복합 전표 그룹핑 ID (없으면 개별 건으로 처리)
+    position?: 'Debit' | 'Credit'; // NEW - 전표 내 위치 (차변/대변 명시)
 }
 
 export interface ComplianceReview {

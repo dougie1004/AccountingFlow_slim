@@ -14,12 +14,12 @@ export const generateComprehensiveMockData = () => {
         return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
     };
 
-    // 1. Initial Equity (Capital Injection) - Foundation for B/S
+    // 1. Initial Compass Capital (Seed & Series A)
     entries.push({
         date: formatDate(yearStart),
         description: '초기 자본금 납입 (주주배정 유상증자)',
         vendor: 'Initial Investors',
-        amount: 500000000, // 5억
+        amount: 2000000000, // 20억 (Starts big for manufacturing)
         vat: 0,
         type: 'Equity',
         debitAccount: '보통예금',
@@ -27,33 +27,33 @@ export const generateComprehensiveMockData = () => {
         status: 'Approved'
     });
 
-    // 2. Fixed Assets (For Asset Management & Depreciation)
+    // 2. Manufacturing Assets (Factory & Equipment)
     const assets = [
-        { name: 'MacBook Pro M3 Max (Dev Team)', cost: 45000000, date: '2026-01-05' },
-        { name: 'Office Furniture Set', cost: 12000000, date: '2026-01-10' },
-        { name: 'Server Rack Equipments', cost: 85000000, date: '2026-01-15' },
-        { name: 'Corporate Vehicle (Genesis GV80)', cost: 95000000, date: '2026-01-20' }
+        { name: 'SMT Assembly Line Alpha', cost: 450000000, date: '2026-01-05', account: '기계장치' },
+        { name: 'Precision Optical Inspection (AOI)', cost: 120000000, date: '2026-01-08', account: '기계장치' },
+        { name: 'Aging Test Chamber', cost: 55000000, date: '2026-01-12', account: '비품' },
+        { name: 'Logistics Forklift (Electric)', cost: 35000000, date: '2026-01-15', account: '차량운반구' }
     ];
 
     assets.forEach((asset, idx) => {
-        // Purchase entry
+        // Purchase
         entries.push({
             date: asset.date,
-            description: `고정자산 취득 - ${asset.name}`,
-            vendor: idx === 3 ? 'Hyundai Motors' : 'Apple/Ikea/Dell',
+            description: `설비 취득 - ${asset.name}`,
+            vendor: 'Hanwha Precision',
             amount: asset.cost,
             vat: Math.floor(asset.cost * 0.1),
             type: 'Asset',
-            debitAccount: idx === 3 ? '차량운반구' : (idx === 1 ? '비품' : '공구기구'),
-            creditAccount: '미지급금', // Initially AP
+            debitAccount: asset.account,
+            creditAccount: '미지급금',
             status: 'Approved'
         });
 
-        // Payment entry (Cash Out)
+        // Payment
         entries.push({
-            date: formatDate(new Date(new Date(asset.date).getTime() + 86400000 * 5)), // paid 5 days later
-            description: `고정자산 대금 지급 - ${asset.name}`,
-            vendor: idx === 3 ? 'Hyundai Motors' : 'Apple/Ikea/Dell',
+            date: formatDate(new Date(new Date(asset.date).getTime() + 86400000 * 10)),
+            description: `설비 잔금 지급 - ${asset.name}`,
+            vendor: 'Hanwha Precision',
             amount: asset.cost + Math.floor(asset.cost * 0.1),
             vat: 0,
             type: 'Liability',
@@ -63,57 +63,113 @@ export const generateComprehensiveMockData = () => {
         });
     });
 
-    // 3. SCM & Inventory (Purchase of Goods)
-    const materials = [
-        { item: 'GPU Chipset A100', cost: 2000000, qty: 50, vendor: 'NVIDIA Corp' },
-        { item: 'Server Chassis', cost: 500000, qty: 100, vendor: 'Supermicro' },
-        { item: 'Cooling System', cost: 300000, qty: 200, vendor: 'Samsung Electro' }
+    // 3. Raw Materials (SCM - AI Server Components)
+    const rawMaterials = [
+        { item: 'NVIDIA H100 GPU', cost: 45000000, qty: 10, vendor: 'NVIDIA Corp' },
+        { item: 'Intel Xeon Platinum 8480', cost: 15000000, qty: 20, vendor: 'Intel Korea' },
+        { item: 'Samsung DDR5 128GB ECC', cost: 800000, qty: 200, vendor: 'Samsung Electronics' },
+        { item: 'Server Chassis 4U-Rack', cost: 450000, qty: 50, vendor: 'Supermicro' },
+        { item: 'Liquid Cooling Kit', cost: 1200000, qty: 50, vendor: 'CoolIT Systems' }
     ];
 
-    materials.forEach(mat => {
+    rawMaterials.forEach(mat => {
         const totalCost = mat.cost * mat.qty;
         const date = formatDate(randomDate(yearStart, today));
         entries.push({
             date,
-            description: `원자재 매입 - ${mat.item} (${mat.qty} ea)`,
+            description: `원자재 매입 - ${mat.item} (${mat.qty} units)`,
             vendor: mat.vendor,
             amount: totalCost,
             vat: totalCost * 0.1,
-            type: 'Expense', // Classified as Expense initially, but Logic should map to Inventory later
-            debitAccount: '원재료', // Correct inventory account
+            type: 'Expense', // Will be reclassified as Inventory in context logic usually, but here mapped as cost initially
+            debitAccount: '원재료', // Raw Materials
             creditAccount: '외상매입금',
             status: 'Approved',
-            // Mock OCR Data for SCM
             ocrData: JSON.stringify({ item: mat.item, quantity: mat.qty, unitPrice: mat.cost })
         });
     });
 
-    // 4. Sales Activity (Revenue) - multiple transactions
-    const clients = ['Google Korea', 'Naver Cloud', 'Kakao Enterprise', 'LG CNS', 'Samsung SDS'];
-    for (let i = 0; i < 30; i++) {
-        const client = clients[i % clients.length];
-        const contractAmount = 10000000 + Math.floor(Math.random() * 50000000);
+    // 4. Manufacturing Process (WIP -> Finished Goods)
+    const productionProducts = ['Hyperscale Server KE-100', 'Edge Inference Gateway', 'NVMoF Storage Array'];
+    // To prevent negative inventory, we must produce goods before selling them.
+    for (let i = 0; i < 20; i++) {
+        const product = productionProducts[i % productionProducts.length];
         const date = formatDate(randomDate(yearStart, today));
+
+        // Material Usage & Production
+        const productionCost = 150000000 + Math.floor(Math.random() * 100000000);
 
         entries.push({
             date,
-            description: `Cloud Service Fee - ${client} (Project #${i + 100})`,
+            description: `[생산] 제품 입고 - ${product} (Lot #${i + 100})`,
+            vendor: 'Internal Production',
+            amount: productionCost,
+            vat: 0,
+            type: 'Asset', // Inventory Increase
+            debitAccount: '제품', // Finished Goods
+            creditAccount: '재공품', // Credit WIP (Simplified: assume WIP exists or credit Raw Materials directly in simple mock)
+            status: 'Approved'
+        });
+
+        // Simplified: Material Consumption Entry to offset Purchase
+        entries.push({
+            date,
+            description: `[생산] 원재료 불출 - ${product}`,
+            vendor: 'Internal Production',
+            amount: Math.floor(productionCost * 0.6), // 60% Material
+            vat: 0,
+            type: 'Asset', // Inventory Decrease
+            debitAccount: '재공품', // Debit WIP
+            creditAccount: '원재료', // Credit Raw Materials
+            status: 'Approved'
+        });
+    }
+
+    // 5. Finished Goods Sales (Revenue - AI Servers & Storage)
+    const productionProductsList = ['Hyperscale Server KE-100', 'Edge Inference Gateway', 'NVMoF Storage Array'];
+    const clientList = ['Naver Cloud Platform', 'Kakao Enterprise', 'KT Cloud', 'Samsung SDS', 'SK C&C'];
+
+    for (let i = 0; i < 20; i++) {
+        const client = clientList[i % clientList.length];
+        const product = productionProductsList[i % productionProductsList.length];
+        // High value B2B sales - Enterprise Scale
+        const contractAmount = 250000000 + Math.floor(Math.random() * 300000000);
+        const date = formatDate(randomDate(yearStart, today));
+
+        // Sales Entry
+        entries.push({
+            date,
+            description: `제품 매출 - ${product} (Supply Contract #${i + 200})`,
             vendor: client,
             amount: contractAmount,
             vat: contractAmount * 0.1,
             type: 'Revenue',
             debitAccount: '외상매출금',
-            creditAccount: '매출',
+            creditAccount: '제품매출', // Product Sales
             status: 'Approved'
         });
 
-        // Collection (Cash In) for 70% of them
-        if (Math.random() > 0.3) {
+        // COGS Entry (Standard Costing Simulation)
+        const estimatedCost = Math.floor(contractAmount * 0.72); // 72% Cost Ratio (High HW Cost)
+        entries.push({
+            date,
+            description: `매출원가 대체 - ${product}`,
+            vendor: 'Internal Strategy Div',
+            amount: estimatedCost,
+            vat: 0,
+            type: 'Expense',
+            debitAccount: '매출원가', // COGS
+            creditAccount: '제품', // Finished Goods
+            status: 'Approved'
+        });
+
+        // Collection
+        if (Math.random() > 0.4) {
             entries.push({
-                date: formatDate(new Date(new Date(date).getTime() + 86400000 * 15)),
-                description: `매출채권 입금 - ${client}`,
+                date: formatDate(new Date(new Date(date).getTime() + 86400000 * 30)),
+                description: `매출채권 수금 - ${client} (전자어음/현금)`,
                 vendor: client,
-                amount: contractAmount * 1.1, // including VAT
+                amount: contractAmount * 1.1,
                 vat: 0,
                 type: 'Asset',
                 debitAccount: '보통예금',
@@ -123,53 +179,48 @@ export const generateComprehensiveMockData = () => {
         }
     }
 
-    // 5. Operating Expenses & Tax Adjustments Trigger
-    // Entertainment (Limit Check)
-    for (let i = 0; i < 10; i++) {
+    // 5. Manufacturing Expenses
+    // Electricity for factory
+    for (let i = 0; i < 6; i++) {
         entries.push({
-            date: formatDate(randomDate(yearStart, today)),
-            description: '거래처 접대비 (Dinner meeting)',
-            vendor: 'Gangnam Dining',
-            amount: 450000,
-            vat: 45000,
+            date: `2026-0${i + 1}-25`,
+            description: '공장 산업용 전력비',
+            vendor: 'KEPCO',
+            amount: 15000000 + Math.random() * 2000000,
+            vat: 1500000,
             type: 'Expense',
-            debitAccount: '접대비',
-            creditAccount: '법인카드(미지급금)',
+            debitAccount: '전력비', // Manufacturing Overhead
+            creditAccount: '미지급금',
             status: 'Approved'
         });
     }
 
-    // R&D Expenses (Advanced Ledger)
-    entries.push({
-        date: formatDate(randomDate(yearStart, today)),
-        description: 'AI Model Training Costs (AWS P4 instances)',
-        vendor: 'AWS',
-        amount: 85000000,
-        vat: 8500000,
-        type: 'Expense',
-        debitAccount: '경상연구개발비',
-        creditAccount: '보통예금',
-        status: 'Approved'
-    });
-
-    // Foreign Exchange (Advanced Ledger)
-    entries.push({
-        date: formatDate(randomDate(yearStart, today)),
-        description: 'Foreign Exchange Loss (USD Payment)',
-        vendor: 'Forex Market',
-        amount: 1200000,
-        vat: 0,
-        type: 'Expense',
-        debitAccount: '외환차손',
-        creditAccount: '보통예금',
-        status: 'Approved'
-    });
+    // Logistics
+    for (let i = 0; i < 10; i++) {
+        entries.push({
+            date: formatDate(randomDate(yearStart, today)),
+            description: '제품 운송 및 통관비',
+            vendor: 'CJ Logistics Global',
+            amount: 2500000,
+            vat: 250000,
+            type: 'Expense',
+            debitAccount: '운반비',
+            creditAccount: '미지급금',
+            status: 'Approved'
+        });
+    }
 
     return entries;
 };
 
 // Deprecated: kept for backward compatibility if needed, but aliased
-export const getRawMockData = () => ({ bankData: [] });
+export const getRawMockData = () => ({
+    bankData: [
+        { date: '2026-01-20', desc: '삼성증권 배당금', in: 150000, out: 0, type: 'Dividend' },
+        { date: '2026-01-21', desc: '임차료 납부 - 에이전트 오피스', in: 0, out: 2500000, type: 'Rent' },
+        { date: '2026-01-22', desc: '쿠팡플레이 정기결제', in: 0, out: 4900, type: 'Subscription' },
+    ]
+});
 export const generateMockBatch = generateComprehensiveMockData;
 
 export const simulateAIParsing = (entry: Partial<JournalEntry>): JournalEntry => {

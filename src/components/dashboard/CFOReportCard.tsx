@@ -60,7 +60,7 @@ export const CFOReportCard: React.FC<CFOReportCardProps> = ({ metrics }) => {
                         </div>
                         <p className="text-xs font-bold text-slate-400 mb-1">R&D Capitalization</p>
                         <div className="flex items-end gap-2 text-white">
-                            <span className="text-2xl font-black">₩{(metrics.rndAssetValue / 10000).toLocaleString()}만</span>
+                            <span className="text-2xl font-black">₩{(metrics.rndAssetValue / 10000).toLocaleString(undefined, { maximumFractionDigits: 0 })}만</span>
                             <div className="flex items-center text-emerald-400 text-[10px] mb-1 font-black">
                                 <ArrowUpRight size={12} /> BPS Accrued
                             </div>
@@ -81,7 +81,7 @@ export const CFOReportCard: React.FC<CFOReportCardProps> = ({ metrics }) => {
                         </div>
                         <p className="text-xs font-bold text-slate-400 mb-1">Stock Compensation</p>
                         <div className="flex items-end gap-2 text-white">
-                            <span className="text-2xl font-black">₩{(metrics.stockOptionExpense / 10000).toLocaleString()}만</span>
+                            <span className="text-2xl font-black">₩{(metrics.stockOptionExpense / 10000).toLocaleString(undefined, { maximumFractionDigits: 0 })}만</span>
                             <div className="flex items-center text-slate-500 text-[10px] mb-1 font-black">
                                 <AlertCircle size={12} className="mr-1" /> Non-cash
                             </div>
@@ -103,7 +103,7 @@ export const CFOReportCard: React.FC<CFOReportCardProps> = ({ metrics }) => {
                         <p className="text-xs font-bold text-slate-400 mb-1">FX Exposure</p>
                         <div className="flex items-end gap-2 text-white">
                             <span className="text-2xl font-black">
-                                {metrics.fxGainLoss >= 0 ? '+' : '-'}₩{Math.abs(metrics.fxGainLoss / 10000).toLocaleString()}만
+                                {metrics.fxGainLoss >= 0 ? '+' : '-'}₩{Math.abs(metrics.fxGainLoss / 10000).toLocaleString(undefined, { maximumFractionDigits: 0 })}만
                             </span>
                             <div className={`flex items-center text-[10px] mb-1 font-black ${metrics.fxGainLoss >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {metrics.fxGainLoss >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
@@ -118,7 +118,7 @@ export const CFOReportCard: React.FC<CFOReportCardProps> = ({ metrics }) => {
                         <TrendingUp className="text-indigo-400" size={18} />
                         <div className="flex items-center gap-2">
                             <p className="text-sm text-slate-300 font-bold">
-                                <span className="text-indigo-400">Tactical Insight:</span> 기 분석된 세액공제 최적화 엔진을 통해 <span className="text-emerald-400">₩{(metrics.estimatedTaxCredit / 10000).toFixed(0)}만원</span> 규모의 조세 절감액이 추산되었습니다.
+                                <span className="text-indigo-400">Tactical Insight:</span> 기 분석된 세액공제 최적화 엔진을 통해 <span className="text-emerald-400">₩{(metrics.estimatedTaxCredit / 10000).toLocaleString(undefined, { maximumFractionDigits: 0 })}만원</span> 규모의 조세 절감액이 추산되었습니다.
                             </p>
                             <InfoTooltip
                                 title="조세 최적화 시뮬레이션"

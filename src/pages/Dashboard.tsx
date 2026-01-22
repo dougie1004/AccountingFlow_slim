@@ -102,24 +102,39 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
         });
 
         const estimatedTaxCredit = rndAssetValue * 0.25;
+        const totalRevenueLast3m = cashFlowData.slice(-3).reduce((sum, d) => sum + d.income, 0);
         const totalExpenseLast3m = cashFlowData.slice(-3).reduce((sum, d) => sum + d.expense, 0);
         const averageMonthlyBurn = totalExpenseLast3m / Math.min(3, cashFlowData.length || 1);
+        const averageMonthlyRevenue = totalRevenueLast3m / Math.min(3, cashFlowData.length || 1);
+        const isProfitable = averageMonthlyRevenue >= averageMonthlyBurn;
 
-        return { cashFlowData, rndAssetValue, stockOptionExpense, fxGainLoss, fxExposure, estimatedTaxCredit, averageMonthlyBurn };
+        return { cashFlowData, rndAssetValue, stockOptionExpense, fxGainLoss, fxExposure, estimatedTaxCredit, averageMonthlyBurn, averageMonthlyRevenue, isProfitable };
     }, [ledger]);
 
     const briefing = useMemo(() => {
         // More conservative runway calculation (Enterprise Standard)
-        const runway = analytics.averageMonthlyBurn > 0 ? financials.realAvailableCash / analytics.averageMonthlyBurn : 24;
+        // If profitable, runway is effectively infinite
+        const runway = analytics.isProfitable ? 999 : (analytics.averageMonthlyBurn > 0 ? financials.realAvailableCash / analytics.averageMonthlyBurn : 24);
+
+        let status = 'CRITICAL';
+        let message = "유동성 위기 단계입니다. 즉각적인 비용 절감 및 자금 조달 전략이 시급합니다.";
+
+        if (analytics.isProfitable) {
+            status = 'GROWTH';
+            message = "안정적인 흑자 구조를 유지하고 있습니다. 잉여 현금 흐름을 통한 재투자 전략 수립이 권장됩니다.";
+        } else if (runway >= 12) {
+            status = 'STABLE';
+            message = "자금 흐름이 안정적입니다. 장기적인 투자 및 재무 전략 추진이 가능합니다.";
+        } else if (runway >= 6) {
+            status = 'MONITOR';
+            message = "현금 흐름 모니터링이 필요한 구간입니다. 고정비 지출 속도를 조절하십시오.";
+        }
 
         return {
-            status: runway >= 12 ? 'STABLE' : runway >= 6 ? 'MONITOR' : 'CRITICAL',
-            cashText: `₩${financials.realAvailableCash.toLocaleString()}`,
+            status,
+            cashText: `₩${financials.realAvailableCash.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
             schedule: "금일 실시간 전표 처리: 0건 대기 중",
-            message: runway >= 12 ?
-                "자금 흐름이 안정적입니다. 장기적인 투자 및 재무 전략 추진이 가능합니다." :
-                runway >= 6 ? "현금 흐름 모니터링이 필요한 구간입니다. 고정비 지출 속도를 조절하십시오." :
-                    "유동성 위기 단계입니다. 즉각적인 비용 절감 및 자금 조달 전략이 시급합니다."
+            message
         };
     }, [financials, analytics]);
 
@@ -165,6 +180,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
             <CEOQuickBar
                 financials={financials}
                 avgMonthlyBurn={analytics.averageMonthlyBurn}
+                isProfitable={analytics.isProfitable}
             />
 
             <div className="flex items-center gap-2 px-6 py-3 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl w-fit">
@@ -206,7 +222,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748b' }} tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} />
                                     <RechartsTooltip
                                         contentStyle={{ backgroundColor: '#1e293b', borderRadius: '16px', border: 'none' }}
-                                        formatter={(v: any) => `₩${v.toLocaleString()}`}
+                                        formatter={(v: any) => `₩${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                                     />
                                     <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorIncome)" />
                                     <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={4} fillOpacity={1} fill="url(#colorExpense)" />
@@ -233,7 +249,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                                     </p>
                                 </div>
                             </Tooltip>
-                            <h4 className="text-3xl font-black text-white tracking-tighter">₩{kpi.value.toLocaleString()}</h4>
+                            <h4 className="text-3xl font-black text-white tracking-tighter">₩{kpi.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</h4>
                         </div>
                     ))}
                 </div>
@@ -261,7 +277,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                             <div className="space-y-1">
                                 <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
                                     CFO Strategic Performance Report
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${briefing.status === 'STABLE' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${['STABLE', 'GROWTH'].includes(briefing.status) ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
                                         {briefing.status}
                                     </span>
                                 </h3>

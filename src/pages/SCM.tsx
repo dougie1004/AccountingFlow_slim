@@ -143,7 +143,10 @@ export const SCM: React.FC = () => {
                 <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-[2rem] shadow-2xl shadow-indigo-500/20 text-white group">
                     <p className="text-indigo-100 text-xs font-black uppercase tracking-widest mb-2">AI 지능형 구매 제안</p>
                     <h3 className="text-xl font-bold leading-tight">
-                        {metrics.ccc > 30 ? '현금 회전 속도\n개선이 필요합니다' : '적정 재고 수준\n유지 중입니다'}
+                        {metrics.inventoryCost === 0 && metrics.purchaseCost === 0
+                            ? '재고 데이터가\n필요합니다'
+                            : (metrics.ccc > 30 ? '현금 회전 속도\n개선이 필요합니다' : '적정 재고 수준\n유지 중입니다')
+                        }
                     </h3>
                     <button className="mt-4 flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-xs font-black transition-all">
                         재무 분석 리포트
@@ -203,7 +206,7 @@ export const SCM: React.FC = () => {
                                         color: '#fff'
                                     }}
                                     itemStyle={{ fontWeight: 900 }}
-                                    formatter={(value: any) => [`₩${Number(value).toLocaleString()}`, '가액']}
+                                    formatter={(value: any) => [`₩${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, '가액']}
                                 />
                                 <Bar
                                     dataKey="value"

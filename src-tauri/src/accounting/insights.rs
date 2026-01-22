@@ -1,6 +1,5 @@
 use serde::{Serialize, Deserialize};
 use crate::core::models::JournalEntry;
-use chrono::{NaiveDate, Datelike};
 use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]

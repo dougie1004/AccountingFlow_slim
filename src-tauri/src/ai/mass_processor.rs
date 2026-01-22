@@ -106,7 +106,7 @@ pub async fn process_gemini_batch_native(
     transactions: Vec<ParsedTransaction>,
 ) -> Result<Vec<ParsedTransaction>, String> {
     let api_key = env::var("GEMINI_API_KEY")
-        .unwrap_or("AIzaSyAqlg9WMKHWQTBCp6Bj3DbxMjED06LqEyE".to_string());
+        .map_err(|_| "환경 변수 'GEMINI_API_KEY'가 설정되지 않았습니다.".to_string())?;
     
     let client = Client::new();
     

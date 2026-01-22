@@ -42,28 +42,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
     const [partners, setPartners] = useState<Partner[]>([]);
     const [assets, setAssets] = useState<Asset[]>([]);
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
-    const [scmOrders, setScmOrders] = useState<Order[]>([
-        {
-            id: 'PO-2026-102',
-            date: '2026-03-01',
-            partnerId: '삼성SDI',
-            typeField: 'PURCHASE',
-            status: 'CONFIRMED',
-            items: [{ sku: 'BATT-500', quantity: 100, unitPrice: 450000, amount: 45000000 }],
-            totalAmount: 45000000,
-            vat: 4500000
-        },
-        {
-            id: 'PO-2026-105',
-            date: '2026-03-05',
-            partnerId: '글로벌부품 (Global Supply)',
-            typeField: 'PURCHASE',
-            status: 'FULFILLED',
-            items: [{ sku: 'SENS-OPT', quantity: 500, unitPrice: 15000, amount: 7500000 }],
-            totalAmount: 7500000,
-            vat: 750000
-        }
-    ]);
+    const [scmOrders, setScmOrders] = useState<Order[]>([]);
     const [config, setConfig] = useState<TenantConfig>({
         tenantId: 'default-tenant',
         isReadOnly: false,
@@ -138,11 +117,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         setInventory([]);
         setScmOrders([]);
         setAssets([]);
-        setPartners([
-            { id: '1', name: '현대오일뱅크', partnerType: 'Vendor', status: 'Approved', partnerCode: 'V10001', regNo: '123-45-67890' },
-            { id: '2', name: '쿠팡(주)', partnerType: 'Vendor', status: 'Approved', partnerCode: 'V10002', regNo: '987-65-43210' },
-            { id: '3', name: 'AI Tech Corp', partnerType: 'Customer', status: 'Approved', partnerCode: 'C10001', regNo: '555-44-33221' }
-        ]);
+        setPartners([]);
     };
 
     React.useEffect(() => {
@@ -188,26 +163,13 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         }
     };
 
-    // Sub-ledger strictly contains ONLY Approved Partners AND Approved Status Transactions
+    // G/L (General Ledger) contains all 'Approved' status transactions.
+    // We allow entries without vendors (internal) to also appear in the ledger.
     const subLedger = useMemo(() => {
-        const approvedPartnerNames = new Set(partners.filter(p => p.status === 'Approved').map(p => p.name));
-        return ledger.filter(entry =>
-            entry.status === 'Approved' &&
-            approvedPartnerNames.has(entry.vendor || "")
-        );
-    }, [ledger, partners]);
+        return ledger.filter(entry => entry.status === 'Approved');
+    }, [ledger]);
 
-    // Initialize mock partners
-    React.useEffect(() => {
-        if (partners.length === 0) {
-            const mockPartners: Partner[] = [
-                { id: '1', name: '현대오일뱅크', partnerType: 'Vendor', status: 'Approved', partnerCode: 'V10001', regNo: '123-45-67890' },
-                { id: '2', name: '쿠팡(주)', partnerType: 'Vendor', status: 'Approved', partnerCode: 'V10002', regNo: '987-65-43210' },
-                { id: '3', name: 'AI Tech Corp', partnerType: 'Customer', status: 'Approved', partnerCode: 'C10001', regNo: '555-44-33221' }
-            ];
-            setPartners(mockPartners);
-        }
-    }, [partners]);
+    // Initialized as empty for dynamic data migration
 
     const financials = useMemo(() => {
         let cash = 0;
@@ -229,32 +191,38 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
 
             const processAccount = (acc: string, amount: number, isDebit: boolean) => {
                 const multiplier = isDebit ? 1 : -1;
-                const lowAcc = acc.toLowerCase();
+                const lowAcc = (acc || '').toLowerCase().trim();
+
+                // [Antigravity] Debug: Trace Cash Flow
+                if (lowAcc.includes('보통') || lowAcc.includes('예금')) {
+                    console.log(`[Financials] Cash Event: ${entry.date} | ${lowAcc} | ${isDebit ? 'Debit' : 'Credit'} | ${amount}`);
+                }
 
                 // 1. Asset/Liability/Equity accounts usually track the TOTAL flow (Cash, AR, AP)
-                if (lowAcc.includes('현금') || lowAcc.includes('예금') || lowAcc === 'cash' || lowAcc.includes('bank')) {
+                // Added '보통' (Common), '저축' (Savings), '입출금' (Checking)
+                if (lowAcc.includes('현금') || lowAcc.includes('예금') || lowAcc === 'cash' || lowAcc.includes('bank') || lowAcc.includes('보통') || lowAcc.includes('저축') || lowAcc.includes('입출금')) {
                     cash += (amount * multiplier);
-                } else if (lowAcc.includes('외상매출') || lowAcc.includes('미수')) {
+                } else if (lowAcc.includes('외상매출') || lowAcc.includes('미수') || lowAcc.includes('receivable')) {
                     ar += (amount * multiplier);
-                } else if (lowAcc.includes('상품') || lowAcc.includes('재고') || lowAcc.includes('재료')) {
-                    inventoryValue += (isDebit ? entry.amount : -entry.amount); // Inventory usually base
-                } else if (lowAcc.includes('비품') || lowAcc.includes('기계') || lowAcc.includes('장치') || lowAcc.includes('차량') || lowAcc.includes('건물')) {
-                    fixedAssets += (isDebit ? entry.amount : -entry.amount); // Fixed assets usually base
+                } else if (lowAcc.includes('상품') || lowAcc.includes('재고') || lowAcc.includes('재료') || lowAcc.includes('inventory')) {
+                    inventoryValue += (isDebit ? entry.amount : -entry.amount);
+                } else if (lowAcc.includes('비품') || lowAcc.includes('기계') || lowAcc.includes('장치') || lowAcc.includes('차량') || lowAcc.includes('건물') || lowAcc.includes('asset')) {
+                    fixedAssets += (isDebit ? entry.amount : -entry.amount);
                 } else if (lowAcc.includes('부가세') && lowAcc.includes('대급')) {
                     vatReceivable += (amount * multiplier);
-                } else if (lowAcc.includes('외상매입') || lowAcc.includes('미지급')) {
+                } else if (lowAcc.includes('외상매입') || lowAcc.includes('미지급') || lowAcc.includes('payable')) {
                     ap += (amount * -multiplier);
                 } else if (lowAcc.includes('부가세') && lowAcc.includes('예수')) {
                     vatPayable += (amount * -multiplier);
-                } else if (lowAcc.includes('차입') || lowAcc.includes('예수금') || lowAcc.includes('부채')) {
+                } else if (lowAcc.includes('차입') || lowAcc.includes('예수금') || lowAcc.includes('부채') || lowAcc.includes('loan')) {
                     otherLiabilities += (amount * -multiplier);
-                } else if (lowAcc.includes('자본')) {
+                } else if (lowAcc.includes('자본') || lowAcc.includes('equity') || lowAcc.includes('stock')) {
                     capital += (amount * -multiplier);
                 }
                 // 2. Revenue/Expense accounts track the BASE amount
-                else if (entry.type === 'Revenue' || lowAcc.includes('매출') || lowAcc.includes('수익')) {
+                else if (entry.type === 'Revenue' || lowAcc.includes('매출') || lowAcc.includes('수익') || lowAcc.includes('revenue')) {
                     if (!isDebit) revenue += entry.amount; else revenue -= entry.amount;
-                } else if (entry.type === 'Expense' || entry.type === 'Payroll' || lowAcc.includes('비용') || lowAcc.includes('급여') || lowAcc.includes('료') || lowAcc.includes('비')) {
+                } else if (entry.type === 'Expense' || entry.type === 'Payroll' || lowAcc.includes('비용') || lowAcc.includes('급여') || lowAcc.includes('료') || lowAcc.includes('비') || lowAcc.includes('expense')) {
                     if (isDebit) expenses += entry.amount; else expenses -= entry.amount;
                 }
             };
@@ -272,6 +240,8 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
                 }
             }
         });
+
+        console.log(`[Financials] Aggregation Complete. Cash: ${cash}, AR: ${ar}, AP: ${ap}, Capital: ${capital}`);
 
         const netIncome = revenue - expenses;
         const totalAssets = cash + ar + inventoryValue + fixedAssets + vatReceivable;

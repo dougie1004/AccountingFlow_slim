@@ -1,6 +1,6 @@
 import React, { useContext, useMemo, useState } from 'react';
 import { AccountingContext } from '../context/AccountingContext';
-import { CheckCircle, CheckCircle2, XCircle, Clock, Search, Filter, LayoutGrid, List, Download, FileJson, AlertTriangle, Paperclip, Zap } from 'lucide-react';
+import { CheckCircle, CheckCircle2, XCircle, Clock, Search, Filter, LayoutGrid, List, Download, FileJson, AlertTriangle, Paperclip, Zap, Sparkles } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { JournalEntry, ParsedTransaction } from '../types';
 import { ALL_ACCOUNTS } from '../constants/accounts';
@@ -82,8 +82,8 @@ const ApprovalDesk: React.FC = () => {
             {/* Header Area */}
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
                 <div>
-                    <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">Audit & Compliance Desk</h1>
-                    <p className="text-slate-400 font-bold">미확정 전표 거버넌스 — AI가 분석한 거래 내역의 최종 권한 승인 및 컴플라이언스 검토</p>
+                    <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">AI 전표 승인 데스크 (Journal Approval)</h1>
+                    <p className="text-slate-400 font-bold">미확정 전표 거버넌스 — AI가 분석한 거래 내역의 최종 승인 및 분류 확정</p>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -139,9 +139,9 @@ const ApprovalDesk: React.FC = () => {
                         <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-500/20">
                             <CheckCircle size={40} className="text-emerald-500" />
                         </div>
-                        <h2 className="text-2xl font-black text-white mb-2 underline decoration-emerald-500/30 decoration-4 underline-offset-8">All Journals Verified</h2>
+                        <h2 className="text-2xl font-black text-white mb-2 underline decoration-emerald-500/30 decoration-4 underline-offset-8">All Journals Approved</h2>
                         <p className="text-slate-500 font-bold max-w-sm mx-auto leading-relaxed">
-                            현재 검토 대기 중인 미확정 전표가 없습니다. 모든 거래 내역이 거버넌스 원칙에 따라 정상적으로 분류 및 승인되었습니다.
+                            현재 검토 대기 중인 미확정 전표가 없습니다. 모든 거래 내역이 정상적으로 분류 및 승인되었습니다.
                         </p>
                     </div>
                 ) : viewMode === 'card' ? (
@@ -200,7 +200,34 @@ const ApprovalDesk: React.FC = () => {
                                             <p className="text-white/90 font-bold leading-relaxed italic">"{cleanMarkdown(entry.description)}"</p>
                                         </div>
 
-                                        {/* AI Accounting Verification Insight */}
+                                        {/* Professional ERP Double-Entry Display */}
+                                        <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 mt-2">
+                                            <div className="space-y-1 border-r border-white/5 pr-4 text-left">
+                                                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-2">Debit (차변)</span>
+                                                <div className="text-base font-black text-white font-mono break-all leading-tight italic">
+                                                    {entry.debitAccount}
+                                                </div>
+                                                <p className="text-[15px] font-black text-white/50 pt-2 border-t border-white/5 font-mono">
+                                                    ₩{entry.amount.toLocaleString()}
+                                                </p>
+                                            </div>
+                                            <div className="space-y-1 text-right pl-4">
+                                                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block mb-2">Credit (대변)</span>
+                                                <div className="text-base font-black text-white font-mono break-all leading-tight italic">
+                                                    {entry.creditAccount}
+                                                </div>
+                                                <p className="text-[15px] font-black text-white/50 pt-2 border-t border-white/5 font-mono">
+                                                    ₩{entry.amount.toLocaleString()}
+                                                </p>
+                                            </div>
+                                            <div className="col-span-2 flex items-center justify-center pt-2 border-t border-white/5 mt-1">
+                                                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                                                    <Sparkles size={12} className="text-emerald-400" />
+                                                    <span className="text-[10px] font-black text-emerald-400 uppercase">AI Zero-Sum Verified</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div className={`p-4 rounded-2xl border ${entry.amount > 5000000 ? 'bg-indigo-500/5 border-indigo-500/20 shadow-inner' : 'bg-white/5 border-white/5 opacity-80'}`}>
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
@@ -281,10 +308,10 @@ const ApprovalDesk: React.FC = () => {
                                         />
                                     </th>
                                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Date</th>
-                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Vendor</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-indigo-500/5 text-indigo-400">Debit (차변)</th>
                                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Description</th>
-                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Proof</th>
                                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Amount</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-emerald-500/5 text-emerald-400 text-right">Credit (대변)</th>
                                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Status</th>
                                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Actions</th>
                                 </tr>
@@ -308,16 +335,22 @@ const ApprovalDesk: React.FC = () => {
                                                 className="bg-white/5 border border-white/10 rounded px-2 py-0.5 text-[10px] text-slate-300 focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
                                             />
                                         </td>
-                                        <td className="px-6 py-4 text-sm font-black text-white">{entry.vendor}</td>
-                                        <td className="px-6 py-4 text-xs text-slate-200 italic font-bold">"{cleanMarkdown(entry.description)}"</td>
-                                        <td className="px-6 py-4 text-center">
-                                            {entry.attachmentUrl && (
-                                                <button onClick={() => window.open(entry.attachmentUrl, '_blank')} className="p-1.5 text-indigo-400 hover:bg-indigo-400/10 rounded-lg transition-all">
-                                                    <Paperclip size={16} />
-                                                </button>
-                                            )}
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm font-black text-indigo-300 font-mono italic">
+                                                {entry.debitAccount}
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm font-black text-white text-right font-mono">₩{entry.amount.toLocaleString()}</td>
+                                        <td className="px-6 py-4 max-w-xs truncate text-[13px] font-bold text-slate-400">
+                                            {entry.description}
+                                        </td>
+                                        <td className="px-6 py-4 text-right whitespace-nowrap font-mono font-black text-white">
+                                            ₩{entry.amount.toLocaleString()}
+                                        </td>
+                                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                                            <div className="text-sm font-black text-emerald-300 font-mono italic">
+                                                {entry.creditAccount}
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4 text-center">
                                             <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase ${entry.status === 'Hold' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>
                                                 {entry.status}

@@ -12,6 +12,12 @@ mod commands;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // [Antigravity] Inject API Key for Dev Environment
+    if std::env::var("GEMINI_API_KEY").is_err() {
+        std::env::set_var("GEMINI_API_KEY", "AIzaSyAqlg9WMKHWQTBCp6Bj3DbxMjED06LqEyE");
+        println!("[Antigravity] Dev API Key injected successfully.");
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![

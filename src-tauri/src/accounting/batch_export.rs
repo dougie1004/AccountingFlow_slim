@@ -122,9 +122,7 @@ fn generate_csv(entries: &[JournalEntry]) -> Result<String, String> {
  * AI 기반 이상 거래 탐지 (Gemini 3.0 Pro 활용)
  */
 pub async fn detect_anomalies_with_ai(entries: &[JournalEntry]) -> Result<Vec<String>, String> {
-    let api_key = std::env::var("GEMINI_API_KEY").unwrap_or_else(|_| {
-        "AIzaSyAqlg9WMKHWQTBCp6Bj3DbxMjED06LqEyE".to_string()
-    });
+    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| "환경 변수 'GEMINI_API_KEY'가 설정되지 않았습니다.".to_string())?;
 
     // 전표 요약 생성
     let summary = entries.iter()

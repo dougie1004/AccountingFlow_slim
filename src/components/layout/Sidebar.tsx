@@ -17,11 +17,13 @@ import {
     Database,
     RotateCcw,
     FileText,
-    Zap
+    Zap,
+    PieChart
 } from 'lucide-react';
 import { useContext } from 'react';
 import { AccountingContext } from '../../context/AccountingContext';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Tooltip } from '../common/Tooltip';
 
 interface SidebarProps {
     activeTab: string;
@@ -47,19 +49,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
     }, []);
 
     const menuItems = [
-        { id: 'dashboard', label: '경영 관리 대시보드', icon: LayoutDashboard },
-        { id: 'ledger', label: '거래 전표 관리', icon: BookOpen },
-        { id: 'ledger-view', label: '총계정원장 (G/L)', icon: FileText },
-        { id: 'migration', label: '데이터 연동 및 이관', icon: Database },
-        { id: 'scm', label: '공급망(SCM) 관리', icon: ShoppingCart },
-        { id: 'inventory', label: '재고 자산 관리', icon: Package },
-        { id: 'assets', label: '고정자산 관리', icon: Landmark },
-        { id: 'partners', label: '거래처 네트워크', icon: Users },
-        { id: 'approval-desk', label: '전표 승인 및 거버넌스', icon: ShieldCheck, badge: true },
-        { id: 'tax-adjustments', label: '세무 조정 엔진 (Tax)', icon: Calculator },
-        { id: 'advanced-ledger', label: '특수 회계 관리', icon: Zap },
-        { id: 'reports', label: '경영 분석 리포트', icon: TrendingUp },
-        { id: 'settings', label: '시스템 설정', icon: Settings },
+        { id: 'dashboard', label: '경영 관리 대시보드', description: '현금 흐름, 주요 KPI 등 회사의 재무 상태를 한눈에 파악합니다.', icon: LayoutDashboard },
+        { id: 'ledger', label: '거래 전표 관리', description: 'AI가 추출한 모든 거래 데이터를 조회하고 개별적으로 관리합니다.', icon: BookOpen },
+        { id: 'ledger-view', label: '총계정원장 (G/L)', description: '표준 회계 기준에 따른 계정별 원장을 상세하게 조회합니다.', icon: FileText },
+        { id: 'migration', label: '데이터 연동 및 이관', description: '외부 ERP(더존 등) 데이터를 지능적으로 분석하여 연동합니다.', icon: Database },
+        { id: 'scm', label: '공급망(SCM) 관리', description: '매입/매출 발주 관리 및 물류 프로세스를 회계와 연결합니다.', icon: ShoppingCart },
+        { id: 'inventory', label: '재고 자산 관리', description: '품목별 재고 현황 및 자산 가치를 실시간으로 평가합니다.', icon: Package },
+        { id: 'assets', label: '고정자산 관리', description: '유/무형 자산의 취득 및 감가상각 내역을 자동 관리합니다.', icon: Landmark },
+        { id: 'partners', label: '거래처 네트워크', description: '연동된 주요 거래처와의 거래 관계 및 승인 상태를 관리합니다.', icon: Users },
+        { id: 'approval-desk', label: '전표 승인 및 거버넌스', description: 'AI 분류 전표의 신뢰도를 검증하고 최종 승인을 수행합니다.', icon: ShieldCheck, badge: true },
+        { id: 'tax-adjustments', label: '세무 조정 엔진 (Tax)', description: '법인세 추정, 부가세 맵핑 등 전문 세무 조정 기능을 수행합니다.', icon: Calculator },
+        { id: 'financial-statements', label: '재무제표 관리 (B/S, P/L)', description: '대차대조표, 손익계산서, 현금흐름표 등 표준 재무제표를 조회합니다.', icon: PieChart },
+        { id: 'advanced-ledger', label: '특수 회계 관리', description: 'R&D 자산화, 외화 평가 등 고난도 회계 처리를 수행합니다.', icon: Zap },
+        { id: 'reports', label: '경영 분석 리포트', description: 'IR용 요약 및 경영진 대상 심층 분석 리포트를 생성합니다.', icon: TrendingUp },
+        { id: 'settings', label: '시스템 설정', description: '조직 메타데이터, 보안 정책 등 시스템 전반을 설정합니다.', icon: Settings },
     ];
 
     const SidebarContent = () => {
@@ -78,32 +81,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
 
                 <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto custom-scrollbar">
                     {menuItems.map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => {
-                                setTab(item.id);
-                                if (isMobile) setIsOpen(false);
-                            }}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group ${activeTab === item.id
-                                ? 'bg-indigo-600/10 text-indigo-400 shadow-[inset_0_0_20px_rgba(79,70,229,0.1)]'
-                                : 'hover:bg-white/5 hover:text-slate-200'
-                                }`}
-                        >
-                            <item.icon size={20} className={`transition-colors shrink-0 ${activeTab === item.id ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
-                            <span className="font-semibold tracking-wide truncate">
-                                {item.id === 'migration' ? '데이터 연동 및 이관' : item.label}
-                            </span>
-
-                            {item.id === 'approval-desk' && unconfirmedCount > 0 && (
-                                <span className="ml-auto bg-rose-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md min-w-[20px] text-center shadow-lg shadow-rose-600/20">
-                                    {unconfirmedCount}
+                        <Tooltip key={item.id} content={item.description} position="right">
+                            <button
+                                onClick={() => {
+                                    setTab(item.id);
+                                    if (isMobile) setIsOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group ${activeTab === item.id
+                                    ? 'bg-indigo-600/10 text-indigo-400 shadow-[inset_0_0_20px_rgba(79,70,229,0.1)]'
+                                    : 'hover:bg-white/5 hover:text-slate-200'
+                                    }`}
+                            >
+                                <item.icon size={20} className={`transition-colors shrink-0 ${activeTab === item.id ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                                <span className="font-semibold tracking-wide truncate">
+                                    {item.id === 'migration' ? '데이터 연동 및 이관' : item.label}
                                 </span>
-                            )}
 
-                            {activeTab === item.id && (
-                                <div className={`${item.id === 'approval-desk' && unconfirmedCount > 0 ? 'ml-2' : 'ml-auto'} w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(79,70,229,0.8)] shrink-0`}></div>
-                            )}
-                        </button>
+                                {item.id === 'approval-desk' && unconfirmedCount > 0 && (
+                                    <span className="ml-auto bg-rose-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md min-w-[20px] text-center shadow-lg shadow-rose-600/20">
+                                        {unconfirmedCount}
+                                    </span>
+                                )}
+
+                                {activeTab === item.id && (
+                                    <div className={`${item.id === 'approval-desk' && unconfirmedCount > 0 ? 'ml-2' : 'ml-auto'} w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(79,70,229,0.8)] shrink-0`}></div>
+                                )}
+                            </button>
+                        </Tooltip>
                     ))}
                 </nav>
 
@@ -142,7 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
             </div>
 
             {/* Desktop Sidebar (Static space occupier) */}
-            <aside className="hidden lg:block w-[280px] h-screen shrink-0 sticky top-0">
+            <aside className="hidden lg:block w-[320px] h-screen shrink-0 sticky top-0">
                 <SidebarContent />
             </aside>
 
@@ -162,7 +166,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                             animate={{ x: 0 }}
                             exit={{ x: "-100%" }}
                             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-                            className="fixed inset-y-0 left-0 z-[70] w-[280px] lg:hidden"
+                            className="fixed inset-y-0 left-0 z-[70] w-[320px] lg:hidden"
                         >
                             <SidebarContent />
                         </motion.aside>

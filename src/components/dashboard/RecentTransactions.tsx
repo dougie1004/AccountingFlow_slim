@@ -30,10 +30,20 @@ export const RecentTransactions: React.FC<RecentTransactionsProps> = ({ transact
     };
 
     const isInflow = (t: JournalEntry) => {
-        const debit = t.debitAccount.toLowerCase();
         const type = t.type;
-        return type === 'Revenue' || type === 'Equity' ||
-            debit.includes('현금') || debit.includes('예금') || debit.includes('cash') || debit.includes('bank');
+        const desc = t.description.toLowerCase();
+        const debit = t.debitAccount.toLowerCase();
+
+        // 1. Explicit Type Check
+        if (type === 'Expense' || type === 'Payroll') return false;
+        if (type === 'Revenue' || type === 'Equity') return true;
+
+        // 2. Description Heuristics (Override for ambiguous types)
+        if (desc.includes('revenue') || desc.includes('sales') || desc.includes('매출') || desc.includes('수익') || desc.includes('입금') || desc.includes('정산')) return true;
+        if (desc.includes('expense') || desc.includes('cost') || desc.includes('비용') || desc.includes('식대') || desc.includes('급여') || desc.includes('구입')) return false;
+
+        // 3. Asset Flow Logic (Debit Cash = Inflow)
+        return debit.includes('현금') || debit.includes('예금') || debit.includes('cash') || debit.includes('bank');
     };
 
     return (

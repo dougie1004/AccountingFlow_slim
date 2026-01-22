@@ -156,7 +156,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
-                    accept=".xlsx, .xls, .csv, .pdf, .jpg, .jpeg, .png, .docx, .pptx, .hwp"
+                    accept=".xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.docx,.pptx,.hwp"
                     multiple
                     onChange={handleFileUpload}
                 />

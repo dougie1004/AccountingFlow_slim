@@ -1,7 +1,6 @@
 use serde::{Serialize, Deserialize};
 use crate::core::models::JournalEntry;
 use crate::accounting::insights::{calculate_insights, StartupInsights};
-use chrono::Datelike;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

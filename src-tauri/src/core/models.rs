@@ -27,6 +27,8 @@ pub struct ParsedTransaction {
     pub payment_method: Option<String>,
     pub bank_name: Option<String>,
     pub bank_account: Option<String>,
+    pub debit_account: Option<String>,
+    pub credit_account: Option<String>,
     #[serde(default)]
     pub audit_trail: Vec<String>,
 }

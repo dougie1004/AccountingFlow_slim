@@ -1,80 +1,176 @@
 import { JournalEntry, EntryType } from '../types';
 
-export const getRawMockData = () => {
-    const mockEntries: Partial<JournalEntry>[] = [];
+// Comprehensive Mock Data Generator
+// Generates data for: B/S, P/L, Cash Flow, SCM, Inventory, Assets, Tax, and Partners
 
-    // Data Set A: Bank Statement Scenarios
-    const bankData = [
-        { date: '2026-01-02', desc: '주주 자본금 납입', in: 100000000, out: 0, type: 'Equity' },
-        { date: '2026-01-05', desc: 'AWS Korea', in: 0, out: 1500000, type: 'Expense' },
-        { date: '2026-01-10', desc: '스타벅스 역삼점', in: 0, out: 25600, type: 'Expense' },
-        { date: '2026-01-15', desc: '급여 이체 (김철수 외)', in: 0, out: 15000000, type: 'Payroll' },
-        { date: '2026-01-20', desc: '이자 수익', in: 5200, out: 0, type: 'Revenue' },
+export const generateComprehensiveMockData = () => {
+    const entries: Partial<JournalEntry>[] = [];
+    const today = new Date();
+    const yearStart = new Date(today.getFullYear(), 0, 1);
+
+    // Helpers
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+    const randomDate = (start: Date, end: Date) => {
+        return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+    };
+
+    // 1. Initial Equity (Capital Injection) - Foundation for B/S
+    entries.push({
+        date: formatDate(yearStart),
+        description: '초기 자본금 납입 (주주배정 유상증자)',
+        vendor: 'Initial Investors',
+        amount: 500000000, // 5억
+        vat: 0,
+        type: 'Equity',
+        debitAccount: '보통예금',
+        creditAccount: '자본금',
+        status: 'Approved'
+    });
+
+    // 2. Fixed Assets (For Asset Management & Depreciation)
+    const assets = [
+        { name: 'MacBook Pro M3 Max (Dev Team)', cost: 45000000, date: '2026-01-05' },
+        { name: 'Office Furniture Set', cost: 12000000, date: '2026-01-10' },
+        { name: 'Server Rack Equipments', cost: 85000000, date: '2026-01-15' },
+        { name: 'Corporate Vehicle (Genesis GV80)', cost: 95000000, date: '2026-01-20' }
     ];
 
-    return { bankData };
-};
+    assets.forEach((asset, idx) => {
+        // Purchase entry
+        entries.push({
+            date: asset.date,
+            description: `고정자산 취득 - ${asset.name}`,
+            vendor: idx === 3 ? 'Hyundai Motors' : 'Apple/Ikea/Dell',
+            amount: asset.cost,
+            vat: Math.floor(asset.cost * 0.1),
+            type: 'Asset',
+            debitAccount: idx === 3 ? '차량운반구' : (idx === 1 ? '비품' : '공구기구'),
+            creditAccount: '미지급금', // Initially AP
+            status: 'Approved'
+        });
 
-export const generateMockBatch = () => {
-    const mockEntries: Partial<JournalEntry>[] = [];
-    const { bankData } = getRawMockData();
-
-    bankData.forEach(item => {
-        mockEntries.push({
-            date: item.date,
-            description: item.desc,
-            amount: item.in > 0 ? item.in : item.out,
-            vendor: item.desc.split(' ')[0],
+        // Payment entry (Cash Out)
+        entries.push({
+            date: formatDate(new Date(new Date(asset.date).getTime() + 86400000 * 5)), // paid 5 days later
+            description: `고정자산 대금 지급 - ${asset.name}`,
+            vendor: idx === 3 ? 'Hyundai Motors' : 'Apple/Ikea/Dell',
+            amount: asset.cost + Math.floor(asset.cost * 0.1),
+            vat: 0,
+            type: 'Liability',
+            debitAccount: '미지급금',
+            creditAccount: '보통예금',
+            status: 'Approved'
         });
     });
 
-    // Data Set B: Purchases (20 items)
-    const suppliers = [
-        { name: 'Apple Korea', desc: 'MacBook Pro M4', type: 'Asset' as EntryType },
-        { name: 'Microsoft', desc: 'Office 365', type: 'Expense' as EntryType },
-        { name: 'JetBrains', desc: 'IDE License', type: 'Expense' as EntryType },
-        { name: 'FastFive', desc: 'Office Rent', type: 'Expense' as EntryType },
-        { name: 'KT', desc: 'Internet', type: 'Expense' as EntryType },
-        { name: 'SKT', desc: 'Phone', type: 'Expense' as EntryType },
-        { name: 'Kim&Chang', desc: 'Legal Fee', type: 'Expense' as EntryType },
-        { name: 'Samil PwC', desc: 'Consulting', type: 'Expense' as EntryType },
-        { name: 'Coupang', desc: 'Office Supplies', type: 'Expense' as EntryType },
-        { name: 'Baemin', desc: 'Team Dinner', type: 'Expense' as EntryType },
+    // 3. SCM & Inventory (Purchase of Goods)
+    const materials = [
+        { item: 'GPU Chipset A100', cost: 2000000, qty: 50, vendor: 'NVIDIA Corp' },
+        { item: 'Server Chassis', cost: 500000, qty: 100, vendor: 'Supermicro' },
+        { item: 'Cooling System', cost: 300000, qty: 200, vendor: 'Samsung Electro' }
     ];
 
-    for (let i = 0; i < 20; i++) {
-        const s = suppliers[i % suppliers.length];
-        const amount = Math.floor(Math.random() * 4990000) + 10000;
-        mockEntries.push({
-            date: `2026-01-${String((i % 28) + 1).padStart(2, '0')}`,
-            description: s.desc,
-            vendor: s.name,
-            amount: amount,
-            vat: Math.floor(amount * 0.1),
+    materials.forEach(mat => {
+        const totalCost = mat.cost * mat.qty;
+        const date = formatDate(randomDate(yearStart, today));
+        entries.push({
+            date,
+            description: `원자재 매입 - ${mat.item} (${mat.qty} ea)`,
+            vendor: mat.vendor,
+            amount: totalCost,
+            vat: totalCost * 0.1,
+            type: 'Expense', // Classified as Expense initially, but Logic should map to Inventory later
+            debitAccount: '원재료', // Correct inventory account
+            creditAccount: '외상매입금',
+            status: 'Approved',
+            // Mock OCR Data for SCM
+            ocrData: JSON.stringify({ item: mat.item, quantity: mat.qty, unitPrice: mat.cost })
+        });
+    });
+
+    // 4. Sales Activity (Revenue) - multiple transactions
+    const clients = ['Google Korea', 'Naver Cloud', 'Kakao Enterprise', 'LG CNS', 'Samsung SDS'];
+    for (let i = 0; i < 30; i++) {
+        const client = clients[i % clients.length];
+        const contractAmount = 10000000 + Math.floor(Math.random() * 50000000);
+        const date = formatDate(randomDate(yearStart, today));
+
+        entries.push({
+            date,
+            description: `Cloud Service Fee - ${client} (Project #${i + 100})`,
+            vendor: client,
+            amount: contractAmount,
+            vat: contractAmount * 0.1,
+            type: 'Revenue',
+            debitAccount: '외상매출금',
+            creditAccount: '매출',
+            status: 'Approved'
+        });
+
+        // Collection (Cash In) for 70% of them
+        if (Math.random() > 0.3) {
+            entries.push({
+                date: formatDate(new Date(new Date(date).getTime() + 86400000 * 15)),
+                description: `매출채권 입금 - ${client}`,
+                vendor: client,
+                amount: contractAmount * 1.1, // including VAT
+                vat: 0,
+                type: 'Asset',
+                debitAccount: '보통예금',
+                creditAccount: '외상매출금',
+                status: 'Approved'
+            });
+        }
+    }
+
+    // 5. Operating Expenses & Tax Adjustments Trigger
+    // Entertainment (Limit Check)
+    for (let i = 0; i < 10; i++) {
+        entries.push({
+            date: formatDate(randomDate(yearStart, today)),
+            description: '거래처 접대비 (Dinner meeting)',
+            vendor: 'Gangnam Dining',
+            amount: 450000,
+            vat: 45000,
+            type: 'Expense',
+            debitAccount: '접대비',
+            creditAccount: '법인카드(미지급금)',
+            status: 'Approved'
         });
     }
 
-    // Data Set C: Sales (20 items)
-    const clients = [
-        'Samsung Electronics', 'Naver', 'Kakao', 'Line', 'Coupang',
-        'KB Kookmin', 'Shinhan Bank', 'Toss Bank', 'Hyundai Motor', 'SK Hynix',
-        'LG Energy', 'POSCO', 'Danggeun', 'Viva Republica', 'Yanolja', 'Krafton',
-        'Mushinsa', 'Bucks', 'Woowa Bros', 'Market Kurly'
-    ];
-
-    clients.forEach((client, i) => {
-        const amount = 272000;
-        mockEntries.push({
-            date: `2026-01-${String((i % 28) + 1).padStart(2, '0')}`,
-            description: 'AccountingFlow SaaS Subscription (Monthly)',
-            vendor: client,
-            amount: amount,
-            vat: 27200,
-        });
+    // R&D Expenses (Advanced Ledger)
+    entries.push({
+        date: formatDate(randomDate(yearStart, today)),
+        description: 'AI Model Training Costs (AWS P4 instances)',
+        vendor: 'AWS',
+        amount: 85000000,
+        vat: 8500000,
+        type: 'Expense',
+        debitAccount: '경상연구개발비',
+        creditAccount: '보통예금',
+        status: 'Approved'
     });
 
-    return mockEntries;
+    // Foreign Exchange (Advanced Ledger)
+    entries.push({
+        date: formatDate(randomDate(yearStart, today)),
+        description: 'Foreign Exchange Loss (USD Payment)',
+        vendor: 'Forex Market',
+        amount: 1200000,
+        vat: 0,
+        type: 'Expense',
+        debitAccount: '외환차손',
+        creditAccount: '보통예금',
+        status: 'Approved'
+    });
+
+    return entries;
 };
+
+// Deprecated: kept for backward compatibility if needed, but aliased
+export const getRawMockData = () => ({ bankData: [] });
+export const generateMockBatch = generateComprehensiveMockData;
 
 export const simulateAIParsing = (entry: Partial<JournalEntry>): JournalEntry => {
     let type: EntryType = 'Expense';

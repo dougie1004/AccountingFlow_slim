@@ -209,6 +209,8 @@ export interface ParsedTransaction {
     paymentMethod?: 'Card' | 'Cash' | 'Transfer';
     bankName?: string;      // NEW - 지급 요청용
     bankAccount?: string;   // NEW - 지급 요청용
+    debitAccount?: string; // NEW - 명확한 차변 계정
+    creditAccount?: string; // NEW - 명확한 대변 계정
     quantity?: number;      // NEW - 수량 추출
     unitPrice?: number;     // NEW - 단가 추출
     auditTrail?: string[];

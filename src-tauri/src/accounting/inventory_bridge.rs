@@ -1,4 +1,4 @@
-use crate::core::models::{Order, JournalEntry, OrderItem};
+use crate::core::models::{Order, JournalEntry};
 use crate::utils::id_generator;
 
 /**

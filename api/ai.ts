@@ -111,20 +111,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             parts.push({ text: prompt });
         }
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts }],
-                generationConfig: { response_mime_type: "application/json" }
-            })
-        });
+        // [Antigravity] Retry Logic for Robustness
+        let attempts = 0;
+        const maxAttempts = 2; // Auto-retry once on failure
 
-        const data: any = await response.json();
-        if (data.error) throw new Error(data.error.message);
+        while (attempts < maxAttempts) {
+            attempts++;
+            try {
+                const modelName = process.env.AI_MODEL_NAME || 'gemini-2.0-flash-exp';
+                console.log(`[AI API] Sending request to ${modelName} (Attempt ${attempts})`);
 
-        const resultText = data.candidates[0].content.parts[0].text;
-        res.status(200).json(JSON.parse(resultText));
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts }],
+                        generationConfig: { response_mime_type: "application/json" }
+                    })
+                });
+
+                const data: any = await response.json();
+                if (data.error) throw new Error(data.error.message);
+
+                if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+                    throw new Error('AI returned empty response');
+                }
+
+                let resultText = data.candidates[0].content.parts[0].text;
+
+                // [Antigravity] Sanitizer: Extract JSON object only
+                // Remove Markdown code blocks first
+                resultText = resultText.replace(/```json/g, '').replace(/```/g, '');
+
+                // Regex to find the first '{' and last '}'
+                const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    resultText = jsonMatch[0];
+                } else {
+                    // Check for Array format if batch lookup
+                    const arrayMatch = resultText.match(/\[[\s\S]*\]/);
+                    if (arrayMatch) {
+                        resultText = arrayMatch[0];
+                    }
+                }
+
+                const parsed = JSON.parse(resultText);
+
+                // [Antigravity] Schema Validation (Basic Check)
+                if (action === 'batch_parse' && !Array.isArray(parsed)) {
+                    throw new Error('Response is not an array for batch request');
+                }
+
+                return res.status(200).json(parsed);
+
+            } catch (error: any) {
+                console.error(`Attempt ${attempts} failed:`, error.message);
+                if (attempts === maxAttempts) {
+                    return res.status(500).json({ error: `AI Processing Failed after retries: ${error.message}` });
+                }
+                // Wait briefly before retry
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
 
     } catch (error: any) {
         console.error('AI Proxy Error:', error);

@@ -10,7 +10,8 @@ interface CEOQuickBarProps {
 
 export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthlyBurn }) => {
     const runway = useMemo(() => {
-        if (avgMonthlyBurn <= 0) return 36; // Default to 36 if no burn
+        if (financials.realAvailableCash === 0) return 0;
+        if (avgMonthlyBurn <= 0) return 999; // Infinite runway if logic valid
         return financials.realAvailableCash / avgMonthlyBurn;
     }, [financials.realAvailableCash, avgMonthlyBurn]);
 

@@ -81,3 +81,21 @@ body {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.2);
 }
+
+/* 
+  [CRITICAL] Z-INDEX MAXIMIZATION 
+  Ensures tooltips are logically above EVERYTHING in the DOM.
+*/
+#tooltip-root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  z-index: 2147483647;
+  /* Max signed 32-bit integer */
+  pointer-events: none;
+  /* Let clicks pass through */
+  contain: layout style size;
+  /* Optimization */
+}

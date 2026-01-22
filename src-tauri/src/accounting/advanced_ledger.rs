@@ -183,7 +183,7 @@ impl AdvancedAccountingModule for CurrencyRevaluationEngine {
                     account_name: "외화환산이익".to_string(),
                     debit: 0.0,
                     credit: gain_loss.abs(),
-                    description: "기말 외화환산이익 인식",
+                    description: format!("기말 외화환산이익 인식"),
                 });
             } else {
                 // Dr. 외화환산손실 / Cr. 외화예금
@@ -199,7 +199,7 @@ impl AdvancedAccountingModule for CurrencyRevaluationEngine {
                     account_name: "외화예금(평가)".to_string(),
                     debit: 0.0,
                     credit: gain_loss.abs(),
-                    description: "기말 외화환산손실 인식",
+                    description: format!("기말 외화환산손실 인식"),
                 });
             }
         }

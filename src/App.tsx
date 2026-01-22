@@ -14,6 +14,7 @@ import { SCM } from './pages/SCM';
 import { Assets } from './pages/Assets';
 import { Inventory } from './pages/Inventory';
 import { AdvancedLedger } from './pages/AdvancedLedger';
+import FinancialStatements from './pages/FinancialStatements';
 
 import { AccountingProvider } from './context/AccountingContext';
 import { ConfigProvider, useConfig } from './context/ConfigContext';
@@ -29,9 +30,11 @@ const AppContent = () => {
                 <BrandHeader />
 
                 <div className="flex-1 overflow-y-auto scroll-smooth custom-scrollbar pt-16 lg:pt-0">
-                    <div className="w-full max-w-[1600px] p-4 md:p-8 lg:p-10 mx-auto">
+                    <div className="w-full max-w-[2400px] p-4 md:p-6 lg:p-8 mx-auto">
                         {activeTab === 'dashboard' && <Dashboard setTab={setActiveTab} />}
-                        {activeTab === 'ledger' && <Journal />}
+                        <div style={{ display: activeTab === 'ledger' ? 'block' : 'none' }}>
+                            <Journal />
+                        </div>
                         {activeTab === 'ledger-view' && <LedgerView />}
                         {activeTab === 'scm' && <SCM />}
                         {activeTab === 'inventory' && <Inventory />}
@@ -39,6 +42,7 @@ const AppContent = () => {
                         {activeTab === 'partners' && <Partners />}
                         {activeTab === 'reports' && <Reports />}
                         {activeTab === 'tax-adjustments' && <TaxAdjustments />}
+                        {activeTab === 'financial-statements' && <FinancialStatements />}
                         {activeTab === 'advanced-ledger' && <AdvancedLedger />}
                         {activeTab === 'approval-desk' && <ApprovalDesk />}
                         {activeTab === 'migration' && <DataMigration setTab={setActiveTab} />}

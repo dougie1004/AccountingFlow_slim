@@ -52,8 +52,26 @@ pub fn suggest_mapping(headers: Vec<String>) -> HashMap<String, String> {
             mapping.insert(header.clone(), "bank_name".to_string());
         }
         // 7. Bank Account
-        else if h_norm.contains("계좌") || h_norm.contains("번호") || h_norm.contains("account") {
+        else if h_norm.contains("계좌") || h_norm.contains("번호") {
             mapping.insert(header.clone(), "bank_account".to_string());
+        }
+        // 8. Category (Explicit Classification: Equity, Expense, Revenue)
+        // [Antigravity] Fix: Removed 'type' to avoid confusion with "Entry Type" (Debit/Credit) column.
+        else if h_norm.contains("category") || h_norm.contains("분류") || h_norm.contains("구분") || h_norm.contains("class") {
+            mapping.insert(header.clone(), "category".to_string());
+        }
+        // 9. Entry Type Reference (Debit/Credit - Optional Helper)
+        else if h_norm.contains("entry type") || h_norm.contains("db/cr") || h_norm.contains("차대") {
+             mapping.insert(header.clone(), "dr_cr".to_string());
+        }
+        // [Antigravity] Re-mapping: Account Name / Subject (Prioritize over Bank Account)
+        // Check for 'account' separately as it usually means Subject in generic CSVs, unless it explicitly says 'bank' or 'number'
+        else if h_norm == "account" || h_norm.contains("계정과목") || h_norm.contains("acct") || h_norm.contains("subject") {
+            mapping.insert(header.clone(), "account_name".to_string());
+        }
+        // Fallback for Bank Account if it contains 'account' but wasn't caught above
+        else if h_norm.contains("account") {
+             mapping.insert(header.clone(), "bank_account".to_string());
         }
     }
     mapping
@@ -95,39 +113,91 @@ pub fn get_headers(bytes: &[u8], file_name: &str) -> Result<Vec<String>, String>
         let mut excel: Xlsx<_> = calamine::open_workbook_from_rs(Cursor::new(bytes)).map_err(|e: calamine::XlsxError| e.to_string())?;
         let sheet = excel.sheet_names().get(0).ok_or("No sheets")?.clone();
         let range = excel.worksheet_range(&sheet).map_err(|e: calamine::XlsxError| e.to_string())?;
+        
+        // [Antigravity] Smart Header Search for Excel
+        let rows: Vec<Vec<String>> = range.rows()
+            .take(20) // Scan top 20 rows
+            .map(|row| row.iter().map(|c| c.to_string().trim().to_string()).collect())
+            .collect();
+
+        if let Some((_, best_headers)) = find_best_header_row(&rows) {
+             return Ok(best_headers);
+        }
+        
+        // Fallback to first row
         if let Some(row) = range.rows().next() {
-            return Ok(row.iter().map(|c: &calamine::Data| c.to_string().trim().to_string()).collect());
+            return Ok(row.iter().map(|c| c.to_string().trim().to_string()).collect());
         }
     } else {
         let decoded = crate::ai::robust_parser::detect_and_decode(bytes)?;
         let delimiter = detect_delimiter(&decoded);
         
-        // Try parsing assuming standard CSV/TSV
         let mut rdr = ReaderBuilder::new()
             .has_headers(false)
             .delimiter(delimiter)
             .from_reader(decoded.as_bytes());
             
-        if let Some(result) = rdr.records().next() {
-            let record = result.map_err(|e| e.to_string())?;
-            let headers: Vec<String> = record.iter().map(|s| s.trim().replace("\u{feff}", "").to_string()).collect();
-            
-            // EMERGENCY FALLBACK: If only 1 column, check for other delimiters in the raw line
-            if headers.len() == 1 {
-                let raw = &headers[0];
-                if raw.contains('\t') {
-                    return Ok(raw.split('\t').map(|s| s.trim().to_string()).collect());
-                } else if raw.contains(',') {
-                    return Ok(raw.split(',').map(|s| s.trim().to_string()).collect());
-                } else if raw.contains(';') {
-                    return Ok(raw.split(';').map(|s| s.trim().to_string()).collect());
-                }
-            }
+        let records: Vec<Vec<String>> = rdr.records()
+            .take(20) // Scan top 20 lines
+            .filter_map(|r| r.ok())
+            .map(|r| r.iter().map(|s| s.trim().replace("\u{feff}", "").to_string()).collect())
+            .collect();
 
-            return Ok(headers);
+        if let Some((_, best_headers)) = find_best_header_row(&records) {
+             return Ok(best_headers);
+        }
+        
+        // Fallback: If heuristic failed, return first non-empty
+        if let Some(first) = records.first() {
+            return Ok(first.clone());
         }
     }
     Err("데이터 헤더를 찾을 수 없거나 파일이 비어있습니다.".into())
+}
+
+// [Antigravity] Smart Header Detection Helper
+fn find_best_header_row(rows: &[Vec<String>]) -> Option<(usize, Vec<String>)> {
+    let mut best_score = 0;
+    let mut best_idx = 0;
+    let mut best_row = Vec::new();
+
+    for (i, row) in rows.iter().enumerate() {
+        let mut score = 0;
+        let joined = row.join(" ").to_lowercase();
+        
+        // Significant keywords
+        if joined.contains("date") || joined.contains("일자") || joined.contains("날짜") { score += 3; }
+        if joined.contains("amount") || joined.contains("금액") || joined.contains("합계") { score += 3; }
+        if joined.contains("vendor") || joined.contains("거래처") || joined.contains("상호") { score += 2; }
+        if joined.contains("desc") || joined.contains("적요") || joined.contains("내용") { score += 2; }
+        if joined.contains("balance") || joined.contains("잔액") { score += 1; }
+        
+        // Penalize very short rows or rows with empty cells (likely title or metadata)
+        let empty_count = row.iter().filter(|s| s.is_empty()).count();
+        if row.len() > 1 && empty_count > row.len() / 2 { score -= 2; }
+
+        if score > best_score {
+            best_score = score;
+            best_idx = i;
+            best_row = row.clone();
+        }
+    }
+
+    if best_score > 0 {
+        Some((best_idx, best_row))
+    } else {
+        None
+    }
+}
+
+// [Antigravity] Deep Clean: Trim spaces and remove wrapping quotes
+fn deep_clean_value(s: &str) -> String {
+    let trimmed = s.trim();
+    if trimmed.starts_with('"') && trimmed.ends_with('"') && trimmed.len() >= 2 {
+        trimmed[1..trimmed.len()-1].trim().to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 pub fn process_with_mapping(
@@ -135,32 +205,43 @@ pub fn process_with_mapping(
     file_name: &str,
     mapping: HashMap<String, String>
 ) -> Result<Vec<ParsedTransaction>, String> {
+    // ... (existing code top part matches, skipping to loops)
     let ext = std::path::Path::new(file_name).extension().and_then(|s| s.to_str()).unwrap_or_default().to_lowercase();
     let mut results = Vec::new();
     println!("[Mapping Engine] Processing file: {} with {} mapping rules", file_name, mapping.len());
 
-    // CRITICAL: Check for required fields
     let mapped_fields: Vec<&String> = mapping.values().collect();
     if !mapped_fields.contains(&&"tx_date".to_string()) || !mapped_fields.contains(&&"amount".to_string()) {
-        let err_msg = "필수 매핑 항목(날짜, 금액)이 지정되지 않았습니다. 매핑 설정을 확인해주세요.".to_string();
-        println!("[Mapping Engine] Error: {}", err_msg);
-        return Err(err_msg);
+         return Err("필수 매핑 항목(날짜, 금액)이 지정되지 않았습니다.".to_string());
     }
 
     if ext == "xlsx" || ext == "xls" || ext == "xlsm" {
-        // ... (Excel logic same as before, omitted for brevity if unchanged, but included here for completeness)
         let mut excel: Xlsx<_> = calamine::open_workbook_from_rs(Cursor::new(bytes)).map_err(|e: calamine::XlsxError| e.to_string())?;
         let sheet = excel.sheet_names().get(0).ok_or("No sheets")?.clone();
         let range = excel.worksheet_range(&sheet).map_err(|e: calamine::XlsxError| e.to_string())?;
         
-        let headers: Vec<String> = range.rows().next()
-            .map(|row| row.iter().map(|c: &calamine::Data| c.to_string().trim().to_string()).collect::<Vec<String>>())
-            .unwrap_or_else(Vec::new);
-        let col_map = build_index_map(&headers, &mapping);
+        // Dynamic Data Start Search
+        let rows: Vec<Vec<String>> = range.rows()
+             .map(|row| row.iter().map(|c| c.to_string()).map(|s| deep_clean_value(&s)).collect())
+             .collect();
+        // ... (Header Search Logic - omitted for brevity because it relies on rows)
+        
+        let mut start_idx = 0;
+        let mut col_map = HashMap::new();
+        for (i, row) in rows.iter().enumerate().take(20) {
+             let current_col_map = build_index_map(row, &mapping);
+             if current_col_map.contains_key("tx_date") && current_col_map.contains_key("amount") {
+                 start_idx = i + 1; 
+                 col_map = current_col_map;
+                 println!("[Mapping Engine] Found Header at Excel Row {}: {:?}", i+1, row);
+                 break;
+             }
+        }
+        
+        if col_map.is_empty() { return Err("매핑된 헤더를 찾을 수 없습니다.".to_string()); }
 
-        for row in range.rows().skip(1) {
-            let row_strings: Vec<String> = row.iter().map(|c: &calamine::Data| c.to_string().trim().to_string()).collect();
-            if let Some(tx) = row_to_tx(&row_strings, &col_map) {
+        for row in rows.into_iter().skip(start_idx) {
+            if let Some(tx) = row_to_tx(&row, &col_map) {
                 results.push(tx);
             }
         }
@@ -168,66 +249,57 @@ pub fn process_with_mapping(
         let decoded = crate::ai::robust_parser::detect_and_decode(bytes)?;
         let delimiter = detect_delimiter(&decoded);
         
-        // Basic Reader
-        let mut rdr = ReaderBuilder::new()
-            .has_headers(false)
-            .flexible(true) 
-            .delimiter(delimiter)
-            .from_reader(decoded.as_bytes());
-            
-        let mut records = rdr.records();
+        let mut rdr = ReaderBuilder::new().has_headers(false).flexible(true).delimiter(delimiter).from_reader(decoded.as_bytes());
+        let all_records: Vec<Vec<String>> = rdr.records()
+            .filter_map(|r| r.ok())
+            .map(|r| r.iter().map(|s| deep_clean_value(s)).collect()) // Apply Deep Clean
+            .collect();
         
-        if let Some(header_record) = records.next() {
-            let mut headers: Vec<String> = header_record.map_err(|e| e.to_string())?
-                .iter().map(|s| s.trim().replace("\u{feff}", "").to_string()).collect::<Vec<String>>();
-        
-            // CRITICAL: Determine fallback splitter
-            let mut manual_split_char: Option<char> = None;
+        let mut start_idx = 0;
+        let mut col_map = HashMap::new();
 
-            if headers.len() == 1 {
-                if headers[0].contains('\t') { manual_split_char = Some('\t'); }
-                else if headers[0].contains(',') { manual_split_char = Some(','); }
-                else if headers[0].contains(';') { manual_split_char = Some(';'); }
-            }
+        for (i, row) in all_records.iter().enumerate().take(20) {
+             // ... (Header Search Logic - simplified for replacement)
+             let mut check_row = row.clone();
+             if check_row.len() == 1 {
+                 if check_row[0].contains('\t') { check_row = check_row[0].split('\t').map(|s| deep_clean_value(s)).collect(); }
+                 else if check_row[0].contains(',') { check_row = check_row[0].split(',').map(|s| deep_clean_value(s)).collect(); }
+                 else if check_row[0].contains(';') { check_row = check_row[0].split(';').map(|s| deep_clean_value(s)).collect(); }
+             }
+             let current_col_map = build_index_map(&check_row, &mapping);
+             if current_col_map.contains_key("tx_date") && current_col_map.contains_key("amount") {
+                 start_idx = i + 1;
+                 col_map = current_col_map;
+                 println!("[Mapping Engine] Found Header at CSV Row {}: {:?}", i+1, check_row);
+                 break;
+             }
+        }
 
-            // Apply manual split to HEADER
-            if let Some(split_char) = manual_split_char {
-                headers = headers[0].split(split_char).map(|s| s.trim().replace("\u{feff}", "").to_string()).collect();
-            }
+        if col_map.is_empty() { return Err("매핑된 헤더를 CSV 파일에서 찾을 수 없습니다.".to_string()); }
 
-            // Ensure mapping keys also have BOM stripped for comparison
-            let mut stripped_mapping = HashMap::new();
-            for (k, v) in &mapping {
-                stripped_mapping.insert(k.replace("\u{feff}", ""), v.clone());
-            }
-            let col_map = build_index_map(&headers, &stripped_mapping);
+        for (idx, row) in all_records.into_iter().skip(start_idx).enumerate() {
+             let mut process_row = row.clone();
+             if process_row.len() == 1 && col_map.values().max().unwrap_or(&0) > &0 {
+                 if process_row[0].contains('\t') { process_row = process_row[0].split('\t').map(|s| deep_clean_value(s)).collect(); }
+                 else if process_row[0].contains(',') { process_row = process_row[0].split(',').map(|s| deep_clean_value(s)).collect(); }
+                 else if process_row[0].contains(';') { process_row = process_row[0].split(';').map(|s| deep_clean_value(s)).collect(); }
+             }
 
-            for result in records {
-                let record = result.map_err(|e| e.to_string())?;
-                let mut row_strings: Vec<String> = record.iter().map(|s| s.trim().to_string()).collect();
-                
-                // Apply manual split to DATA ROWS if needed
-                if let Some(split_char) = manual_split_char {
-                    if row_strings.len() == 1 {
-                        row_strings = row_strings[0].split(split_char).map(|s| s.trim().to_string()).collect();
-                    }
-                }
-
-                if let Some(tx) = row_to_tx(&row_strings, &col_map) {
-                    results.push(tx);
-                } else if !row_strings.iter().all(|s| s.is_empty()) {
-                    println!("[Mapping Engine] Verbose: Skipping row due to failed parsing or header-like pattern: {:?}", row_strings);
-                }
-            }
+             if let Some(tx) = row_to_tx(&process_row, &col_map) {
+                 results.push(tx);
+             } else {
+                 if !process_row.iter().all(|s| s.is_empty()) {
+                     // [Antigravity] Hex Dump Check for failed rows
+                     let raw_dump: Vec<String> = process_row.iter().map(|s| {
+                         format!("{} (Hex: {:02X?})", s, s.as_bytes())
+                     }).collect();
+                     println!("[Mapping Engine] Failed to parse Row {}: {:?}", idx + start_idx + 1, raw_dump);
+                 }
+             }
         }
     }
     
-    if results.is_empty() {
-        println!("[Mapping Engine] WARNING: No valid transactions were extracted from the file.");
-    } else {
-        println!("[Mapping Engine] Success: Extracted {} transactions", results.len());
-    }
-
+    if results.is_empty() { println!("[Mapping Engine] WARNING: No valid transactions extracted."); }
     Ok(results)
 }
 
@@ -265,16 +337,19 @@ fn row_to_tx(row: &[String], col_map: &HashMap<String, usize>) -> Option<ParsedT
     let payment = col_map.get("payment_type").and_then(|&i| row.get(i)).cloned();
     let bank_name = col_map.get("bank_name").and_then(|&i| row.get(i)).cloned();
     let bank_account = col_map.get("bank_account").and_then(|&i| row.get(i)).cloned();
+    let category = col_map.get("category").and_then(|&i| row.get(i)).cloned();
+    let account_subject = col_map.get("account_name").and_then(|&i| row.get(i)).cloned(); // [Antigravity] Extract Subject
 
     let clean_date = sanitize_date(&date_raw);
     let clean_amount = sanitize_amount(&amount_raw);
 
-    // Validation: Date and Amount are mandatory
-    if clean_date.is_empty() || clean_amount == 0.0 {
+    // Validation: Date is mandatory. 
+    // [Antigravity] Zero-Value Allowance: Allow 0 amount (e.g. Stock Options, Non-monetary adjustments)
+    if clean_date.is_empty() {
         return None;
     }
 
-    let mut debit_account = "미확정 비용".to_string(); // Default for Expense
+    let debit_account = "미확정 비용".to_string(); // Default for Expense
     let mut credit_account = "미지급금".to_string(); // Default as Unpaid
 
     // 1. Determine Payment Status
@@ -295,16 +370,28 @@ fn row_to_tx(row: &[String], col_map: &HashMap<String, usize>) -> Option<ParsedT
         date: Some(clean_date.clone()),
         amount: clean_amount.abs(),
         vat: (clean_amount.abs() / 11.0).round(),
-        entry_type: if clean_amount < 0.0 || desc.contains("매출") { 
+        entry_type: if let Some(cat) = &category {
+            // [Antigravity] Context Injection: Use mapped category as authoritative reference
+            Some(cat.clone())
+        } else if clean_amount < 0.0 || desc.contains("매출") { 
             credit_account = "매출".to_string(); // Revenue logic override
             Some("Revenue".to_string())
         } else { 
             Some("Expense".to_string())
         },
-        description: Some(desc),
+        description: Some(desc.clone()),
         vendor: Some(vendor),
-        account_name: Some(debit_account), // Initially unconfirmed
-        reasoning: format!("DataConverter 스마트 변환 엔진으로 처리됨 (결제: {})", credit_account),
+        // [Antigravity] Account Name Priority: 1. CSV Explicit (account_subject) 2. Mapped Category default 3. Unconfirmed
+        account_name: if let Some(subj) = account_subject { 
+            Some(subj) 
+        } else { 
+            Some(debit_account.clone()) 
+        }, 
+        reasoning: if let Some(cat) = &category {
+            format!("DataConverter: Mapped from Category '{}'. (결제: {})", cat, credit_account)
+        } else {
+            format!("DataConverter 스마트 변환 엔진으로 처리됨 (결제: {})", credit_account)
+        },
         confidence: Some("High".to_string()),
         payment_method: payment,
         bank_name,
@@ -314,18 +401,48 @@ fn row_to_tx(row: &[String], col_map: &HashMap<String, usize>) -> Option<ParsedT
         ..Default::default()
     };
     
+    // [Antigravity] Auto-Pairing Logic: Enforce Double-Entry Integrity
+    // If we have a single "account_name" (Subject), we must determine where the money came from/went to.
+    if let Some(cat) = &category {
+        let cat_lower = cat.to_lowercase();
+        if cat_lower == "equity" || cat_lower == "revenue" || cat_lower.contains("매출") || cat_lower.contains("자본") {
+            // Inflow -> Debit: Bank, Credit: Subject
+            tx.entry_type = Some(if cat_lower.contains("자본") { "Equity".to_string() } else { "Revenue".to_string() });
+            tx.debit_account = Some("보통예금".to_string());
+            tx.credit_account = tx.account_name.clone().or(Some("매출".to_string())); // Fallback
+        } else {
+            // Outflow -> Debit: Subject, Credit: Bank (or AP)
+            tx.entry_type = Some("Expense".to_string());
+            tx.debit_account = tx.account_name.clone().or(Some("미확정 비용".to_string()));
+            // If payment method allows, use Bank, otherwise AP
+            if credit_account == "미지급금" && (desc.contains("이체") || desc.contains("출금")) {
+                 tx.credit_account = Some("보통예금".to_string());
+            } else {
+                 tx.credit_account = Some(credit_account);
+            }
+        }
+    } else {
+        // Fallback if no category
+        tx.debit_account = Some(debit_account);
+        tx.credit_account = Some(credit_account);
+    }
+    
     // Attempt rule based
     crate::ai::rule_based_classifier::classify_by_rules(&mut tx);
     
     Some(tx)
 }
 
-fn sanitize_amount(s: &str) -> f64 {
-    // Extract only numbers, dots, and minus sign
+pub fn sanitize_amount(s: &str) -> f64 {
+    // [Antigravity] Number Sanitizer: Handle 100,000,000 AND 1.5E+08 (Scientific)
     let clean: String = s.chars()
-        .filter(|c| c.is_ascii_digit() || *c == '.' || *c == '-')
+        .filter(|c| c.is_ascii_digit() || *c == '.' || *c == '-' || *c == 'E' || *c == 'e' || *c == '+')
         .collect();
     
+    if clean.is_empty() || clean == "." || clean == "-" || clean == "+" {
+        return 0.0;
+    }
+
     let mut val = clean.parse::<f64>().unwrap_or(0.0);
     
     // Special check for accounting format "(123)" if it didn't have a minus sign
@@ -336,7 +453,7 @@ fn sanitize_amount(s: &str) -> f64 {
     val
 }
 
-fn sanitize_date(s: &str) -> String {
+pub fn sanitize_date(s: &str) -> String {
     // 1. Pre-process: Replace common separators and remove spaces for easier splitting
     let clean = s.replace("년", "-").replace("월", "-").replace("일", "")
                  .replace("\"", "").replace(".", "-").replace("/", "-");

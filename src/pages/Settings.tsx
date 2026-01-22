@@ -7,7 +7,7 @@ import { SetupWizard } from '../components/onboarding/SetupWizard';
 import { EntityMetadata, TaxPolicy } from '../types';
 
 const Settings: React.FC = () => {
-    const { addEntry, ledger } = useAccounting();
+    const { addEntry, addAsset, ledger } = useAccounting();
     const [closingDate, setClosingDate] = useState('');
     const [isReadOnly, setIsReadOnly] = useState(false);
     const [showWizard, setShowWizard] = useState(false);
@@ -15,11 +15,46 @@ const Settings: React.FC = () => {
 
     const handleLoadTestData = () => {
         const mockRaw = generateMockBatch();
+
         mockRaw.forEach(item => {
-            const parsed = simulateAIParsing(item);
-            addEntry(parsed);
+            // 1. Add to Ledger
+            if (item.debitAccount && item.creditAccount) {
+                addEntry({
+                    id: crypto.randomUUID(),
+                    date: item.date || new Date().toISOString().split('T')[0],
+                    description: item.description || '',
+                    vendor: item.vendor,
+                    debitAccount: item.debitAccount,
+                    creditAccount: item.creditAccount,
+                    amount: item.amount || 0,
+                    vat: item.vat || 0,
+                    type: item.type as any,
+                    status: item.status as any || 'Unconfirmed',
+                    ocrData: item.ocrData
+                });
+
+                // 2. If Asset, add to Asset Registry
+                if (item.type === 'Asset') {
+                    const assetName = item.description?.replace('고정자산 취득 - ', '') || 'New Asset';
+                    addAsset({
+                        id: `ASSET-${Math.floor(Math.random() * 10000)}`,
+                        name: assetName,
+                        acquisitionDate: item.date || new Date().toISOString(),
+                        cost: item.amount || 0,
+                        depreciationMethod: 'STRAIGHT_LINE',
+                        usefulLife: 5, // Default
+                        residualValue: 0,
+                        accumulatedDepreciation: 0,
+                        currentValue: item.amount || 0,
+                        quantity: 1
+                    });
+                }
+            } else {
+                const parsed = simulateAIParsing(item);
+                addEntry(parsed);
+            }
         });
-        alert('모의 데이터 50건이 생성되었습니다.');
+        alert('종합 테스트 데이터(전분야)가 생성되었습니다.');
     };
 
     return (

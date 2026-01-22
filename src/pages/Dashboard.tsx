@@ -13,10 +13,11 @@ import {
     Play,
     ShieldCheck,
     Terminal,
-    Zap
+    Zap,
+    HelpCircle
 } from 'lucide-react';
 import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
     BarChart, Bar, Cell
 } from 'recharts';
 import { motion } from 'framer-motion';
@@ -25,10 +26,18 @@ import { AIForecastPanel } from '../components/dashboard/AIForecastPanel';
 import { ManagementReportPanel } from '../components/dashboard/ManagementReportPanel';
 import { CFOReportCard } from '../components/dashboard/CFOReportCard';
 import { CEOQuickBar } from '../components/dashboard/CEOQuickBar';
+import { Tooltip } from '../components/common/Tooltip';
 import { generateShowcaseData } from '../utils/mockDataGenerator';
 
-export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab }) => {
+export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab }) => {
     const { ledger, financials, addEntries, resetData, loadSimulation } = useAccounting();
+
+    // Layout stability fix for Recharts
+    const [isMounted, setIsMounted] = useState(false);
+    React.useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     const [isSimulating, setIsSimulating] = useState(false);
     const [isDemoMode, setIsDemoMode] = useState(false);
 
@@ -48,29 +57,38 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
 
     // 1. Real-time Aggregation Logic
     const analytics = useMemo(() => {
-        const cashFlowData: { name: string; income: number; expense: number }[] = [];
+        // 1. 실제 과거 6개월 데이터 집계 (연도-월 기준)
+        const today = new Date();
+        const past6MonthsKeys: string[] = [];
         const monthlyData: Record<string, { income: number; expense: number }> = {};
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            past6MonthsKeys.push(key);
+            monthlyData[key] = { income: 0, expense: 0 };
+        }
 
         ledger.forEach(entry => {
             const date = new Date(entry.date);
-            const key = months[date.getMonth()];
-            if (!monthlyData[key]) monthlyData[key] = { income: 0, expense: 0 };
-            if (entry.type === 'Revenue') monthlyData[key].income += entry.amount;
-            if (entry.type === 'Expense' || entry.type === 'Payroll') monthlyData[key].expense += entry.amount;
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+            if (monthlyData[key]) {
+                if (entry.type === 'Revenue') monthlyData[key].income += entry.amount;
+                if (entry.type === 'Expense' || entry.type === 'Payroll') monthlyData[key].expense += entry.amount;
+            }
         });
 
-        // Get last 6 months in order
-        const today = new Date();
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-            const key = months[d.getMonth()];
-            cashFlowData.push({
-                name: key,
-                income: monthlyData[key]?.income || 0,
-                expense: monthlyData[key]?.expense || 0
-            });
-        }
+        const cashFlowData = past6MonthsKeys.map(key => {
+            const [year, month] = key.split('-');
+            const label = `${year.slice(2)}년 ${parseInt(month)}월`;
+            return {
+                name: label,
+                income: monthlyData[key].income,
+                expense: monthlyData[key].expense
+            };
+        });
 
         let rndAssetValue = 0;
         let stockOptionExpense = 0;
@@ -91,24 +109,25 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
     }, [ledger]);
 
     const briefing = useMemo(() => {
-        const runway = analytics.averageMonthlyBurn > 0 ? financials.realAvailableCash / analytics.averageMonthlyBurn : 0;
+        // More conservative runway calculation (Enterprise Standard)
+        const runway = analytics.averageMonthlyBurn > 0 ? financials.realAvailableCash / analytics.averageMonthlyBurn : 24;
 
         return {
-            status: runway >= 6 ? 'STABLE' : runway >= 3 ? 'MONITOR' : 'CRITICAL',
+            status: runway >= 12 ? 'STABLE' : runway >= 6 ? 'MONITOR' : 'CRITICAL',
             cashText: `₩${financials.realAvailableCash.toLocaleString()}`,
             schedule: "금일 실시간 전표 처리: 0건 대기 중",
-            message: runway >= 6 ?
-                "자금 흐름이 안정적입니다. 예정된 지출 및 재무 전략을 유지하십시오." :
-                runway >= 3 ? "현금 흐름 모니터링이 필요한 구간입니다. 변동 지출을 점검하십시오." :
-                    "유동성 위기 단계입니다. 즉각적인 재무 건전성 확보가 필요합니다."
+            message: runway >= 12 ?
+                "자금 흐름이 안정적입니다. 장기적인 투자 및 재무 전략 추진이 가능합니다." :
+                runway >= 6 ? "현금 흐름 모니터링이 필요한 구간입니다. 고정비 지출 속도를 조절하십시오." :
+                    "유동성 위기 단계입니다. 즉각적인 비용 절감 및 자금 조달 전략이 시급합니다."
         };
     }, [financials, analytics]);
 
     const kpiCards = [
-        { label: '현금 및 현금성 자산', value: financials.cash, icon: Wallet, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-        { label: '매출채권 (AR)', value: financials.ar, icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-        { label: '매입채무 (AP)', value: financials.ap, icon: CreditCard, color: 'text-rose-400', bg: 'bg-rose-500/10' },
-        { label: '현금 연소율 (Burn Rate)', value: analytics.averageMonthlyBurn, icon: Activity, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }
+        { label: '현금 및 현금성 자산', description: 'BS 상의 총 현금 및 예금 계정 잔액 합계입니다.', value: financials.cash, icon: Wallet, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+        { label: '매출채권 (AR)', description: '발생주의 기준 매출 중 아직 현금으로 회수되지 않은 미수금 총액입니다.', value: financials.ar, icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+        { label: '매입채무 (AP)', description: '확정된 비용 중 아직 지급되지 않은 채무이며, 상환 시 가용 자금이 감소합니다.', value: financials.ap, icon: CreditCard, color: 'text-rose-400', bg: 'bg-rose-500/10' },
+        { label: '현금 연소율 (Burn Rate)', description: '최근 3개월간의 평균 월간 현금 유출액으로, 런웨이(Runway) 분석의 핵심 지표입니다.', value: analytics.averageMonthlyBurn, icon: Activity, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }
     ];
 
     return (
@@ -164,33 +183,36 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                             <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400">
                                 <TrendingUp size={24} />
                             </div>
-                            <h3 className="text-xl font-black text-white tracking-tight">Financial Cash Flow Analysis</h3>
+                            <h3 className="text-xl font-black text-white tracking-tight">최근 6개월 현금 흐름 추이 (Historical Cash Flow)</h3>
                         </div>
                     </div>
-                    <div className="flex-1 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={analytics.cashFlowData}>
-                                <defs>
-                                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff10" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748b' }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748b' }} tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#1e293b', borderRadius: '16px', border: 'none' }}
-                                    formatter={(v: any) => `₩${v.toLocaleString()}`}
-                                />
-                                <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorIncome)" />
-                                <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={4} fillOpacity={1} fill="url(#colorExpense)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                    <div className="flex-1 w-full min-w-0">
+                        {/* Recharts dimension fix: Ensure container is mounted before calculating size */}
+                        {isMounted && (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={analytics.cashFlowData}>
+                                    <defs>
+                                        <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff10" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748b' }} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748b' }} tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} />
+                                    <RechartsTooltip
+                                        contentStyle={{ backgroundColor: '#1e293b', borderRadius: '16px', border: 'none' }}
+                                        formatter={(v: any) => `₩${v.toLocaleString()}`}
+                                    />
+                                    <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorIncome)" />
+                                    <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={4} fillOpacity={1} fill="url(#colorExpense)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
 
@@ -204,7 +226,13 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                             <div className={`w-12 h-12 rounded-2xl ${kpi.bg} ${kpi.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
                                 <kpi.icon size={24} />
                             </div>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{kpi.label}</p>
+                            <Tooltip key={kpi.label} content={kpi.description} position="top">
+                                <div className="p-2 -m-2 inline-block">
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 cursor-help flex items-center gap-1 border-b border-white/10 w-fit pointer-events-none">
+                                        {kpi.label} <HelpCircle size={10} className="text-slate-600" />
+                                    </p>
+                                </div>
+                            </Tooltip>
                             <h4 className="text-3xl font-black text-white tracking-tighter">₩{kpi.value.toLocaleString()}</h4>
                         </div>
                     ))}
@@ -238,7 +266,9 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                                     </span>
                                 </h3>
                                 <div className="flex flex-col md:flex-row md:items-center gap-4 text-slate-300 text-sm font-bold">
-                                    <span className="flex items-center gap-1"><Wallet size={14} className="text-indigo-400" /> 실가용자금: {briefing.cashText}</span>
+                                    <Tooltip content="총 현금에서 확정 부채(AP, VAT) 및 사용 제한 보조금을 차감한, 경영진이 실질적으로 즉시 집행 가능한 자금입니다." position="top">
+                                        <span className="flex items-center gap-1 cursor-help border-b border-indigo-400/20"><Wallet size={14} className="text-indigo-400" /> 실가용자금: {briefing.cashText} <HelpCircle size={12} className="text-indigo-500/50" /></span>
+                                    </Tooltip>
                                     <span className="flex items-center gap-1"><Calendar size={14} className="text-indigo-400" /> {briefing.schedule}</span>
                                 </div>
                                 <p className="text-slate-400 font-bold text-sm pt-2">
@@ -248,7 +278,7 @@ export const Dashboard: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab
                         </div>
                         <div className="hidden lg:block">
                             <button
-                                onClick={() => setTab?.('advanced')}
+                                onClick={() => setTab?.('advanced-ledger')}
                                 className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-black rounded-xl border border-white/10 transition-all active:scale-95"
                             >
                                 상세 전략 모듈 가동 <ArrowUpRight size={18} />

@@ -275,9 +275,7 @@ async fn generate_ai_analysis(
     scm: &ScmInsights,
     tax: &TaxCompliance,
 ) -> Result<(String, String, Vec<String>), String> {
-    let api_key = std::env::var("GEMINI_API_KEY").unwrap_or_else(|_| {
-        "AIzaSyAqlg9WMKHWQTBCp6Bj3DbxMjED06LqEyE".to_string()
-    });
+    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| "환경 변수 'GEMINI_API_KEY'가 설정되지 않았습니다.".to_string())?;
 
     let trends_summary = trends.iter()
         .map(|t| format!("- {}: {}", t.category, t.insight))

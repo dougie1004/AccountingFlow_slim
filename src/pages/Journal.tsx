@@ -5,8 +5,6 @@ import JournalTable from '../components/journal/JournalTable';
 import { TransactionFeed } from '../components/dashboard/TransactionFeed';
 import { FileUploader } from '../components/journal/FileUploader';
 import { StagingTable } from '../components/journal/StagingTable';
-import { DemoDataModal } from '../components/journal/DemoDataModal';
-import { generateMockBatch, simulateAIParsing } from '../utils/mockDataGenerator';
 import { FileText, Download, Filter, Calendar, User, Database, LayoutGrid, List, Plus } from 'lucide-react';
 import CalendarView from '../components/journal/CalendarView';
 import { ManualEntryModal } from '../components/journal/ManualEntryModal';
@@ -23,7 +21,6 @@ const Journal: React.FC = () => {
     const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [uploadedData, setUploadedData] = useState<ParsedTransaction[]>([]);
-    const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
     const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
     // Extract unique vendors for dropdown
@@ -74,7 +71,7 @@ const Journal: React.FC = () => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* AI Transaction Input Section */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 xl:grid-cols-[40%_60%] gap-8">
                 {/* Left Panel: Bulk Upload & Staging */}
                 <div className="space-y-6">
                     <header className="flex items-center justify-between">
@@ -82,12 +79,6 @@ const Journal: React.FC = () => {
                             <span className="w-1.5 h-6 bg-emerald-500 rounded-sm"></span>
                             <h2 className="text-lg font-bold text-white">대량 데이터 일괄 업로드 (CSV/Excel)</h2>
                         </div>
-                        <button
-                            onClick={() => setIsDemoModalOpen(true)}
-                            className="text-xs font-bold text-indigo-400 hover:bg-indigo-500/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-                        >
-                            <Database size={14} /> 소스 데이터 보기
-                        </button>
                     </header>
 
                     {uploadedData.length === 0 ? (
@@ -242,19 +233,6 @@ const Journal: React.FC = () => {
                         </span>
                     </div>
                 </div>
-            )}
-
-            {/* Demo Data Modal */}
-            {isDemoModalOpen && (
-                <DemoDataModal
-                    onClose={() => setIsDemoModalOpen(false)}
-                    onLoad={() => {
-                        const raw = generateMockBatch();
-                        const processStr = raw.map(r => simulateAIParsing(r));
-                        processStr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                        processStr.forEach(addEntry);
-                    }}
-                />
             )}
 
             {/* Manual Entry Modal */}

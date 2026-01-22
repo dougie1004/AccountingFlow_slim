@@ -7,30 +7,7 @@ import { AccountingContext } from '../context/AccountingContext';
 export const Assets: React.FC = () => {
     const { assets: contextAssets } = useContext(AccountingContext)!;
 
-    const assets = contextAssets.length > 0 ? contextAssets : [
-        {
-            id: 'ASSET-2025-001',
-            name: '서초동 본사 오피스 인테리어',
-            acquisitionDate: '2025-01-15',
-            cost: 150000000,
-            depreciationMethod: 'STRAIGHT_LINE',
-            usefulLife: 10,
-            residualValue: 0,
-            accumulatedDepreciation: 12500000,
-            currentValue: 137500000
-        },
-        {
-            id: 'ASSET-2025-082',
-            name: '서버 랙 및 네트워크 인프라',
-            acquisitionDate: '2025-02-01',
-            cost: 45000000,
-            depreciationMethod: 'STRAIGHT_LINE',
-            usefulLife: 5,
-            residualValue: 0,
-            accumulatedDepreciation: 7500000,
-            currentValue: 37500000
-        }
-    ];
+    const assets = contextAssets;
 
     const totalCost = assets.reduce((acc, curr) => acc + curr.cost, 0);
     const totalCurrent = assets.reduce((acc, curr) => acc + curr.currentValue, 0);
@@ -51,7 +28,7 @@ export const Assets: React.FC = () => {
                 <div>
                     <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
                         <Landmark className="text-indigo-500" size={32} />
-                        유형자산 관리 및 상각
+                        고정자산 관리
                     </h1>
                     <p className="text-slate-400 text-lg mt-2">고정자산 등록 및 감가상각 전표 자동 처리 시스템</p>
                 </div>
@@ -97,7 +74,7 @@ export const Assets: React.FC = () => {
                 <div className="bg-[#151D2E] border border-white/5 p-8 rounded-[2rem] shadow-2xl relative group overflow-hidden">
                     <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">월 예상 상각비</p>
                     <h3 className="text-3xl font-black text-rose-400 tracking-tight">
-                        ₩3.4M
+                        ₩{assets.length > 0 ? (totalCost / 60 / 1000000).toFixed(1) + 'M' : '0.0M'}
                     </h3>
                     <div className="mt-4 flex items-center gap-2 text-rose-400 text-xs font-bold">
                         <TrendingDown size={14} />

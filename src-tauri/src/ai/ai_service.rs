@@ -1,6 +1,11 @@
 use crate::core::models::ParsedTransaction;
 use serde_json::json;
 
+// [Antigravity] Centralized Model Configuration
+fn get_ai_model() -> String {
+    std::env::var("AI_MODEL_NAME").unwrap_or_else(|_| "gemini-2.0-flash-exp".to_string())
+}
+
 pub async fn call_journal_ai(
     input: &str, 
     image_data: Option<(Vec<u8>, &str)>, 
@@ -8,53 +13,46 @@ pub async fn call_journal_ai(
     tenant_id: &str, 
     _tier: &str
 ) -> Result<ParsedTransaction, String> {
-    let api_key = std::env::var("GEMINI_API_KEY").unwrap_or_else(|_| {
-        "AIzaSyAqlg9WMKHWQTBCp6Bj3DbxMjED06LqEyE".to_string()
-    });
+    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| "환경 변수 'GEMINI_API_KEY'가 설정되지 않았습니다.".to_string())?;
+    let model_name = get_ai_model();
 
     let mut parts = Vec::new();
 
-    // 1. 프롬프트 구성
+    // 1. 프롬프트 구성 (Senior AI CFO Engine)
     let prompt = format!(
-        r#"당신은 숙련된 공인회계사(KICPA)이자 SME 전문 세무 조력자입니다. 사용자의 텍스트 입력과 증빙을 분석하여 '세무 신고'가 가능한 수준의 정교한 전표를 생성하세요.
+        r#"[Role: Senior AI CFO & Internal Auditor]
 
- 핵심 계정과목 가이드라인 (accountName에 반드시 사용):
- [자산] 보통예금, 현금, 외상매출금, 미수금, 선급금, 가지급금, 상품, 원재료, 재고자산, 비품, 차량운반구, 소프트웨어, 임차보증금
- [부채] 미지급금, 예수금, 외상매입금, 단기차입금, 미지급비용
- [자본] 자본금, 미처분이익잉여금
- [수익/매출] 상품매출, 서비스매출, 이자수익
- [비용/원가/판관비] 상품매출원가, 제품매출원가, 급여, 복리후생비(식대/경조사), 여비교통비(택시/출장), 통신비(인터넷/폰), 수도광열비(전기/가스), 세금과공과(협회비/과태료 제외공과금), 임차료, 수선비, 보험료, 접대비(거래처식대/선물), 광고선전비, 소모품비, 지급수수료(이체/세무대리), 운반비(퀵/택배), 차량유지비(주유/주차), 도서인쇄비, 교육훈련비, 연구개발비, 이자비용, 재고자산감모손실, 재고자산평가손실(부인)
+1. 핵심 임무 (Core Mission): 너는 단순한 텍스트 분류기가 아니다. 너는 복식부기 원리와 국제회계기준(IFRS)을 준수하는 전문 AI CFO다. 모든 데이터의 '경제적 실질'을 분석하여 재무제표에 미칠 영향을 추론하라.
 
- 분석 규칙:
- 1. **수익(매출) vs 비용**: '판매', '수주', '입금', '수익', '매출' 등 돈이 들어오거나 제품을 판 맥락이면 반드시 'Revenue'로 분류하고 '상품매출' 또는 '서비스매출'을 선택하세요. 절대 '지급수수료'와 혼동하지 마세요.
-        r#"당신은 숙련된 공인회계사(KICPA)이자 기업 서비스(SME) 전문 회계/세무 어시스턴트입니다.
-        사용자의 전표 데이터나 영수증 이미지를 분석하여 '정확한' 회계 처리를 제안하는 것이 당신의 목표입니다.
+2. 다각도 분석 프레임워크 (Analytical Framework): 데이터가 들어오면 다음 3단계를 거쳐 분석하라:
+   - Economic Substance: 이 거래의 진짜 목적은 무엇인가? (예: Initial Capital → 투자금 유입 → 자본의 증가)
+   - Double-Entry Connection: 차변(보통예금 등)뿐만 아니라 대변에 올 적절한 계정(자본금, 매출 등)을 반드시 매칭하라.
+   - Risk & Context Detection: FX_Rate, Returned, Grant 같은 키워드를 감지하면 일반 전표가 아닌 '특수 전표' 모드로 전환하여 환율 계산이나 역분개 로직을 가동하라.
 
-        [분석 지침]
-        1. 계정과목: 한국 채택 국제회계기준(K-IFRS) 및 기업회계기준을 준수하세요.
-        2. 부가세: 적격증빙 여부를 판단하여 매입세액 공제 가능 여부를 고려하세요.
-        3. 실무 중심: 실무에서 주로 사용하는 계정과목(복리후생비, 접대비, 지급수수료 등)을 우선 고려하세요.
-        4. 어조: 정중하고 전문적인 회계 전문가의 어조를 유지하세요.
+3. 추론 엔진 가이드라인 (Reasoning Guidelines):
+   - Zero-Guess Rule: 키워드가 없어도 문맥상 투자(Funding)인지 영업(Sales)인지 구분하라.
+   - Confidence Scoring: 분류 근거를 '회계적 언어'로 설명하라. (예: "정부 지원금은 상환 의무가 없으므로 부채가 아닌 영업외수익으로 처리함")
+   - Anomalies Detection: 매출 전표에 마이너스 금액이 있다면 오류가 아닌 '반품/환불'로 해석하여 매출에서 차감하라.
 
-        [응답 형식]
-        반드시 다음 JSON 형식으로만 응답해야 합니다:
-        {{
-          "date": "YYYY-MM-DD",
-          "amount": 0,
-          "vat": 0,
-          "entryType": "Revenue | Expense | Asset | Liability | Equity",
-          "description": "거래 내용 요약",
-          "vendor": "거래처명",
-          "accountName": "추천 계정과목",
-          "reasoning": "해당 계정과목으로 분류한 근거",
-          "needsClarification": false,
-          "clarificationPrompt": "추가 확인이 필요한 경우 질문 (없으면 빈 문자열)",
-          "confidence": "High | Medium | Low"
-        }}
+[응답 형식]
+반드시 다음 JSON 형식으로만 응답해야 합니다 (Markdown 없이 JSON만 출력):
+{{
+  "date": "YYYY-MM-DD",
+  "amount": 0.0,
+  "vat": 0.0,
+  "entryType": "Revenue | Expense | Asset | Liability | Equity",
+  "description": "거래의 경제적 실질 요약",
+  "vendor": "거래처명 (없으면 유추)",
+  "accountName": "최종 계정과목 (예: 자본금, 상품매출, 보통예금)",
+  "reasoning": "[CoT] 1. 본질 분석(Economic Substance) -> 2. 회계 원칙(IFRS) 매핑 -> 3. 결론",
+  "needsClarification": false,
+  "clarificationPrompt": "",
+  "confidence": "High | Medium | Low"
+}}
 
-        분석 대상: {}
-        정책 컨텍스트: {}
-        "#,
+분석 대상 Raw Data: {}
+회계 정책 컨텍스트: {}
+"#,
         input, policy
     );
 
@@ -77,9 +75,9 @@ pub async fn call_journal_ai(
         "generationConfig": { "response_mime_type": "application/json" }
     });
 
-    println!("[AI Service] Sending request to Gemini Pro/Flash (Input length: {})", input.len());
+    println!("[AI Service] Sending request to {} (Input length: {})", model_name, input.len());
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={}", api_key))
+        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", model_name, api_key))
         .json(&body)
         .send()
         .await
@@ -92,13 +90,7 @@ pub async fn call_journal_ai(
     
     if let Some(error) = json_res.get("error") {
         println!("[AI Service] API Error received: {}", error["message"]);
-        // API 에러 발생 시 Fallback
-        let mut fallback_tx = ParsedTransaction::default();
-        fallback_tx.description = Some(input.to_string());
-        crate::ai::rule_based_classifier::classify_by_rules(&mut fallback_tx);
-        fallback_tx.audit_trail.push(format!("[{}] AI API 에러 - 규칙 기반 분류 사용: {}", 
-            chrono::Local::now().format("%H:%M:%S"), error["message"]));
-        return Ok(fallback_tx);
+        return Err(format!("AI 모델 설정 확인 필요 ({}): {}", model_name, error["message"]));
     }
 
     let mut text = json_res["candidates"][0]["content"]["parts"][0]["text"]
@@ -106,30 +98,42 @@ pub async fn call_journal_ai(
         .ok_or("AI 응답 데이터 오류")?
         .to_string();
 
-    // JSON 추출 강화
+    // JSON 추출 강화 (Brace Counting Method)
     text = text.replace("```json", "").replace("```", "").trim().to_string();
     
-    // JSON 시작/끝 찾기
+    // Find the confirmed JSON block by counting braces
     if let Some(start) = text.find('{') {
-        if let Some(end) = text.rfind('}') {
-            text = text[start..=end].to_string();
+        let mut balance = 0;
+        let mut end_idx = start;
+        let chars: Vec<char> = text.chars().collect();
+        
+        for i in start..chars.len() {
+            if chars[i] == '{' {
+                balance += 1;
+            } else if chars[i] == '}' {
+                balance -= 1;
+            }
+            
+            if balance == 0 {
+                end_idx = i;
+                break;
+            }
+        }
+        
+        if end_idx > start {
+            text = chars[start..=end_idx].iter().collect();
         }
     }
 
     let mut parsed: ParsedTransaction = match serde_json::from_str(&text) {
         Ok(p) => p,
         Err(e) => {
-            // JSON 파싱 실패 시 Fallback
-            let mut fallback_tx = ParsedTransaction::default();
-            fallback_tx.description = Some(input.to_string());
-            crate::ai::rule_based_classifier::classify_by_rules(&mut fallback_tx);
-            fallback_tx.audit_trail.push(format!("[{}] JSON 파싱 실패 ({}) - 규칙 기반 분류 사용", 
-                chrono::Local::now().format("%H:%M:%S"), e));
-            return Ok(fallback_tx);
+            // JSON 파싱 실패 시 Strict Error
+            return Err(format!("AI 응답 형식 오류 (모델: {}): {}", model_name, e));
         }
     };
 
-    parsed.audit_trail.push(format!("[{}] Gemini 1.5 Pro (Enterprise) 분석 완료", chrono::Local::now().format("%H:%M:%S")));
+    parsed.audit_trail.push(format!("[{}] {} (Advanced) 분석 완료", chrono::Local::now().format("%H:%M:%S"), model_name));
     println!("[AI Service] Successfully parsed AI response for: {}", parsed.description.as_deref().unwrap_or("Unknown"));
 
     // STEP 3: 사용량 기록
@@ -142,9 +146,8 @@ pub async fn call_journal_ai(
 }
 
 pub async fn extract_transaction_from_media(bytes: Vec<u8>, mime: &str) -> Result<ParsedTransaction, String> {
-    let api_key = std::env::var("GEMINI_API_KEY").unwrap_or_else(|_| {
-        "AIzaSyAqlg9WMKHWQTBCp6Bj3DbxMjED06LqEyE".to_string()
-    });
+    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| "환경 변수 'GEMINI_API_KEY'가 설정되지 않았습니다.".to_string())?;
+    let model_name = get_ai_model();
 
     // Base64 인코딩
     let base64_data = base64::Engine::encode(&base64::prelude::BASE64_STANDARD, bytes);
@@ -184,9 +187,9 @@ JSON 응답 형식:
         }
     });
 
-    println!("[AI Service] Sending Media (Vision) request to Gemini (Mime: {})", mime_type);
+    println!("[AI Service] Sending Media (Vision) request to {} (Mime: {})", model_name, mime_type);
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={}", api_key))
+        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", model_name, api_key))
         .json(&body)
         .send()
         .await
@@ -199,7 +202,7 @@ JSON 응답 형식:
     
     // 에러 상세 메시지 확인
     if let Some(err) = json_res.get("error") {
-        return Err(format!("Gemini API Error: {}", err["message"].as_str().unwrap_or("Unknown")));
+        return Err(format!("Gemini API Error ({}): {}", model_name, err["message"].as_str().unwrap_or("Unknown")));
     }
 
     let candidates = json_res.get("candidates").and_then(|c| c.as_array());
@@ -213,20 +216,43 @@ JSON 응답 형식:
         .trim()
         .to_string();
 
-    // JSON 추출 강화
+    // JSON 추출 강화 (Brace Counting Method)
     text = text.replace("```json", "").replace("```", "").trim().to_string();
     
-    // JSON 시작/끝 찾기
+    // Find the confirmed JSON block by counting braces
     if let Some(start) = text.find('{') {
-        if let Some(end) = text.rfind('}') {
-            text = text[start..=end].to_string();
+        let mut balance = 0;
+        let mut end_idx = start;
+        let chars: Vec<char> = text.chars().collect();
+        
+        for i in start..chars.len() {
+            if chars[i] == '{' {
+                balance += 1;
+            } else if chars[i] == '}' {
+                balance -= 1;
+            }
+            
+            if balance == 0 {
+                end_idx = i;
+                // Double check if this is the outermost closing brace by checking if we are back to 0 from 1
+                // Wait, logic: start with 0. 
+                // i=start ('{') -> balance=1.
+                // ...
+                // i=end ('}') -> balance=0.
+                // We stop here.
+                break;
+            }
+        }
+        
+        if end_idx > start {
+            text = chars[start..=end_idx].iter().collect();
         }
     }
 
     let mut parsed: ParsedTransaction = serde_json::from_str(&text)
         .map_err(|e| format!("JSON 변환 실패: {} | 원문: {}", e, text))?;
 
-    parsed.audit_trail.push(format!("[{}] Gemini 1.5 Pro (Enterprise) 시각 분석 완료", chrono::Local::now().format("%H:%M:%S")));
+    parsed.audit_trail.push(format!("[{}] {} (Vision) 시각 분석 완료", chrono::Local::now().format("%H:%M:%S"), model_name));
 
     // 사용량 기록
     crate::core::quota_manager::QUOTA_MANAGER.record_usage("default", 0.00002);
@@ -239,9 +265,8 @@ pub async fn verify_receipt_compliance(
     image_mime: &str,
     transaction_json: &str,
 ) -> Result<ParsedTransaction, String> {
-    let api_key = std::env::var("GEMINI_API_KEY").unwrap_or_else(|_| {
-        "AIzaSyAqlg9WMKHWQTBCp6Bj3DbxMjED06LqEyE".to_string()
-    });
+    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| "환경 변수 'GEMINI_API_KEY'가 설정되지 않았습니다.".to_string())?;
+    let model_name = get_ai_model();
 
     let base64_data = base64::Engine::encode(&base64::prelude::BASE64_STANDARD, image_bytes);
     let mime_type = match image_mime {
@@ -285,7 +310,7 @@ pub async fn verify_receipt_compliance(
     });
 
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={}", api_key))
+        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", model_name, api_key))
         .json(&body)
         .send()
         .await
@@ -307,7 +332,7 @@ pub async fn verify_receipt_compliance(
     updated_tx.needs_clarification = compliance_res["needsClarification"].as_bool().unwrap_or(false);
     updated_tx.reasoning = compliance_res["reasoning"].as_str().unwrap_or("").to_string();
     updated_tx.clarification_prompt = compliance_res["clarificationPrompt"].as_str().map(|s| s.to_string());
-    updated_tx.audit_trail.push(format!("[{}] AI 회계사 영수증 교차 검증 완료", chrono::Local::now().format("%H:%M:%S")));
+    updated_tx.audit_trail.push(format!("[{}] AI 회계사 영수증 교차 검증 완료 ({})", chrono::Local::now().format("%H:%M:%S"), model_name));
 
     Ok(updated_tx)
 }
@@ -319,6 +344,7 @@ pub async fn consult_compliance_ai(
     let api_key = std::env::var("GEMINI_API_KEY").unwrap_or_else(|_| {
         "AIzaSyAqlg9WMKHWQTBCp6Bj3DbxMjED06LqEyE".to_string()
     });
+    let model_name = get_ai_model();
 
     let tx_context = if let Some(tx) = current_tx {
         format!(
@@ -364,7 +390,7 @@ pub async fn consult_compliance_ai(
     });
 
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={}", api_key))
+        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", model_name, api_key))
         .json(&body)
         .send()
         .await

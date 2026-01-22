@@ -13,11 +13,13 @@ import {
     TrendingDown,
     Activity,
     Lock,
-    Search
+    Search,
+    HelpCircle
 } from 'lucide-react';
 import { useAccounting } from '../hooks/useAccounting';
 import { invoke } from '@tauri-apps/api/core';
 import { ManagementReport } from '../types';
+import { Tooltip } from '../components/common/Tooltip';
 
 export const Reports: React.FC = () => {
     const context = useAccounting() as any;
@@ -152,6 +154,31 @@ export const Reports: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
+                    <Tooltip content="현금, 매출채권, 고정자산 등을 모두 포함한 기업의 총 자산 규모입니다." position="top">
+                        <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 hover:border-indigo-500/30 transition-all cursor-help group shadow-2xl h-full">
+                            <h4 className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em] mb-4 group-hover:text-indigo-400 transition-colors flex items-center gap-1">
+                                Total Assets <HelpCircle size={10} />
+                            </h4>
+                            <p className="text-3xl font-black text-white tracking-tighter">₩{totalAssets.toLocaleString()}</p>
+                        </div>
+                    </Tooltip>
+                    <Tooltip content="매입채무 및 미지급 부가세 등 향후 지급해야 할 부채의 총액입니다." position="top">
+                        <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 hover:border-indigo-500/30 transition-all cursor-help group shadow-2xl h-full">
+                            <h4 className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em] mb-4 group-hover:text-amber-400 transition-colors flex items-center gap-1">
+                                Total Liabilities <HelpCircle size={10} />
+                            </h4>
+                            <p className="text-3xl font-black text-white tracking-tighter">₩{totalLiabilities.toLocaleString()}</p>
+                        </div>
+                    </Tooltip>
+                    <Tooltip content="자본금과 이익잉여금을 포함한 기업의 순자산(자기자본) 가치입니다." position="top">
+                        <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 hover:border-indigo-500/30 transition-all cursor-help group shadow-2xl h-full">
+                            <h4 className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em] mb-4 group-hover:text-emerald-400 transition-colors flex items-center gap-1">
+                                Total Equity <HelpCircle size={10} />
+                            </h4>
+                            <p className="text-3xl font-black text-white tracking-tighter">₩{totalEquity.toLocaleString()}</p>
+                        </div>
+                    </Tooltip>
 
                     <div className="bg-[#151D2E]/80 backdrop-blur-xl rounded-[2.5rem] border border-white/5 p-8 shadow-3xl group transition-all hover:bg-[#1a253a]">
                         <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Runway Analysis</p>

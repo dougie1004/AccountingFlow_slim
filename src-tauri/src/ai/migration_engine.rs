@@ -18,10 +18,10 @@ pub struct MigrationSummary {
  */
 pub async fn run_smart_migration(
     file_bytes: Vec<u8>,
-    _file_name: String,
+    file_name: String,
 ) -> Result<MigrationSummary, String> {
-    // 1. 기본 파싱 (Robust Parser 사용)
-    let raw_data = parse_robust_csv(file_bytes)?;
+    // 1. 더존(Douzone) 특화 파싱 엔진 가동
+    let raw_data = crate::accounting::parser::parse_douzone_data(file_bytes, &file_name)?;
     
     // 2. ERP 유형 추론 및 계정 맵핑 (PoC용 가상 로직)
     // 실제로는 여기서 AI를 호출하여 컬럼 구조를 재해석할 수 있습니다.

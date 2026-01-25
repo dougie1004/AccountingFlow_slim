@@ -51,6 +51,7 @@ pub fn run_simulation() -> SimulationResult {
         attachment_url: None,
         ocr_data: None,
         compliance_context: None,
+        ..Default::default()
     });
     version_counter += 1;
 
@@ -90,6 +91,7 @@ pub fn run_simulation() -> SimulationResult {
         attachment_url: Some("https://example.com/inv_nvidia.pdf".to_string()),
         ocr_data: None,
         compliance_context: None,
+        ..Default::default()
     });
     version_counter += 1;
 
@@ -161,6 +163,7 @@ pub fn run_simulation() -> SimulationResult {
         attachment_url: Some("https://example.com/receipt_hyatt.pdf".to_string()),
         ocr_data: None,
         compliance_context: None,
+        ..Default::default()
     });
     version_counter += 1;
 
@@ -183,6 +186,7 @@ pub fn run_simulation() -> SimulationResult {
             attachment_url: None, // Missing proof!
             ocr_data: None,
             compliance_context: None,
+            ..Default::default()
         });
         version_counter += 1;
     }
@@ -205,6 +209,7 @@ pub fn run_simulation() -> SimulationResult {
         attachment_url: Some("https://example.com/car_repair.pdf".to_string()),
         ocr_data: Some("{\"insurance_coverage\": false}".to_string()),
         compliance_context: None,
+        ..Default::default()
     });
     version_counter += 1;
 
@@ -226,6 +231,7 @@ pub fn run_simulation() -> SimulationResult {
         attachment_url: None,
         ocr_data: None,
         compliance_context: None,
+        ..Default::default()
     });
     version_counter += 1;
 

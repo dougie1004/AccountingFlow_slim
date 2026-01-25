@@ -1,1 +1,0 @@
-error: could not compile `accounting-flow` (lib) due to 18 previous errors; 9 warnings emitted

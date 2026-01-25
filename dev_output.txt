@@ -1,0 +1,50 @@
+﻿
+> accounting-flow@0.1.0 tauri
+> tauri dev
+
+node.exe :      Running Befor
+eDevCommand (`npm run dev`)
+위치 줄:1 문자:1
++ & "C:\Program Files\nodejs/
+node.exe" "C:\Program Files\n
+odejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (     Ru  
+  nning Be...(`npm run dev   
+ `):String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+     Running DevCommand (`car
+go  run --no-default-features
+ --color always --`)
+        Info Watching C:\Proj
+ects\AccountingFlow\src-tauri
+ for changes...
+
+> accounting-flow@0.1.0 dev
+> vite
+
+[31merror when starting dev 
+server:
+Error: Port 1420 is already i
+n use
+    at Server.onError (file:/
+//C:/Projects/AccountingFlow/
+node_modules/vite/dist/node/c
+hunks/dep-BK3b2jBa.js:45596:1
+8)
+    at Server.emit (node:even
+ts:508:28)
+    at emitErrorNT (node:net:
+1976:8)
+    at process.processTicksAn
+dRejections (node:internal/pr
+ocess/task_queues:89:21)[39m
+       Error The "beforeDevCo
+mmand" terminated with a non-
+zero status code.

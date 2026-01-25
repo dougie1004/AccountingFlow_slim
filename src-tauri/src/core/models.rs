@@ -51,14 +51,25 @@ pub struct ParsedTransaction {
     pub parse_error_msg: Option<String>,
 
     // [Step 1] Payroll/Insurance Splitting
+    pub transaction_id: Option<String>,
     pub transaction_group_id: Option<String>,
     #[serde(default)]
     pub employee_tags: Vec<String>,
     #[serde(default)]
     pub is_insurance_part: bool,
+    pub payroll_split: Option<PayrollSplit>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PayrollSplit {
+    pub pension: f64,
+    pub health: f64,
+    pub tax: f64,
+    pub net: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct JournalEntry {
     pub id: String,
@@ -87,11 +98,13 @@ pub struct JournalEntry {
     pub raw_data_snapshot: Option<String>,
 
     // [Step 1] Payroll/Insurance Splitting
+    pub transaction_id: Option<String>,
     pub transaction_group_id: Option<String>,
     #[serde(default)]
     pub employee_tags: Vec<String>,
     #[serde(default)]
     pub is_insurance_part: bool,
+    pub payroll_split: Option<PayrollSplit>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -144,9 +144,7 @@ pub fn generate_closing_entries(
             audit_trail: vec![],
             parse_status: None,
             raw_data_snapshot: None,
-            transaction_group_id: None,
-            employee_tags: vec![],
-            is_insurance_part: false,
+            ..Default::default()
         });
 
         asset.accumulated_depreciation += amount;

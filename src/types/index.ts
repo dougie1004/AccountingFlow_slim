@@ -44,9 +44,18 @@ export interface JournalEntry {
     rawDataSnapshot?: string;
 
     // [Step 1] Payroll/Insurance Splitting
-    transactionGroupId?: string;
+    transactionId?: string;      // Logical Grouping ID
+    transactionGroupId?: string; // Legacy/Alt Grouping ID
     employeeTags?: string[];
     isInsurancePart?: boolean;
+    payrollSplit?: { pension: number; health: number; tax: number; net: number };
+
+    // [Step 3] UI-Only Fields for Composite Rendering (Optional)
+    isComposite?: boolean;
+    subIds?: string[];
+    debits?: { acc: string; amount: number }[];
+    credits?: { acc: string; amount: number }[];
+    displayAmount?: number;
 }
 
 export type TaxCode =

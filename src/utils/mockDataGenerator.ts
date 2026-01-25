@@ -95,6 +95,53 @@ export const generateSystemWideMockData = (): SimulationResult => {
         }));
     });
 
+    // --- 2.5. Lease Accounting (K-IFRS 1116) ---
+    // 1. Approved Lease Asset (Right-of-Use Asset)
+    // Office Lease (Gangnam HQ) - 5 Year Contract
+    const leaseAssetAmount = 240000000; // PV of Lease Payments
+    ledger.push(ensureIntegrity({
+        id: 'LEASE-ROU-01',
+        date: '2025-01-01',
+        description: '본사 사무실 임차 (강남 테헤란로) - 사용권자산 인식',
+        vendor: '위워크 코리아',
+        debitAccount: '사용권자산 (건물)',
+        creditAccount: '리스부채 (유동)', // Initial recognition usually purely specific, but simplified here
+        amount: leaseAssetAmount,
+        vat: 0,
+        type: 'Asset',
+        status: 'Approved',
+        entryType: 'Lease'
+    }));
+
+    // 2. Corresponding Lease Liability (Full)
+    ledger.push(ensureIntegrity({
+        id: 'LEASE-LIAB-01',
+        date: '2025-01-01',
+        description: '본사 사무실 임차 (강남 테헤란로) - 리스부채 인식',
+        vendor: '위워크 코리아',
+        debitAccount: '사용권자산 (건물)', // Logic uses filter on debit/credit. For liability entry, usually Credit has Liability.
+        creditAccount: '리스부채 (비유동)',
+        amount: leaseAssetAmount - 50000000, // Long term portion
+        vat: 0,
+        type: 'Liability',
+        status: 'Approved',
+        entryType: 'Lease'
+    }));
+
+    // 3. Unconfirmed Lease Payment (To test detection)
+    ledger.push({
+        id: 'LEASE-PAY-PENDING-01',
+        date: formatDate(now),
+        description: '1월분 리스료 납부 (제네시스 장기렌트)',
+        vendor: '현대캐피탈',
+        debitAccount: '지급임차료', // User initially categorized as Expense
+        creditAccount: '보통예금',
+        amount: 850000,
+        vat: 85000,
+        type: 'Expense',
+        status: 'Unconfirmed' // Should trigger alert in Lease Ledger
+    });
+
     // --- 3. Inventory & SCM ---
     const inventoryItems = [
         { id: 'INV-GPU-H100', name: 'NVIDIA H100 GPU', sku: 'GPU-H100-80G', category: 'Raw Materials', cost: 45000000 },

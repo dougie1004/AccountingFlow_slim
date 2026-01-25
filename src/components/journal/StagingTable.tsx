@@ -104,11 +104,26 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
             items = items.filter(r => r.needsClarification || r.confidence !== 'High');
         }
 
-        // Priority sort: Critical items first
+        // Priority sort: Groups first (sorted by ID), then by position (Debit first), then by importance
         return items.sort((a, b) => {
+            // 1. Transaction Groups together
+            if (a.transactionId || b.transactionId) {
+                if (a.transactionId && b.transactionId) {
+                    if (a.transactionId !== b.transactionId) return a.transactionId.localeCompare(b.transactionId);
+                    // Same group: Debit first
+                    if (a.position === 'Debit' && b.position !== 'Debit') return -1;
+                    if (a.position !== 'Debit' && b.position === 'Debit') return 1;
+                    return 0;
+                }
+                return a.transactionId ? -1 : 1;
+            }
+
+            // 2. Critical items second
             const aCrit = a.needsClarification || a.confidence !== 'High' ? 1 : 0;
             const bCrit = b.needsClarification || b.confidence !== 'High' ? 1 : 0;
-            return bCrit - aCrit;
+            if (aCrit !== bCrit) return bCrit - aCrit;
+
+            return 0;
         });
     };
 
@@ -268,136 +283,156 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                             <tbody className="divide-y divide-white/5">
                                 {displayData.map((row, dIdx) => {
                                     const idx = row.originalIndex;
-                                    return (
-                                        <tr
-                                            key={idx}
-                                            onClick={() => setSelectedRow(idx)}
-                                            className={`transition-all cursor-pointer ${idx === analyzingIndex ? 'bg-indigo-500/5' : ''} ${selectedRow === idx ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'}`}
-                                        >
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    {row.needsClarification || row.confidence !== 'High' ? (
-                                                        <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] animate-pulse" />
-                                                    ) : (
-                                                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                                    )}
-                                                    {row.transactionId && (
-                                                        <span title="Protected Group Entry">
-                                                            <Shield size={10} className="text-indigo-400" />
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 font-mono text-xs text-slate-400 whitespace-nowrap">
-                                                {editingCell?.index === idx && editingCell.field === 'date' ? (
-                                                    <input
-                                                        autoFocus
-                                                        type="text"
-                                                        className="bg-[#1a2235] border border-indigo-500/50 rounded px-1 py-0.5 text-white w-24 outline-none"
-                                                        defaultValue={row.date || ''}
-                                                        onBlur={(e) => {
-                                                            const newValue = e.target.value;
-                                                            const updated = [...stagedData];
-                                                            updated[idx] = { ...updated[idx], date: newValue };
-                                                            setStagedData(updated);
-                                                            setEditingCell(null);
-                                                        }}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') e.currentTarget.blur();
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <div
-                                                        className="cursor-text hover:text-indigo-400 transition-colors"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setEditingCell({ index: idx, field: 'date' });
-                                                        }}
-                                                    >
-                                                        {row.date || '날짜 없음'}
-                                                    </div>
-                                                )}
-                                                {row.id && (
-                                                    <div className="mt-1 text-[9px] text-indigo-400 font-bold">
-                                                        {row.id}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="text-white font-black leading-tight truncate max-w-[200px]">
-                                                    <PiiText text={cleanMarkdown(row.description) || '내용 없음'} type="auto" />
-                                                </div>
-                                                <div className="text-[10px] font-bold text-slate-500 mt-0.5">
-                                                    <PiiText text={row.vendor && row.vendor.trim() !== '' ? row.vendor : '거래처 미지정'} type="auto" />
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                {editingCell?.index === row.originalIndex && editingCell.field === 'amount' ? (
-                                                    <input
-                                                        autoFocus
-                                                        type="text"
-                                                        inputMode="numeric"
-                                                        className="bg-[#1a2235] border-2 border-indigo-500 rounded-xl px-2 py-1.5 text-white w-36 text-right outline-none font-black text-base shadow-[0_0_20px_rgba(99,102,241,0.4)]"
-                                                        value={stagedData[row.originalIndex].amount === 0 ? "" : stagedData[row.originalIndex].amount}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value.replace(/[^0-9]/g, '');
-                                                            const newValue = val === "" ? 0 : parseInt(val, 10);
+                                    const prevRow = dIdx > 0 ? displayData[dIdx - 1] : null;
+                                    const isFirstInGroup = row.transactionId && (!prevRow || prevRow.transactionId !== row.transactionId);
+                                    const isPartOfGroup = !!row.transactionId;
+                                    const isLastInGroup = row.transactionId && (dIdx === displayData.length - 1 || displayData[dIdx + 1].transactionId !== row.transactionId);
 
-                                                            const updated = [...stagedData];
-                                                            updated[row.originalIndex] = { ...updated[row.originalIndex], amount: newValue };
-                                                            setStagedData(updated);
-                                                        }}
-                                                        onBlur={() => setEditingCell(null)}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') setEditingCell(null);
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <div
-                                                        className="cursor-text group py-1.5"
+                                    return (
+                                        <React.Fragment key={idx}>
+                                            {isFirstInGroup && (
+                                                <tr className="bg-indigo-500/5 border-t border-indigo-500/20">
+                                                    <td colSpan={6} className="px-6 py-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <Boxes size={12} className="text-indigo-400" />
+                                                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Composite Transaction Group: {row.transactionId}</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            <tr
+                                                onClick={() => setSelectedRow(idx)}
+                                                className={`transition-all cursor-pointer ${idx === analyzingIndex ? 'bg-indigo-500/5' : ''} ${selectedRow === idx ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'} ${isPartOfGroup ? 'border-l-2 border-indigo-500/30' : ''}`}
+                                            >
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        {row.needsClarification || row.confidence !== 'High' ? (
+                                                            <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] animate-pulse" />
+                                                        ) : (
+                                                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                                        )}
+                                                        {row.transactionId && (
+                                                            <span title="Protected Group Entry">
+                                                                <Shield size={10} className="text-indigo-400" />
+                                                            </span>
+                                                        )}
+                                                        {row.position && (
+                                                            <span className={`text-[9px] font-black px-1 rounded ${row.position === 'Debit' ? 'bg-blue-500/20 text-blue-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                                                                {row.position}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 font-mono text-xs text-slate-400 whitespace-nowrap">
+                                                    {editingCell?.index === idx && editingCell.field === 'date' ? (
+                                                        <input
+                                                            autoFocus
+                                                            type="text"
+                                                            className="bg-[#1a2235] border border-indigo-500/50 rounded px-1 py-0.5 text-white w-24 outline-none"
+                                                            defaultValue={row.date || ''}
+                                                            onBlur={(e) => {
+                                                                const newValue = e.target.value;
+                                                                const updated = [...stagedData];
+                                                                updated[idx] = { ...updated[idx], date: newValue };
+                                                                setStagedData(updated);
+                                                                setEditingCell(null);
+                                                            }}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') e.currentTarget.blur();
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            className="cursor-text hover:text-indigo-400 transition-colors"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditingCell({ index: idx, field: 'date' });
+                                                            }}
+                                                        >
+                                                            {row.date || '날짜 없음'}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-white font-black leading-tight truncate max-w-[200px]">
+                                                        <PiiText text={cleanMarkdown(row.description) || '내용 없음'} type="auto" />
+                                                    </div>
+                                                    <div className="text-[10px] font-bold text-slate-500 mt-0.5">
+                                                        <PiiText text={row.vendor && row.vendor.trim() !== '' ? row.vendor : '거래처 미지정'} type="auto" />
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    {editingCell?.index === row.originalIndex && editingCell.field === 'amount' ? (
+                                                        <input
+                                                            autoFocus
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            className="bg-[#1a2235] border-2 border-indigo-500 rounded-xl px-2 py-1.5 text-white w-36 text-right outline-none font-black text-base shadow-[0_0_20px_rgba(99,102,241,0.4)]"
+                                                            value={stagedData[row.originalIndex].amount === 0 ? "" : stagedData[row.originalIndex].amount}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/[^0-9]/g, '');
+                                                                const newValue = val === "" ? 0 : parseInt(val, 10);
+
+                                                                const updated = [...stagedData];
+                                                                updated[row.originalIndex] = { ...updated[row.originalIndex], amount: newValue };
+                                                                setStagedData(updated);
+                                                            }}
+                                                            onBlur={() => setEditingCell(null)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') setEditingCell(null);
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            className="cursor-text group py-1.5"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditingCell({ index: row.originalIndex, field: 'amount' });
+                                                            }}
+                                                        >
+                                                            <span className={`font-black text-lg transition-all flex items-center justify-end gap-1 ${(row as any).originalAmount !== undefined && row.amount !== (row as any).originalAmount
+                                                                ? 'text-indigo-400'
+                                                                : 'text-white group-hover:text-indigo-400'
+                                                                }`}>
+                                                                {(row as any).originalAmount !== undefined && row.amount !== (row as any).originalAmount && (
+                                                                    <span title="AI Calculated / Adjusted" className="flex items-center gap-1 bg-indigo-500/10 px-1.5 py-0.5 rounded text-[9px] font-black border border-indigo-500/20">
+                                                                        <Zap size={10} className="fill-indigo-500/50" /> AI
+                                                                    </span>
+                                                                )}
+                                                                ₩{(row.amount || 0).toLocaleString()}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {row.vat > 0 && <p className="text-[10px] text-slate-500 font-bold">VAT ₩{(row.vat || 0).toLocaleString()}</p>}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {analyzingIndex === idx ? (
+                                                        <span className="flex items-center gap-2 text-indigo-400 animate-pulse font-black text-xs">
+                                                            <Loader2 size={12} className="animate-spin" /> 연산 중
+                                                        </span>
+                                                    ) : (
+                                                        <span className={`px-3 py-1 rounded-lg font-black text-xs ${row.accountName ? 'bg-indigo-500/10 text-indigo-400' : 'bg-white/5 text-slate-600'}`}>
+                                                            {row.accountName || '대기 중'}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            setEditingCell({ index: row.originalIndex, field: 'amount' });
+                                                            const newData = stagedData.filter((_, i) => i !== idx);
+                                                            setStagedData(newData);
+                                                            if (selectedRow === idx) setSelectedRow(null);
+                                                            else if (selectedRow !== null && selectedRow > idx) setSelectedRow(selectedRow - 1);
                                                         }}
+                                                        className="p-1.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                                                        title="Remove from batch"
                                                     >
-                                                        <span className={`font-black text-lg transition-all flex items-center justify-end gap-1 ${(row as any).originalAmount !== undefined && row.amount !== (row as any).originalAmount
-                                                            ? 'text-rose-400'
-                                                            : 'text-white group-hover:text-indigo-400'
-                                                            }`}>
-                                                            {(row as any).originalAmount !== undefined && row.amount !== (row as any).originalAmount && <AlertTriangle size={14} className="animate-pulse" />}
-                                                            ₩{(row.amount || 0).toLocaleString()}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {row.vat > 0 && <p className="text-[10px] text-slate-500 font-bold">VAT ₩{(row.vat || 0).toLocaleString()}</p>}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {analyzingIndex === idx ? (
-                                                    <span className="flex items-center gap-2 text-indigo-400 animate-pulse font-black text-xs">
-                                                        <Loader2 size={12} className="animate-spin" /> 연산 중
-                                                    </span>
-                                                ) : (
-                                                    <span className={`px-3 py-1 rounded-lg font-black text-xs ${row.accountName ? 'bg-indigo-500/10 text-indigo-400' : 'bg-white/5 text-slate-600'}`}>
-                                                        {row.accountName || '대기 중'}
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const newData = stagedData.filter((_, i) => i !== idx);
-                                                        setStagedData(newData);
-                                                        if (selectedRow === idx) setSelectedRow(null);
-                                                        else if (selectedRow !== null && selectedRow > idx) setSelectedRow(selectedRow - 1);
-                                                    }}
-                                                    className="p-1.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
-                                                    title="Remove from batch"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </td>
-                                        </tr>
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </React.Fragment>
                                     );
                                 })}
                             </tbody>
@@ -517,22 +552,22 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                     </div>
                                 </div>
 
-                                {/* [Integrity V2] Conditional Discrepancy Reason Field */}
+                                {/* [Integrity V2] AI Amount Adjustment Reason */}
                                 {((stagedData[selectedRow] as any).originalAmount !== undefined &&
                                     stagedData[selectedRow].amount !== (stagedData[selectedRow] as any).originalAmount) && (
                                         <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                                            <label className="text-[10px] font-black text-rose-400 uppercase tracking-wider block ml-1 flex items-center gap-1">
-                                                <AlertTriangle size={10} /> Discrepancy Reason (증빙 불일치 사유)
+                                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-wider block ml-1 flex items-center gap-1">
+                                                <Zap size={10} /> AI Adjustment / Reason (변경 사유)
                                             </label>
                                             <textarea
-                                                placeholder="증빙과 금액이 다른 이유를 입력해 주세요 (예: 부분 환불, AI 오인식 수정 등)..."
+                                                placeholder="금액 변경 사유를 입력해 주세요 (예: 리스 PV 자산화, 부분 환불 등)..."
                                                 value={(stagedData[selectedRow] as any).discrepancyReason || ""}
                                                 onChange={(e) => {
                                                     const newData = [...stagedData];
                                                     (newData[selectedRow] as any).discrepancyReason = e.target.value;
                                                     setStagedData(newData);
                                                 }}
-                                                className="w-full px-3 py-2 bg-rose-500/5 border border-rose-500/20 rounded-lg text-rose-200 font-bold text-[11px] focus:ring-1 focus:ring-rose-500 outline-none h-16 resize-none placeholder:text-rose-500/30"
+                                                className="w-full px-3 py-2 bg-indigo-500/5 border border-indigo-500/20 rounded-lg text-indigo-200 font-bold text-[11px] focus:ring-1 focus:ring-indigo-500 outline-none h-16 resize-none placeholder:text-indigo-500/30"
                                             />
                                         </div>
                                     )}
@@ -554,36 +589,40 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                                 <div className="text-xs font-bold text-white">₩{Math.floor(stagedData[selectedRow].amount * (config.taxPolicy?.insuranceRates?.nationalPension || 0.045)).toLocaleString()}</div>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[9px] font-black text-slate-500 uppercase">건강보험 (3.545%)</label>
-                                                <div className="text-xs font-bold text-white">₩{Math.floor(stagedData[selectedRow].amount * (config.taxPolicy?.insuranceRates?.healthInsurance || 0.03545)).toLocaleString()}</div>
+                                                <label className="text-[9px] font-black text-slate-500 uppercase">건강보험/장기요양 (3.9% 추정)</label>
+                                                <div className="text-xs font-bold text-white">₩{Math.floor(stagedData[selectedRow].amount * (config.taxPolicy?.insuranceRates?.healthInsurance || 0.03545) * 1.12).toLocaleString()}</div>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[9px] font-black text-slate-500 uppercase">근로소득세 (간이세액 추정)</label>
-                                                <div className="text-xs font-bold text-rose-400">₩{Math.floor(stagedData[selectedRow].amount * 0.03).toLocaleString()}</div>
+                                                <label className="text-[9px] font-black text-slate-500 uppercase">고용보험/소득세 (4% 추정)</label>
+                                                <div className="text-xs font-bold text-rose-400">₩{Math.floor(stagedData[selectedRow].amount * 0.04).toLocaleString()}</div>
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-[9px] font-black text-slate-500 uppercase text-emerald-400">실수령액 (Net)</label>
-                                                <div className="text-sm font-black text-emerald-400">₩{Math.floor(stagedData[selectedRow].amount * 0.9).toLocaleString()}</div>
+                                                <div className="text-sm font-black text-emerald-400">₩{Math.floor(stagedData[selectedRow].amount * 0.88).toLocaleString()}</div>
                                             </div>
                                         </div>
 
                                         <button
                                             onClick={() => {
                                                 const amount = stagedData[selectedRow].amount;
-                                                const pension = Math.floor(amount * (config.taxPolicy?.insuranceRates?.nationalPension || 0.045));
-                                                const health = Math.floor(amount * (config.taxPolicy?.insuranceRates?.healthInsurance || 0.03545));
+                                                const rates = config.taxPolicy?.insuranceRates;
+                                                const pension = Math.floor(amount * (rates?.nationalPension || 0.045));
+                                                const health = Math.floor(amount * (rates?.healthInsurance || 0.03545));
+                                                const care = Math.floor(health * (rates?.longTermCare || 0.1295));
+                                                const employ = Math.floor(amount * (rates?.employmentInsuranceEmployee || 0.009));
                                                 const tax = Math.floor(amount * 0.03);
-                                                const net = amount - (pension + health + tax);
+                                                const net = amount - (pension + health + care + employ + tax);
 
                                                 const groupId = `PAY-${crypto.randomUUID().slice(0, 8)}`;
                                                 const baseRow = stagedData[selectedRow];
 
                                                 const splits: ParsedTransaction[] = [
-                                                    { ...baseRow, transactionId: groupId, position: 'Debit', amount, accountName: '급여', reasoning: '[원천세 분할] 총급여 인식', payrollSplit: { pension, health, tax, net } },
-                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: pension, accountName: '예수금 (국민연금)', reasoning: '[원천세 분할] 국민연금 공제', discrepancyReason: '[AI] 급여 원천세 공제 분할' } as any,
-                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: health, accountName: '예수금 (건강보험)', reasoning: '[원천세 분할] 건강보험 공제', discrepancyReason: '[AI] 급여 원천세 공제 분할' } as any,
-                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: tax, accountName: '예수금 (원천세)', reasoning: '[원천세 분할] 소득세 공제', discrepancyReason: '[AI] 급여 원천세 공제 분할' } as any,
-                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: net, accountName: '미지급급여', reasoning: '[원천세 분할] 실지급액', discrepancyReason: '[AI] 급여 원천세 공제 분할' } as any
+                                                    { ...baseRow, transactionId: groupId, position: 'Debit', amount, accountName: '급여', reasoning: '[원천세 분배] 총급여 인식', payrollSplit: { pension, health, tax, net }, originalAmount: amount },
+                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: pension, accountName: '예수금 (국민연금)', reasoning: '[원천세 분배] 국민연금 공제', discrepancyReason: '[AI] 급여 원천세 공제 분할', originalAmount: pension } as any,
+                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: health + care, accountName: '예수금 (건강보험/장기요양)', reasoning: '[원천세 분배] 건강보험 및 장기요양보험 공제', discrepancyReason: '[AI] 급여 원천세 공제 분할', originalAmount: health + care } as any,
+                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: employ, accountName: '예수금 (고용보험)', reasoning: '[원천세 분배] 고용보험 공제', discrepancyReason: '[AI] 급여 원천세 공제 분할', originalAmount: employ } as any,
+                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: tax, accountName: '예수금 (원천세)', reasoning: '[원천세 분배] 소득세/지방세 공제', discrepancyReason: '[AI] 급여 원천세 공제 분할', originalAmount: tax } as any,
+                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: net, accountName: '미지급급여', reasoning: '[원천세 분배] 실지급액 확정', discrepancyReason: '[AI] 급여 원천세 공제 분할', originalAmount: net } as any
                                                 ];
 
                                                 const newData = [...stagedData];
@@ -701,7 +740,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                                     <input
                                                         type="number"
                                                         step="0.1"
-                                                        value={((stagedData[selectedRow].leaseInterestRate || config.taxPolicy?.defaultLeaseRate || 0.072) * 100).toFixed(1)}
+                                                        value={parseFloat(((stagedData[selectedRow].leaseInterestRate || config.taxPolicy?.defaultLeaseRate || 0.072) * 100).toFixed(2))}
                                                         onChange={(e) => {
                                                             const newData = [...stagedData];
                                                             newData[selectedRow].leaseInterestRate = Number(e.target.value) / 100;

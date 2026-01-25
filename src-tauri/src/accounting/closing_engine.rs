@@ -38,6 +38,7 @@ pub fn calculate_depreciation(assets: Vec<Asset>, date_str: String) -> Vec<Journ
             audit_trail: vec![],
             parse_status: None,
             raw_data_snapshot: None,
+            ..Default::default()
         });
     }
 

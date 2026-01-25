@@ -35,9 +35,7 @@ pub fn run_simulation() -> SimulationResult {
         audit_trail: vec![],
         parse_status: None,
         raw_data_snapshot: None,
-        transaction_group_id: None,
-        employee_tags: vec![],
-        is_insurance_part: false,
+        ..Default::default()
     });
 
     ledger.push(JournalEntry {
@@ -61,9 +59,7 @@ pub fn run_simulation() -> SimulationResult {
         audit_trail: vec![],
         parse_status: None,
         raw_data_snapshot: None,
-        transaction_group_id: None,
-        employee_tags: vec![],
-        is_insurance_part: false,
+        ..Default::default()
     });
 
     // 2. 고액 거래 예시
@@ -88,9 +84,7 @@ pub fn run_simulation() -> SimulationResult {
         audit_trail: vec![],
         parse_status: None,
         raw_data_snapshot: None,
-        transaction_group_id: None,
-        employee_tags: vec![],
-        is_insurance_part: false,
+        ..Default::default()
     });
 
     let assets = vec![

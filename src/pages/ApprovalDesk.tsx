@@ -8,7 +8,7 @@ import { cleanMarkdown } from '../utils/textUtils';
 import { EvidenceViewer } from '../components/EvidenceViewer';
 
 const ApprovalDesk: React.FC = () => {
-    const { ledger, approveEntry, deleteEntry, bulkApprove, addEntries, updateEntry, acceptVatSuggestion } = useContext(AccountingContext)!;
+    const { ledger, approveEntry, deleteEntry, bulkApprove, addEntries, updateEntry, acceptVatSuggestion, addEntry, config } = useContext(AccountingContext)!;
     const [viewMode, setViewMode] = useState<'card' | 'grid'>('card');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isImporting, setIsImporting] = useState(false);
@@ -55,10 +55,69 @@ const ApprovalDesk: React.FC = () => {
         return stats;
     }, [pendingTransactions]);
 
-    const toggleSelect = (id: string) => {
+    // [Antigravity] Grouping Logic for Composite Entries (Hide Clearing Accounts)
+    const groupedTransactions = useMemo(() => {
+        const groups: Record<string, JournalEntry[]> = {};
+
+        pendingTransactions.forEach(t => {
+            // Grouping Key: transactionId if present, otherwise fallback to date-description heuristic
+            const key = t.transactionId || `${t.date}-${cleanMarkdown(t.description)}`;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(t);
+        });
+
+        return Object.values(groups).map(group => {
+            // Collect real accounts (exclude Clearing)
+            const realDebits = group.flatMap(g =>
+                (!g.debitAccount.includes('분개그룹') && !g.debitAccount.includes('Clearing'))
+                    ? [{ acc: g.debitAccount, amount: g.amount }]
+                    : []
+            );
+            const realCredits = group.flatMap(g =>
+                (!g.creditAccount.includes('분개그룹') && !g.creditAccount.includes('Clearing'))
+                    ? [{ acc: g.creditAccount, amount: g.amount }]
+                    : []
+            );
+
+            // Fallback for non-clearing simple entries or if filtering failed
+            if (realDebits.length === 0) group.forEach(g => realDebits.push({ acc: g.debitAccount, amount: g.amount }));
+            if (realCredits.length === 0) group.forEach(g => realCredits.push({ acc: g.creditAccount, amount: g.amount }));
+
+            // Calculate total magnitude
+            const totalAmount = Math.max(
+                realDebits.reduce((s, i) => s + i.amount, 0),
+                realCredits.reduce((s, i) => s + i.amount, 0)
+            );
+
+            // Deduplicate identical accounts in same group (e.g. multiple partial clears)
+            // For visualization, we merge amounts for same account name
+            const mergeAccounts = (list: { acc: string, amount: number }[]) => {
+                const map = new Map<string, number>();
+                list.forEach(i => map.set(i.acc, (map.get(i.acc) || 0) + i.amount));
+                return Array.from(map.entries()).map(([acc, amount]) => ({ acc, amount }));
+            };
+
+            return {
+                ...group[0],
+                debits: mergeAccounts(realDebits),
+                credits: mergeAccounts(realCredits),
+                displayAmount: totalAmount,
+                subIds: group.map(g => g.id),
+                isComposite: group.length > 1
+            };
+        });
+    }, [pendingTransactions]);
+
+    const toggleSelect = (id: string, subIds?: string[]) => {
         const next = new Set(selectedIds);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
+        const idsToToggle = subIds || [id];
+
+        // If first ID is present, we assume we are deselecting the group
+        if (next.has(idsToToggle[0])) {
+            idsToToggle.forEach(i => next.delete(i));
+        } else {
+            idsToToggle.forEach(i => next.add(i));
+        }
         setSelectedIds(next);
     };
 
@@ -211,7 +270,7 @@ const ApprovalDesk: React.FC = () => {
 
             {/* Main Content Area */}
             <div className="grid grid-cols-1 gap-6">
-                {pendingTransactions.length === 0 ? (
+                {groupedTransactions.length === 0 ? (
                     <div className="bg-[#151D2E] rounded-[2.5rem] border border-white/5 p-20 text-center shadow-2xl">
                         <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-500/20">
                             <CheckCircle size={40} className="text-emerald-500" />
@@ -223,9 +282,10 @@ const ApprovalDesk: React.FC = () => {
                     </div>
                 ) : viewMode === 'card' ? (
                     <div className="space-y-4">
-                        {pendingTransactions.map((entry) => {
+                        {groupedTransactions.map((entry) => {
                             const isNeedConfirm = entry.parseStatus === 'needConfirm' || entry.status === 'Hold' || entry.complianceContext?.includes('확인 필요');
                             const isPendingAI = entry.status === 'Pending Review' || entry.status === 'Unconfirmed';
+                            const isSelected = selectedIds.has(entry.id); // Check primary ID
 
                             return (
                                 <div
@@ -244,8 +304,8 @@ const ApprovalDesk: React.FC = () => {
                                     <div className="absolute top-4 left-4 z-10">
                                         <input
                                             type="checkbox"
-                                            checked={selectedIds.has(entry.id)}
-                                            onChange={() => toggleSelect(entry.id)}
+                                            checked={isSelected}
+                                            onChange={() => toggleSelect(entry.id, entry.subIds)}
                                             className="w-5 h-5 rounded-lg border-white/10 bg-[#0B1221] text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                         />
                                     </div>
@@ -303,24 +363,38 @@ const ApprovalDesk: React.FC = () => {
                                                 )}
                                             </div>
 
-                                            {/* Professional ERP Double-Entry Display */}
+                                            {/* Professional ERP Double-Entry Display (Composite Support) */}
                                             <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 mt-2">
-                                                <div className="space-y-1 border-r border-white/5 pr-4 text-left">
-                                                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-2">Debit (차변)</span>
-                                                    <div className="text-base font-black text-white font-mono break-all leading-tight italic">
-                                                        {entry.debitAccount}
-                                                    </div>
+                                                <div className="space-y-2 border-r border-white/5 pr-4 text-left">
+                                                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-1">Debit (차변)</span>
+                                                    {entry.debits.map((d: any, idx: number) => (
+                                                        <div key={idx} className="flex justify-between items-end group/item">
+                                                            <div className="text-base font-black text-white font-mono break-all leading-tight italic">
+                                                                {d.acc}
+                                                            </div>
+                                                            {entry.debits.length > 1 && (
+                                                                <span className="text-[10px] font-mono text-slate-500">₩{d.amount.toLocaleString()}</span>
+                                                            )}
+                                                        </div>
+                                                    ))}
                                                     <p className="text-[15px] font-black text-white/50 pt-2 border-t border-white/5 font-mono">
-                                                        ₩{entry.amount.toLocaleString()}
+                                                        ₩{entry.displayAmount.toLocaleString()}
                                                     </p>
                                                 </div>
-                                                <div className="space-y-1 text-right pl-4">
-                                                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block mb-2">Credit (대변)</span>
-                                                    <div className="text-base font-black text-white font-mono break-all leading-tight italic">
-                                                        {entry.creditAccount}
-                                                    </div>
+                                                <div className="space-y-2 text-right pl-4">
+                                                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block mb-1">Credit (대변)</span>
+                                                    {entry.credits.map((c: any, idx: number) => (
+                                                        <div key={idx} className="flex justify-between items-end group/item flex-row-reverse">
+                                                            <div className="text-base font-black text-white font-mono break-all leading-tight italic">
+                                                                {c.acc}
+                                                            </div>
+                                                            {entry.credits.length > 1 && (
+                                                                <span className="text-[10px] font-mono text-slate-500">₩{c.amount.toLocaleString()}</span>
+                                                            )}
+                                                        </div>
+                                                    ))}
                                                     <p className="text-[15px] font-black text-white/50 pt-2 border-t border-white/5 font-mono">
-                                                        ₩{entry.amount.toLocaleString()}
+                                                        ₩{entry.displayAmount.toLocaleString()}
                                                     </p>
                                                 </div>
                                                 <div className="col-span-2 flex items-center justify-center pt-2 border-t border-white/5 mt-1">
@@ -419,6 +493,100 @@ const ApprovalDesk: React.FC = () => {
                                                     </div>
                                                 </div>
                                             )}
+
+                                            {/* [Antigravity] Payroll Advanced Split Assistant */}
+                                            {(entry.debitAccount === '급여' || entry.description?.includes('급여')) && !entry.isComposite && (
+                                                <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 mt-2 animate-in slide-in-from-right-2">
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <Sparkles size={14} className="text-blue-400" />
+                                                            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">AI 원천징수 분할 제안</span>
+                                                        </div>
+                                                        <span className="text-[9px] font-black text-blue-400/50">Policy: 2024 Tax Tables</span>
+                                                    </div>
+                                                    <p className="text-xs font-bold text-slate-300 mb-4 leading-relaxed">
+                                                        정기 급여 항목이 감지되었습니다. 사대보험({((config.taxPolicy?.insuranceRates?.nationalPension || 0.045) + (config.taxPolicy?.insuranceRates?.healthInsurance || 0.03545) + (config.taxPolicy?.insuranceRates?.employmentInsuranceEmployee || 0.009) * 100).toFixed(2)}% 추정) 및 소득세를 분리하여 **복합 분개**로 전환하시겠습니까?
+                                                    </p>
+                                                    {(() => {
+                                                        const rates = config.taxPolicy?.insuranceRates;
+                                                        const pension = Math.floor(entry.amount * (rates?.nationalPension || 0.045));
+                                                        const health = Math.floor(entry.amount * (rates?.healthInsurance || 0.03545));
+                                                        const care = Math.floor(health * (rates?.longTermCare || 0.1295));
+                                                        const employ = Math.floor(entry.amount * (rates?.employmentInsuranceEmployee || 0.009));
+                                                        const tax = Math.floor(entry.amount * 0.03);
+                                                        const totalDed = pension + health + care + employ + tax;
+                                                        const net = entry.amount - totalDed;
+
+                                                        return (
+                                                            <>
+                                                                <div className="grid grid-cols-4 gap-2 mb-4">
+                                                                    <div className="bg-[#0B1221] p-2 rounded-xl border border-white/5">
+                                                                        <p className="text-[8px] font-black text-slate-500 uppercase">총급여</p>
+                                                                        <p className="text-[10px] font-black text-white">₩{entry.amount.toLocaleString()}</p>
+                                                                    </div>
+                                                                    <div className="bg-[#0B1221] p-2 rounded-xl border border-white/5">
+                                                                        <p className="text-[8px] font-black text-rose-400 uppercase tracking-tighter">예수금(공제)</p>
+                                                                        <p className="text-[10px] font-black text-rose-400">₩{totalDed.toLocaleString()}</p>
+                                                                    </div>
+                                                                    <div className="bg-[#0B1221] p-2 rounded-xl border border-white/5">
+                                                                        <p className="text-[8px] font-black text-emerald-400 uppercase">실지급액</p>
+                                                                        <p className="text-[10px] font-black text-emerald-400">₩{net.toLocaleString()}</p>
+                                                                    </div>
+                                                                    <div className="bg-[#0B1221] p-2 rounded-xl border border-white/5">
+                                                                        <p className="text-[8px] font-black text-indigo-400 uppercase">공제율</p>
+                                                                        <p className="text-[10px] font-black text-indigo-400">{((totalDed / entry.amount) * 100).toFixed(1)}%</p>
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const groupId = `PAY-${crypto.randomUUID().slice(0, 8)}`;
+                                                                        deleteEntry(entry.id);
+
+                                                                        const splits: JournalEntry[] = [
+                                                                            {
+                                                                                ...entry, id: crypto.randomUUID(), transactionId: groupId,
+                                                                                debitAccount: '급여', creditAccount: '[분개그룹 클리어링]', amount: entry.amount,
+                                                                                description: `${entry.description} (총액)`, payrollSplit: { pension, health, tax, net }
+                                                                            },
+                                                                            {
+                                                                                ...entry, id: crypto.randomUUID(), transactionId: groupId,
+                                                                                debitAccount: '[분개그룹 클리어링]', creditAccount: '예수금 (국민연금)', amount: pension,
+                                                                                description: `${entry.description} (국민연금)`
+                                                                            },
+                                                                            {
+                                                                                ...entry, id: crypto.randomUUID(), transactionId: groupId,
+                                                                                debitAccount: '[분개그룹 클리어링]', creditAccount: '예수금 (건강보험)', amount: health + care,
+                                                                                description: `${entry.description} (건강/장기요양)`
+                                                                            },
+                                                                            {
+                                                                                ...entry, id: crypto.randomUUID(), transactionId: groupId,
+                                                                                debitAccount: '[분개그룹 클리어링]', creditAccount: '예수금 (고용보험)', amount: employ,
+                                                                                description: `${entry.description} (고용보험)`
+                                                                            },
+                                                                            {
+                                                                                ...entry, id: crypto.randomUUID(), transactionId: groupId,
+                                                                                debitAccount: '[분개그룹 클리어링]', creditAccount: '예수금 (원천세)', amount: tax,
+                                                                                description: `${entry.description} (소득세/지방세)`
+                                                                            },
+                                                                            {
+                                                                                ...entry, id: crypto.randomUUID(), transactionId: groupId,
+                                                                                debitAccount: '[분개그룹 클리어링]', creditAccount: '미지급급여', amount: net,
+                                                                                description: `${entry.description} (실지급액)`
+                                                                            }
+                                                                        ];
+
+                                                                        splits.forEach(s => addEntry(s));
+                                                                        alert('✅ 상세 원천징수 분할 처리가 완료되었습니다.');
+                                                                    }}
+                                                                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-black rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+                                                                >
+                                                                    AI 원천세 상세 분해 및 복합 분개 생성
+                                                                </button>
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="flex items-center gap-8 w-full lg:w-auto border-t lg:border-t-0 lg:border-l border-white/5 pt-6 lg:pt-0 lg:pl-8">
@@ -431,14 +599,14 @@ const ApprovalDesk: React.FC = () => {
 
                                             <div className="flex items-center gap-3">
                                                 <button
-                                                    onClick={() => approveEntry(entry.id)}
+                                                    onClick={() => bulkApprove(entry.subIds)}
                                                     className="bg-indigo-600 p-4 rounded-2xl text-white hover:bg-indigo-700 hover:scale-110 transition-all shadow-xl shadow-indigo-600/20 active:scale-100"
                                                     title="전표 승인"
                                                 >
                                                     <CheckCircle size={24} />
                                                 </button>
                                                 <button
-                                                    onClick={() => deleteEntry(entry.id)}
+                                                    onClick={() => entry.subIds.forEach((id: string) => deleteEntry(id))}
                                                     className="bg-white/5 p-4 rounded-2xl text-slate-400 hover:bg-rose-500/20 hover:text-rose-400 hover:scale-110 transition-all border border-white/10 active:scale-100"
                                                     title="전표 삭제 (반려)"
                                                 >
@@ -474,17 +642,18 @@ const ApprovalDesk: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {pendingTransactions.map((entry) => {
+                                {groupedTransactions.map((entry) => {
                                     const isNeedConfirm = entry.parseStatus === 'needConfirm' || entry.status === 'Hold' || entry.complianceContext?.includes('확인 필요');
                                     const isPendingAI = entry.status === 'Pending Review' || entry.status === 'Unconfirmed';
+                                    const isSelected = selectedIds.has(entry.id);
 
                                     return (
                                         <tr key={entry.id} className={`hover:bg-white/[0.02] transition-all group ${isNeedConfirm ? 'bg-rose-500/[0.03]' : ''}`}>
                                             <td className="p-4 text-center">
                                                 <input
                                                     type="checkbox"
-                                                    checked={selectedIds.has(entry.id)}
-                                                    onChange={() => toggleSelect(entry.id)}
+                                                    checked={isSelected}
+                                                    onChange={() => toggleSelect(entry.id, entry.subIds)}
                                                     className="w-5 h-5 rounded-lg border-white/10 bg-[#0B1221] text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                                 />
                                             </td>
@@ -498,7 +667,7 @@ const ApprovalDesk: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-black text-indigo-300 font-mono italic">
-                                                    {entry.debitAccount}
+                                                    {entry.debits.map((d: any) => d.acc).join(', ')}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 max-w-xs truncate text-[13px] font-bold text-slate-400">
@@ -509,7 +678,7 @@ const ApprovalDesk: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right whitespace-nowrap">
                                                 <div className="text-sm font-black text-emerald-300 font-mono italic">
-                                                    {entry.creditAccount}
+                                                    {entry.credits.map((c: any) => c.acc).join(', ')}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
@@ -519,10 +688,10 @@ const ApprovalDesk: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <button onClick={() => approveEntry(entry.id)} className="p-1.5 text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all" title="Approve">
+                                                    <button onClick={() => bulkApprove(entry.subIds)} className="p-1.5 text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all" title="Approve">
                                                         <CheckCircle size={16} />
                                                     </button>
-                                                    <button onClick={() => deleteEntry(entry.id)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all" title="Delete">
+                                                    <button onClick={() => entry.subIds.forEach((id: string) => deleteEntry(id))} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all" title="Delete">
                                                         <XCircle size={16} />
                                                     </button>
                                                     <button onClick={() => setViewingEvidence(entry)} className="p-1.5 text-slate-500 hover:bg-indigo-500/10 hover:text-indigo-400 rounded-lg transition-all" title="Evidence">

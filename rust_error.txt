@@ -1,0 +1,421 @@
+﻿cargo :    Compiling webview2
+-com v0.38.0
+위치 줄:1 문자:1
++ cargo build --manifest-path
+ src-tauri/Cargo.toml 2>&1 | 
+Out-String |  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (   Comp  
+  iling webview2-com v0.38   
+ .0:String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+   Compiling accounting-flow 
+v0.1.0 (C:\Projects\Accountin
+gFlow\src-tauri)
+error: failed to run custom b
+uild command for `accounting-
+flow v0.1.0 (C:\Projects\Acco
+untingFlow\src-tauri)`
+
+Caused by:
+  process didn't exit success
+fully: `C:\Projects\Accountin
+gFlow\src-tauri\target\debug\
+build\accounting-flow-d5da7c0
+dc74bc8fd\build-script-build`
+ (exit code: 1)
+  --- stdout
+  cargo:rerun-if-env-changed=
+TAURI_CONFIG
+  cargo:rustc-check-cfg=cfg(d
+esktop)
+  cargo:rustc-cfg=desktop
+  cargo:rustc-check-cfg=cfg(m
+obile)
+  cargo:rerun-if-changed=C:\P
+rojects\AccountingFlow\src-ta
+uri\tauri.conf.json
+  cargo:rustc-env=TAURI_ANDRO
+ID_PACKAGE_NAME_APP_NAME=app
+  cargo:rustc-env=TAURI_ANDRO
+ID_PACKAGE_NAME_PREFIX=com_ac
+countingflow
+  cargo:rustc-check-cfg=cfg(d
+ev)
+  cargo:rustc-cfg=dev
+  cargo:PERMISSION_FILES_PATH
+=C:\Projects\AccountingFlow\s
+rc-tauri\target\debug\build\a
+ccounting-flow-25dabf0cf66ca8
+c7\out\app-manifest\__app__-p
+ermission-files
+  cargo:rerun-if-changed=capa
+bilities
+  Permission dialog:default n
+ot found, expected one of cor
+e:default, core:app:default, 
+core:app:allow-app-hide, core
+:app:allow-app-show, core:app
+:allow-bundle-type, core:app:
+allow-default-window-icon, co
+re:app:allow-fetch-data-store
+-identifiers, core:app:allow-
+identifier, core:app:allow-na
+me, core:app:allow-register-l
+istener, core:app:allow-remov
+e-data-store, core:app:allow-
+remove-listener, core:app:all
+ow-set-app-theme, core:app:al
+low-set-dock-visibility, core
+:app:allow-tauri-version, cor
+e:app:allow-version, core:app
+:deny-app-hide, core:app:deny
+-app-show, core:app:deny-bund
+le-type, core:app:deny-defaul
+t-window-icon, core:app:deny-
+fetch-data-store-identifiers,
+ core:app:deny-identifier, co
+re:app:deny-name, core:app:de
+ny-register-listener, core:ap
+p:deny-remove-data-store, cor
+e:app:deny-remove-listener, c
+ore:app:deny-set-app-theme, c
+ore:app:deny-set-dock-visibil
+ity, core:app:deny-tauri-vers
+ion, core:app:deny-version, c
+ore:event:default, core:event
+:allow-emit, core:event:allow
+-emit-to, core:event:allow-li
+sten, core:event:allow-unlist
+en, core:event:deny-emit, cor
+e:event:deny-emit-to, core:ev
+ent:deny-listen, core:event:d
+eny-unlisten, core:image:defa
+ult, core:image:allow-from-by
+tes, core:image:allow-from-pa
+th, core:image:allow-new, cor
+e:image:allow-rgba, core:imag
+e:allow-size, core:image:deny
+-from-bytes, core:image:deny-
+from-path, core:image:deny-ne
+w, core:image:deny-rgba, core
+:image:deny-size, core:menu:d
+efault, core:menu:allow-appen
+d, core:menu:allow-create-def
+ault, core:menu:allow-get, co
+re:menu:allow-insert, core:me
+nu:allow-is-checked, core:men
+u:allow-is-enabled, core:menu
+:allow-items, core:menu:allow
+-new, core:menu:allow-popup, 
+core:menu:allow-prepend, core
+:menu:allow-remove, core:menu
+:allow-remove-at, core:menu:a
+llow-set-accelerator, core:me
+nu:allow-set-as-app-menu, cor
+e:menu:allow-set-as-help-menu
+-for-nsapp, core:menu:allow-s
+et-as-window-menu, core:menu:
+allow-set-as-windows-menu-for
+-nsapp, core:menu:allow-set-c
+hecked, core:menu:allow-set-e
+nabled, core:menu:allow-set-i
+con, core:menu:allow-set-text
+, core:menu:allow-text, core:
+menu:deny-append, core:menu:d
+eny-create-default, core:menu
+:deny-get, core:menu:deny-ins
+ert, core:menu:deny-is-checke
+d, core:menu:deny-is-enabled,
+ core:menu:deny-items, core:m
+enu:deny-new, core:menu:deny-
+popup, core:menu:deny-prepend
+, core:menu:deny-remove, core
+:menu:deny-remove-at, core:me
+nu:deny-set-accelerator, core
+:menu:deny-set-as-app-menu, c
+ore:menu:deny-set-as-help-men
+u-for-nsapp, core:menu:deny-s
+et-as-window-menu, core:menu:
+deny-set-as-windows-menu-for-
+nsapp, core:menu:deny-set-che
+cked, core:menu:deny-set-enab
+led, core:menu:deny-set-icon,
+ core:menu:deny-set-text, cor
+e:menu:deny-text, core:path:d
+efault, core:path:allow-basen
+ame, core:path:allow-dirname,
+ core:path:allow-extname, cor
+e:path:allow-is-absolute, cor
+e:path:allow-join, core:path:
+allow-normalize, core:path:al
+low-resolve, core:path:allow-
+resolve-directory, core:path:
+deny-basename, core:path:deny
+-dirname, core:path:deny-extn
+ame, core:path:deny-is-absolu
+te, core:path:deny-join, core
+:path:deny-normalize, core:pa
+th:deny-resolve, core:path:de
+ny-resolve-directory, core:re
+sources:default, core:resourc
+es:allow-close, core:resource
+s:deny-close, core:tray:defau
+lt, core:tray:allow-get-by-id
+, core:tray:allow-new, core:t
+ray:allow-remove-by-id, core:
+tray:allow-set-icon, core:tra
+y:allow-set-icon-as-template,
+ core:tray:allow-set-menu, co
+re:tray:allow-set-show-menu-o
+n-left-click, core:tray:allow
+-set-temp-dir-path, core:tray
+:allow-set-title, core:tray:a
+llow-set-tooltip, core:tray:a
+llow-set-visible, core:tray:d
+eny-get-by-id, core:tray:deny
+-new, core:tray:deny-remove-b
+y-id, core:tray:deny-set-icon
+, core:tray:deny-set-icon-as-
+template, core:tray:deny-set-
+menu, core:tray:deny-set-show
+-menu-on-left-click, core:tra
+y:deny-set-temp-dir-path, cor
+e:tray:deny-set-title, core:t
+ray:deny-set-tooltip, core:tr
+ay:deny-set-visible, core:web
+view:default, core:webview:al
+low-clear-all-browsing-data, 
+core:webview:allow-create-web
+view, core:webview:allow-crea
+te-webview-window, core:webvi
+ew:allow-get-all-webviews, co
+re:webview:allow-internal-tog
+gle-devtools, core:webview:al
+low-print, core:webview:allow
+-reparent, core:webview:allow
+-set-webview-auto-resize, cor
+e:webview:allow-set-webview-b
+ackground-color, core:webview
+:allow-set-webview-focus, cor
+e:webview:allow-set-webview-p
+osition, core:webview:allow-s
+et-webview-size, core:webview
+:allow-set-webview-zoom, core
+:webview:allow-webview-close,
+ core:webview:allow-webview-h
+ide, core:webview:allow-webvi
+ew-position, core:webview:all
+ow-webview-show, core:webview
+:allow-webview-size, core:web
+view:deny-clear-all-browsing-
+data, core:webview:deny-creat
+e-webview, core:webview:deny-
+create-webview-window, core:w
+ebview:deny-get-all-webviews,
+ core:webview:deny-internal-t
+oggle-devtools, core:webview:
+deny-print, core:webview:deny
+-reparent, core:webview:deny-
+set-webview-auto-resize, core
+:webview:deny-set-webview-bac
+kground-color, core:webview:d
+eny-set-webview-focus, core:w
+ebview:deny-set-webview-posit
+ion, core:webview:deny-set-we
+bview-size, core:webview:deny
+-set-webview-zoom, core:webvi
+ew:deny-webview-close, core:w
+ebview:deny-webview-hide, cor
+e:webview:deny-webview-positi
+on, core:webview:deny-webview
+-show, core:webview:deny-webv
+iew-size, core:window:default
+, core:window:allow-available
+-monitors, core:window:allow-
+center, core:window:allow-clo
+se, core:window:allow-create,
+ core:window:allow-current-mo
+nitor, core:window:allow-curs
+or-position, core:window:allo
+w-destroy, core:window:allow-
+get-all-windows, core:window:
+allow-hide, core:window:allow
+-inner-position, core:window:
+allow-inner-size, core:window
+:allow-internal-toggle-maximi
+ze, core:window:allow-is-alwa
+ys-on-top, core:window:allow-
+is-closable, core:window:allo
+w-is-decorated, core:window:a
+llow-is-enabled, core:window:
+allow-is-focused, core:window
+:allow-is-fullscreen, core:wi
+ndow:allow-is-maximizable, co
+re:window:allow-is-maximized,
+ core:window:allow-is-minimiz
+able, core:window:allow-is-mi
+nimized, core:window:allow-is
+-resizable, core:window:allow
+-is-visible, core:window:allo
+w-maximize, core:window:allow
+-minimize, core:window:allow-
+monitor-from-point, core:wind
+ow:allow-outer-position, core
+:window:allow-outer-size, cor
+e:window:allow-primary-monito
+r, core:window:allow-request-
+user-attention, core:window:a
+llow-scale-factor, core:windo
+w:allow-set-always-on-bottom,
+ core:window:allow-set-always
+-on-top, core:window:allow-se
+t-background-color, core:wind
+ow:allow-set-badge-count, cor
+e:window:allow-set-badge-labe
+l, core:window:allow-set-clos
+able, core:window:allow-set-c
+ontent-protected, core:window
+:allow-set-cursor-grab, core:
+window:allow-set-cursor-icon,
+ core:window:allow-set-cursor
+-position, core:window:allow-
+set-cursor-visible, core:wind
+ow:allow-set-decorations, cor
+e:window:allow-set-effects, c
+ore:window:allow-set-enabled,
+ core:window:allow-set-focus,
+ core:window:allow-set-focusa
+ble, core:window:allow-set-fu
+llscreen, core:window:allow-s
+et-icon, core:window:allow-se
+t-ignore-cursor-events, core:
+window:allow-set-max-size, co
+re:window:allow-set-maximizab
+le, core:window:allow-set-min
+-size, core:window:allow-set-
+minimizable, core:window:allo
+w-set-overlay-icon, core:wind
+ow:allow-set-position, core:w
+indow:allow-set-progress-bar,
+ core:window:allow-set-resiza
+ble, core:window:allow-set-sh
+adow, core:window:allow-set-s
+imple-fullscreen, core:window
+:allow-set-size, core:window:
+allow-set-size-constraints, c
+ore:window:allow-set-skip-tas
+kbar, core:window:allow-set-t
+heme, core:window:allow-set-t
+itle, core:window:allow-set-t
+itle-bar-style, core:window:a
+llow-set-visible-on-all-works
+paces, core:window:allow-show
+, core:window:allow-start-dra
+gging, core:window:allow-star
+t-resize-dragging, core:windo
+w:allow-theme, core:window:al
+low-title, core:window:allow-
+toggle-maximize, core:window:
+allow-unmaximize, core:window
+:allow-unminimize, core:windo
+w:deny-available-monitors, co
+re:window:deny-center, core:w
+indow:deny-close, core:window
+:deny-create, core:window:den
+y-current-monitor, core:windo
+w:deny-cursor-position, core:
+window:deny-destroy, core:win
+dow:deny-get-all-windows, cor
+e:window:deny-hide, core:wind
+ow:deny-inner-position, core:
+window:deny-inner-size, core:
+window:deny-internal-toggle-m
+aximize, core:window:deny-is-
+always-on-top, core:window:de
+ny-is-closable, core:window:d
+eny-is-decorated, core:window
+:deny-is-enabled, core:window
+:deny-is-focused, core:window
+:deny-is-fullscreen, core:win
+dow:deny-is-maximizable, core
+:window:deny-is-maximized, co
+re:window:deny-is-minimizable
+, core:window:deny-is-minimiz
+ed, core:window:deny-is-resiz
+able, core:window:deny-is-vis
+ible, core:window:deny-maximi
+ze, core:window:deny-minimize
+, core:window:deny-monitor-fr
+om-point, core:window:deny-ou
+ter-position, core:window:den
+y-outer-size, core:window:den
+y-primary-monitor, core:windo
+w:deny-request-user-attention
+, core:window:deny-scale-fact
+or, core:window:deny-set-alwa
+ys-on-bottom, core:window:den
+y-set-always-on-top, core:win
+dow:deny-set-background-color
+, core:window:deny-set-badge-
+count, core:window:deny-set-b
+adge-label, core:window:deny-
+set-closable, core:window:den
+y-set-content-protected, core
+:window:deny-set-cursor-grab,
+ core:window:deny-set-cursor-
+icon, core:window:deny-set-cu
+rsor-position, core:window:de
+ny-set-cursor-visible, core:w
+indow:deny-set-decorations, c
+ore:window:deny-set-effects, 
+core:window:deny-set-enabled,
+ core:window:deny-set-focus, 
+core:window:deny-set-focusabl
+e, core:window:deny-set-fulls
+creen, core:window:deny-set-i
+con, core:window:deny-set-ign
+ore-cursor-events, core:windo
+w:deny-set-max-size, core:win
+dow:deny-set-maximizable, cor
+e:window:deny-set-min-size, c
+ore:window:deny-set-minimizab
+le, core:window:deny-set-over
+lay-icon, core:window:deny-se
+t-position, core:window:deny-
+set-progress-bar, core:window
+:deny-set-resizable, core:win
+dow:deny-set-shadow, core:win
+dow:deny-set-simple-fullscree
+n, core:window:deny-set-size,
+ core:window:deny-set-size-co
+nstraints, core:window:deny-s
+et-skip-taskbar, core:window:
+deny-set-theme, core:window:d
+eny-set-title, core:window:de
+ny-set-title-bar-style, core:
+window:deny-set-visible-on-al
+l-workspaces, core:window:den
+y-show, core:window:deny-star
+t-dragging, core:window:deny-
+start-resize-dragging, core:w
+indow:deny-theme, core:window
+:deny-title, core:window:deny
+-toggle-maximize, core:window
+:deny-unmaximize, core:window
+:deny-unminimize, shell:defau
+lt, shell:allow-execute, shel
+l:allow-kill, shell:allow-ope
+n, shell:allow-spawn, shell:a
+llow-stdin-write, shell:deny-
+execute, shell:deny-kill, she
+ll:deny-open, shell:deny-spaw
+n, shell:deny-stdin-write
+warning: build failed, waitin
+g for other jobs to finish...
+

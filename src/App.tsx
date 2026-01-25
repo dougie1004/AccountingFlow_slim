@@ -20,6 +20,20 @@ import { LeaseLedger } from './pages/LeaseLedger';
 import { AccountingProvider } from './context/AccountingContext';
 import { ConfigProvider, useConfig } from './context/ConfigContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { createContext, useContext } from 'react';
+
+interface AppContextType {
+    activeProject: string | null;
+    setActiveProject: (id: string | null) => void;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export const useApp = () => {
+    const context = useContext(AppContext);
+    // Fallback for orphaned components that might be outside of provider
+    return context || { activeProject: null, setActiveProject: () => { } };
+};
 
 const AppContent = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -60,11 +74,15 @@ const AppContent = () => {
 };
 
 function App() {
+    const [activeProject, setActiveProject] = useState<string | null>(null);
+
     return (
         <ThemeProvider>
             <ConfigProvider>
                 <AccountingProvider>
-                    <AppContent />
+                    <AppContext.Provider value={{ activeProject, setActiveProject }}>
+                        <AppContent />
+                    </AppContext.Provider>
                 </AccountingProvider>
             </ConfigProvider>
         </ThemeProvider>

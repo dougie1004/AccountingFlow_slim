@@ -281,7 +281,11 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                                     ) : (
                                                         <div className="w-2 h-2 rounded-full bg-emerald-500" />
                                                     )}
-                                                    {row.transactionId && <Shield size={10} className="text-indigo-400" title="Protected Group Entry" />}
+                                                    {row.transactionId && (
+                                                        <span title="Protected Group Entry">
+                                                            <Shield size={10} className="text-indigo-400" />
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 font-mono text-xs text-slate-400 whitespace-nowrap">

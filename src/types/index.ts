@@ -273,12 +273,61 @@ export interface ParsedTransaction {
     payrollSplit?: { pension: number; health: number; tax: number; net: number };
 }
 
+export interface ChatMessage {
+    role: 'user' | 'bot' | 'system';
+    content: string;
+}
+
 export interface ComplianceReview {
     status: 'Safe' | 'Warning' | 'Critical';
     message: string;
     suggestedAction?: string;
     reviewLogs?: string[];
 }
+
+// [Audit Strategy Types]
+export interface AuditArea { code: string; name: string; description: string; totalScenarios: number; violationCount: number; }
+export interface Scenario { id: string; areaCode: string; title: string; status: 'Pass' | 'Fail'; description: string; detailedDescription: string; timestamp: string; type: 'Unstructured' | 'Structured'; evidenceUrl: string; isNew: boolean; risk: 'High' | 'Medium' | 'Low'; }
+export interface ViolationDetail { id: string; areaCode: string; riskLevel: 'High' | 'Medium' | 'Low'; controlPoint: string; violationType: string; transactionInfo: { id: string; amount: string; date: string; entity: string }; aiAnalysis: string; recommendation: string; evidenceDocumentUrl: string; evidenceType: string; }
+export interface CorpCardTransaction { id: string; employee: { name: string; id: string; homeAddress: string; department: string; homeLocation: { lat: number; lng: number } }; merchant: string; location: { lat: number; lng: number; name: string; address: string }; amount: number; timestamp: string; category: string; anomaly: string | null; }
+export interface ForecastDataPoint { week: string; sales?: number; demand?: number; production: number; inventory: number; }
+export interface AuditIssue { id: string; status: string; severity: string; description: string; category: string; evidence: string; recommendation: string; finding_type?: string; }
+export interface AuditProject {
+    id: string;
+    title: string;
+    status: string;
+    progress_pct: number;
+    findings_count: number;
+    start_date: string;
+    end_date: string;
+    lead_auditor: string;
+    risk_score: number;
+    planning_start?: string;
+    planning_end?: string;
+    fieldwork_start?: string;
+    fieldwork_end?: string;
+    reporting_start?: string;
+    reporting_end?: string;
+    audit_scope?: string;
+    audit_type?: string;
+    created_at?: string;
+    valuation_tier?: 'seed' | 'startup' | 'enterprise';
+}
+export interface SystemEvent { id: string; type: string; message: string; timestamp: string; }
+export interface DashboardSummary { total_risks: number; ai_signals: number; critical_coverage: string; open_findings: number; risk_exposure_score: number; trends: any[]; }
+export interface AuditUniverseEntity { id: string; name: string; type: string; risk_score: number; }
+export interface AuditPlan { id: string; title: string; status: string; }
+export interface MockDocument { id: string; title: string; category: string; content: string; }
+
+export interface MockUploadFile {
+    id: string;
+    name: string;
+    type: string;
+    size: string;
+    category: string;
+    content: string;
+}
+
 
 export interface AnalysisResponse {
     transaction?: ParsedTransaction;

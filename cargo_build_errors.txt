@@ -1,0 +1,836 @@
+﻿cargo :    Compiling syn v2.0
+.113
+위치 줄:1 문자:1
++ cargo build --manifest-path
+ src-tauri/Cargo.toml 2>&1 | 
+Out-File -Fil ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (   Comp  
+  iling syn v2.0.113:Strin   
+ g) [], RemoteException
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+   Compiling windows-sys v0.6
+1.2
+   Compiling rand v0.8.5
+   Compiling toml_parser v1.0
+.6+spec-1.1.0
+   Compiling aho-corasick v1.
+1.4
+   Compiling syn v1.0.109
+   Compiling regex-syntax v0.
+8.8
+   Compiling rand v0.7.3
+   Compiling serde_json v1.0.
+148
+   Compiling brotli-decompres
+sor v5.0.0
+   Compiling parking_lot v0.1
+2.5
+   Compiling windows_x86_64_m
+svc v0.52.6
+   Compiling tendril v0.4.3
+   Compiling windows-targets 
+v0.53.5
+   Compiling anyhow v1.0.100
+   Compiling indexmap v1.9.3
+   Compiling uuid v1.19.0
+   Compiling toml v0.9.10+spe
+c-1.1.0
+   Compiling matches v0.1.10
+   Compiling glob v0.3.3
+   Compiling camino v1.2.2
+   Compiling phf_generator v0
+.11.3
+   Compiling phf_generator v0
+.8.0
+   Compiling phf_generator v0
+.10.0
+   Compiling phf_codegen v0.1
+1.3
+   Compiling string_cache_cod
+egen v0.5.4
+   Compiling phf_codegen v0.8
+.0
+   Compiling brotli v8.0.2
+   Compiling convert_case v0.
+4.0
+   Compiling selectors v0.24.
+0
+   Compiling nodrop v0.1.14
+   Compiling windows-link v0.
+1.3
+   Compiling servo_arc v0.2.0
+   Compiling windows-sys v0.6
+0.2
+   Compiling crypto-common v0
+.1.7
+   Compiling phf v0.8.0
+   Compiling parking_lot_core
+ v0.9.12
+   Compiling fxhash v0.2.1
+   Compiling schemars v0.8.22
+   Compiling markup5ever v0.1
+4.1
+   Compiling hashbrown v0.12.
+3
+   Compiling windows-targets 
+v0.52.6
+   Compiling cfb v0.7.3
+   Compiling erased-serde v0.
+4.9
+   Compiling regex-automata v
+0.4.13
+   Compiling once_cell v1.21.
+3
+   Compiling dyn-clone v1.0.2
+0
+   Compiling cpufeatures v0.2
+.17
+   Compiling serde-untagged v
+0.1.9
+   Compiling infer v0.19.0
+   Compiling winapi-util v0.1
+.11
+   Compiling windows-strings 
+v0.4.2
+   Compiling windows-result v
+0.3.4
+   Compiling block-buffer v0.
+10.4
+   Compiling same-file v1.0.6
+   Compiling vswhom-sys v0.1.
+3
+   Compiling percent-encoding
+ v2.3.2
+   Compiling walkdir v2.5.0
+   Compiling futures-core v0.
+3.31
+   Compiling pkg-config v0.3.
+32
+   Compiling crossbeam-utils 
+v0.8.21
+   Compiling adler2 v2.0.1
+   Compiling subtle v2.6.1
+   Compiling crc32fast v1.5.0
+   Compiling option-ext v0.2.
+0
+   Compiling windows-sys v0.5
+9.0
+   Compiling form_urlencoded 
+v1.2.2
+   Compiling tracing-core v0.
+1.36
+   Compiling windows-threadin
+g v0.1.0
+   Compiling rustc_version v0
+.4.1
+   Compiling powerfmt v0.2.0
+   Compiling num-conv v0.1.0
+   Compiling getrandom v0.3.4
+   Compiling time-core v0.1.6
+   Compiling deranged v0.5.5
+   Compiling synstructure v0.
+13.2
+   Compiling darling_core v0.
+21.3
+   Compiling serde_derive_int
+ernals v0.29.1
+   Compiling vswhom v0.1.0
+   Compiling time-macros v0.2
+.24
+   Compiling tracing v0.1.44
+   Compiling dirs-sys v0.5.0
+   Compiling heck v0.5.0
+   Compiling regex v1.12.2
+   Compiling simd-adler32 v0.
+3.8
+   Compiling dirs v6.0.0
+   Compiling bitflags v2.10.0
+   Compiling raw-window-handl
+e v0.6.2
+   Compiling miniz_oxide v0.8
+.9
+   Compiling zstd-sys v2.0.16
++zstd.1.5.7
+   Compiling cookie v0.18.1
+   Compiling base64 v0.22.1
+   Compiling pin-utils v0.1.0
+   Compiling fdeflate v0.3.7
+   Compiling digest v0.10.7
+   Compiling flate2 v1.1.5
+   Compiling inout v0.1.4
+   Compiling time v0.3.44
+   Compiling http-body v1.0.1
+   Compiling serde_spanned v1
+.0.4
+   Compiling toml_datetime v0
+.7.5+spec-1.1.0
+   Compiling phf_shared v0.11
+.3
+   Compiling phf_macros v0.10
+.0
+   Compiling cssparser v0.29.
+6
+   Compiling socket2 v0.6.1
+   Compiling windows-version 
+v0.1.7
+   Compiling encoding_rs v0.8
+.35
+   Compiling httparse v1.10.1
+   Compiling unicode-segmenta
+tion v1.12.0
+   Compiling zerofrom-derive 
+v0.1.6
+   Compiling yoke-derive v0.8
+.1
+   Compiling serde_derive v1.
+0.228
+   Compiling zerovec-derive v
+0.11.2
+   Compiling displaydoc v0.2.
+5
+   Compiling thiserror-impl v
+2.0.17
+   Compiling phf_macros v0.11
+.3
+   Compiling thiserror-impl v
+1.0.69
+   Compiling phf v0.10.1
+   Compiling ctor v0.2.9
+   Compiling darling_macro v0
+.21.3
+   Compiling cssparser-macros
+ v0.6.1
+   Compiling match_token v0.1
+.0
+   Compiling phf v0.11.3
+   Compiling darling v0.21.3
+   Compiling derive_more v0.9
+9.20
+   Compiling schemars_derive 
+v0.8.22
+   Compiling windows-implemen
+t v0.60.2
+   Compiling windows-interfac
+e v0.59.3
+   Compiling zerofrom v0.1.6
+   Compiling mio v1.1.1
+   Compiling tokio-macros v2.
+6.0
+   Compiling serde_with_macro
+s v3.16.1
+   Compiling yoke v0.8.1
+   Compiling thiserror v2.0.1
+7
+   Compiling winreg v0.55.0
+   Compiling zerovec v0.11.5
+   Compiling zerotrie v0.2.3
+   Compiling thiserror v1.0.6
+9
+   Compiling embed-resource v
+3.0.6
+   Compiling webview2-com-sys
+ v0.38.0
+   Compiling windows-core v0.
+61.2
+   Compiling tokio v1.49.0
+   Compiling webview2-com-mac
+ros v0.8.0
+   Compiling tauri-winres v0.
+3.5
+   Compiling tinystr v0.8.2
+   Compiling potential_utf v0
+.1.4
+   Compiling futures-task v0.
+3.31
+   Compiling icu_collections 
+v2.1.1
+   Compiling icu_locale_core 
+v2.1.1
+   Compiling futures-sink v0.
+3.31
+   Compiling serde_with v3.16
+.1
+   Compiling windows-collecti
+ons v0.2.0
+   Compiling windows-future v
+0.2.1
+   Compiling windows-numerics
+ v0.2.0
+   Compiling futures-util v0.
+3.31
+   Compiling windows v0.61.3
+   Compiling icu_provider v2.
+1.1
+   Compiling serde v1.0.228
+   Compiling icu_normalizer v
+2.1.1
+   Compiling icu_properties v
+2.1.2
+   Compiling png v0.17.16
+   Compiling string_cache v0.
+8.9
+   Compiling cargo-platform v
+0.1.9
+   Compiling jsonptr v0.6.3
+   Compiling cargo_toml v0.22
+.3
+   Compiling dpi v0.1.2
+   Compiling cargo_metadata v
+0.19.2
+   Compiling json-patch v3.0.
+1
+   Compiling cipher v0.4.4
+   Compiling crossbeam-channe
+l v0.5.15
+   Compiling bzip2-sys v0.1.1
+3+1.0.8
+   Compiling native-tls v0.2.
+14
+   Compiling idna_adapter v1.
+2.1
+   Compiling html5ever v0.29.
+1
+   Compiling idna v1.1.0
+   Compiling wry v0.53.5
+   Compiling atomic-waker v1.
+1.2
+   Compiling zstd-safe v5.0.2
++zstd.1.5.2
+   Compiling slab v0.4.11
+   Compiling tauri-runtime v2
+.9.2
+   Compiling semver v1.0.27
+   Compiling tower-service v0
+.3.3
+   Compiling try-lock v0.2.5
+   Compiling url v2.5.7
+   Compiling want v0.3.1
+   Compiling sha2 v0.10.9
+   Compiling ico v0.4.0
+   Compiling schannel v0.1.28
+   Compiling kuchikiki v0.8.8
+-speedreader
+   Compiling futures-channel 
+v0.3.31
+   Compiling windows-result v
+0.4.1
+   Compiling urlpattern v0.3.
+0
+   Compiling windows-strings 
+v0.5.1
+   Compiling tokio-util v0.7.
+18
+   Compiling tauri-runtime-wr
+y v2.9.3
+   Compiling base64ct v1.8.3
+   Compiling lazy_static v1.5
+.0
+   Compiling windows-registry
+ v0.6.1
+   Compiling aes v0.8.4
+   Compiling password-hash v0
+.4.2
+   Compiling keyboard-types v
+0.7.0
+   Compiling softbuffer v0.4.
+8
+   Compiling h2 v0.4.12
+   Compiling tauri-utils v2.8
+.1
+   Compiling serialize-to-jav
+ascript-impl v0.1.2
+   Compiling hmac v0.12.1
+   Compiling crossbeam-epoch 
+v0.9.18
+   Compiling universal-hash v
+0.5.1
+   Compiling sync_wrapper v1.
+0.2
+   Compiling num-traits v0.2.
+19
+   Compiling ryu v1.0.22
+   Compiling ipnet v2.11.0
+   Compiling tower-layer v0.3
+.3
+   Compiling rayon-core v1.13
+.0
+   Compiling opaque-debug v0.
+3.1
+   Compiling mime v0.3.17
+   Compiling polyval v0.6.2
+   Compiling crossbeam-deque 
+v0.8.6
+   Compiling tower v0.5.2
+   Compiling muda v0.17.1
+   Compiling zstd v0.11.2+zst
+d.1.5.2
+   Compiling pbkdf2 v0.11.0
+   Compiling serialize-to-jav
+ascript v0.1.2
+   Compiling tokio-native-tls
+ v0.3.1
+   Compiling serde_repr v0.1.
+20
+   Compiling http-body-util v
+0.1.3
+   Compiling sha1 v0.10.6
+   Compiling zeroize v1.8.2
+   Compiling constant_time_eq
+ v0.1.5
+   Compiling iri-string v0.7.
+10
+   Compiling rustls-pki-types
+ v1.13.2
+   Compiling ghash v0.5.1
+   Compiling serde_urlencoded
+ v0.7.1
+   Compiling ctr v0.9.2
+   Compiling os_pipe v1.2.3
+   Compiling window-vibrancy 
+v0.6.0
+   Compiling quick-xml v0.31.
+0
+   Compiling codepage v0.1.2
+   Compiling shared_child v1.
+1.1
+   Compiling aead v0.5.2
+   Compiling open v5.3.3
+   Compiling csv-core v0.1.13
+   Compiling bzip2 v0.4.4
+   Compiling either v1.15.0
+   Compiling aes-gcm v0.10.3
+   Compiling chrono v0.4.42
+   Compiling csv v1.4.0
+   Compiling chardetng v0.1.1
+7
+   Compiling zip v0.6.6
+   Compiling rayon v1.11.0
+   Compiling hex v0.4.3
+   Compiling hyper v1.8.1
+   Compiling calamine v0.24.0
+   Compiling tower-http v0.6.
+8
+   Compiling hyper-util v0.1.
+19
+   Compiling hyper-tls v0.6.0
+   Compiling reqwest v0.12.28
+   Compiling tauri-build v2.5
+.3
+   Compiling tauri-plugin v2.
+5.2
+   Compiling tauri-codegen v2
+.5.2
+   Compiling tauri v2.9.5
+   Compiling tauri-plugin-she
+ll v2.3.3
+   Compiling tauri-macros v2.
+5.2
+   Compiling accounting-flow 
+v0.1.0 (C:\Projects\Accountin
+gFlow\src-tauri)
+error: failed to run custom b
+uild command for `accounting-
+flow v0.1.0 (C:\Projects\Acco
+untingFlow\src-tauri)`
+
+Caused by:
+  process didn't exit success
+fully: `C:\Projects\Accountin
+gFlow\src-tauri\target\debug\
+build\accounting-flow-d5da7c0
+dc74bc8fd\build-script-build`
+ (exit code: 1)
+  --- stdout
+  cargo:rerun-if-env-changed=
+TAURI_CONFIG
+  cargo:rustc-check-cfg=cfg(d
+esktop)
+  cargo:rustc-cfg=desktop
+  cargo:rustc-check-cfg=cfg(m
+obile)
+  cargo:rerun-if-changed=C:\P
+rojects\AccountingFlow\src-ta
+uri\tauri.conf.json
+  cargo:rustc-env=TAURI_ANDRO
+ID_PACKAGE_NAME_APP_NAME=app
+  cargo:rustc-env=TAURI_ANDRO
+ID_PACKAGE_NAME_PREFIX=com_ac
+countingflow
+  cargo:rustc-check-cfg=cfg(d
+ev)
+  cargo:rustc-cfg=dev
+  cargo:PERMISSION_FILES_PATH
+=C:\Projects\AccountingFlow\s
+rc-tauri\target\debug\build\a
+ccounting-flow-25dabf0cf66ca8
+c7\out\app-manifest\__app__-p
+ermission-files
+  cargo:rerun-if-changed=capa
+bilities
+  Permission dialog:default n
+ot found, expected one of cor
+e:default, core:app:default, 
+core:app:allow-app-hide, core
+:app:allow-app-show, core:app
+:allow-bundle-type, core:app:
+allow-default-window-icon, co
+re:app:allow-fetch-data-store
+-identifiers, core:app:allow-
+identifier, core:app:allow-na
+me, core:app:allow-register-l
+istener, core:app:allow-remov
+e-data-store, core:app:allow-
+remove-listener, core:app:all
+ow-set-app-theme, core:app:al
+low-set-dock-visibility, core
+:app:allow-tauri-version, cor
+e:app:allow-version, core:app
+:deny-app-hide, core:app:deny
+-app-show, core:app:deny-bund
+le-type, core:app:deny-defaul
+t-window-icon, core:app:deny-
+fetch-data-store-identifiers,
+ core:app:deny-identifier, co
+re:app:deny-name, core:app:de
+ny-register-listener, core:ap
+p:deny-remove-data-store, cor
+e:app:deny-remove-listener, c
+ore:app:deny-set-app-theme, c
+ore:app:deny-set-dock-visibil
+ity, core:app:deny-tauri-vers
+ion, core:app:deny-version, c
+ore:event:default, core:event
+:allow-emit, core:event:allow
+-emit-to, core:event:allow-li
+sten, core:event:allow-unlist
+en, core:event:deny-emit, cor
+e:event:deny-emit-to, core:ev
+ent:deny-listen, core:event:d
+eny-unlisten, core:image:defa
+ult, core:image:allow-from-by
+tes, core:image:allow-from-pa
+th, core:image:allow-new, cor
+e:image:allow-rgba, core:imag
+e:allow-size, core:image:deny
+-from-bytes, core:image:deny-
+from-path, core:image:deny-ne
+w, core:image:deny-rgba, core
+:image:deny-size, core:menu:d
+efault, core:menu:allow-appen
+d, core:menu:allow-create-def
+ault, core:menu:allow-get, co
+re:menu:allow-insert, core:me
+nu:allow-is-checked, core:men
+u:allow-is-enabled, core:menu
+:allow-items, core:menu:allow
+-new, core:menu:allow-popup, 
+core:menu:allow-prepend, core
+:menu:allow-remove, core:menu
+:allow-remove-at, core:menu:a
+llow-set-accelerator, core:me
+nu:allow-set-as-app-menu, cor
+e:menu:allow-set-as-help-menu
+-for-nsapp, core:menu:allow-s
+et-as-window-menu, core:menu:
+allow-set-as-windows-menu-for
+-nsapp, core:menu:allow-set-c
+hecked, core:menu:allow-set-e
+nabled, core:menu:allow-set-i
+con, core:menu:allow-set-text
+, core:menu:allow-text, core:
+menu:deny-append, core:menu:d
+eny-create-default, core:menu
+:deny-get, core:menu:deny-ins
+ert, core:menu:deny-is-checke
+d, core:menu:deny-is-enabled,
+ core:menu:deny-items, core:m
+enu:deny-new, core:menu:deny-
+popup, core:menu:deny-prepend
+, core:menu:deny-remove, core
+:menu:deny-remove-at, core:me
+nu:deny-set-accelerator, core
+:menu:deny-set-as-app-menu, c
+ore:menu:deny-set-as-help-men
+u-for-nsapp, core:menu:deny-s
+et-as-window-menu, core:menu:
+deny-set-as-windows-menu-for-
+nsapp, core:menu:deny-set-che
+cked, core:menu:deny-set-enab
+led, core:menu:deny-set-icon,
+ core:menu:deny-set-text, cor
+e:menu:deny-text, core:path:d
+efault, core:path:allow-basen
+ame, core:path:allow-dirname,
+ core:path:allow-extname, cor
+e:path:allow-is-absolute, cor
+e:path:allow-join, core:path:
+allow-normalize, core:path:al
+low-resolve, core:path:allow-
+resolve-directory, core:path:
+deny-basename, core:path:deny
+-dirname, core:path:deny-extn
+ame, core:path:deny-is-absolu
+te, core:path:deny-join, core
+:path:deny-normalize, core:pa
+th:deny-resolve, core:path:de
+ny-resolve-directory, core:re
+sources:default, core:resourc
+es:allow-close, core:resource
+s:deny-close, core:tray:defau
+lt, core:tray:allow-get-by-id
+, core:tray:allow-new, core:t
+ray:allow-remove-by-id, core:
+tray:allow-set-icon, core:tra
+y:allow-set-icon-as-template,
+ core:tray:allow-set-menu, co
+re:tray:allow-set-show-menu-o
+n-left-click, core:tray:allow
+-set-temp-dir-path, core:tray
+:allow-set-title, core:tray:a
+llow-set-tooltip, core:tray:a
+llow-set-visible, core:tray:d
+eny-get-by-id, core:tray:deny
+-new, core:tray:deny-remove-b
+y-id, core:tray:deny-set-icon
+, core:tray:deny-set-icon-as-
+template, core:tray:deny-set-
+menu, core:tray:deny-set-show
+-menu-on-left-click, core:tra
+y:deny-set-temp-dir-path, cor
+e:tray:deny-set-title, core:t
+ray:deny-set-tooltip, core:tr
+ay:deny-set-visible, core:web
+view:default, core:webview:al
+low-clear-all-browsing-data, 
+core:webview:allow-create-web
+view, core:webview:allow-crea
+te-webview-window, core:webvi
+ew:allow-get-all-webviews, co
+re:webview:allow-internal-tog
+gle-devtools, core:webview:al
+low-print, core:webview:allow
+-reparent, core:webview:allow
+-set-webview-auto-resize, cor
+e:webview:allow-set-webview-b
+ackground-color, core:webview
+:allow-set-webview-focus, cor
+e:webview:allow-set-webview-p
+osition, core:webview:allow-s
+et-webview-size, core:webview
+:allow-set-webview-zoom, core
+:webview:allow-webview-close,
+ core:webview:allow-webview-h
+ide, core:webview:allow-webvi
+ew-position, core:webview:all
+ow-webview-show, core:webview
+:allow-webview-size, core:web
+view:deny-clear-all-browsing-
+data, core:webview:deny-creat
+e-webview, core:webview:deny-
+create-webview-window, core:w
+ebview:deny-get-all-webviews,
+ core:webview:deny-internal-t
+oggle-devtools, core:webview:
+deny-print, core:webview:deny
+-reparent, core:webview:deny-
+set-webview-auto-resize, core
+:webview:deny-set-webview-bac
+kground-color, core:webview:d
+eny-set-webview-focus, core:w
+ebview:deny-set-webview-posit
+ion, core:webview:deny-set-we
+bview-size, core:webview:deny
+-set-webview-zoom, core:webvi
+ew:deny-webview-close, core:w
+ebview:deny-webview-hide, cor
+e:webview:deny-webview-positi
+on, core:webview:deny-webview
+-show, core:webview:deny-webv
+iew-size, core:window:default
+, core:window:allow-available
+-monitors, core:window:allow-
+center, core:window:allow-clo
+se, core:window:allow-create,
+ core:window:allow-current-mo
+nitor, core:window:allow-curs
+or-position, core:window:allo
+w-destroy, core:window:allow-
+get-all-windows, core:window:
+allow-hide, core:window:allow
+-inner-position, core:window:
+allow-inner-size, core:window
+:allow-internal-toggle-maximi
+ze, core:window:allow-is-alwa
+ys-on-top, core:window:allow-
+is-closable, core:window:allo
+w-is-decorated, core:window:a
+llow-is-enabled, core:window:
+allow-is-focused, core:window
+:allow-is-fullscreen, core:wi
+ndow:allow-is-maximizable, co
+re:window:allow-is-maximized,
+ core:window:allow-is-minimiz
+able, core:window:allow-is-mi
+nimized, core:window:allow-is
+-resizable, core:window:allow
+-is-visible, core:window:allo
+w-maximize, core:window:allow
+-minimize, core:window:allow-
+monitor-from-point, core:wind
+ow:allow-outer-position, core
+:window:allow-outer-size, cor
+e:window:allow-primary-monito
+r, core:window:allow-request-
+user-attention, core:window:a
+llow-scale-factor, core:windo
+w:allow-set-always-on-bottom,
+ core:window:allow-set-always
+-on-top, core:window:allow-se
+t-background-color, core:wind
+ow:allow-set-badge-count, cor
+e:window:allow-set-badge-labe
+l, core:window:allow-set-clos
+able, core:window:allow-set-c
+ontent-protected, core:window
+:allow-set-cursor-grab, core:
+window:allow-set-cursor-icon,
+ core:window:allow-set-cursor
+-position, core:window:allow-
+set-cursor-visible, core:wind
+ow:allow-set-decorations, cor
+e:window:allow-set-effects, c
+ore:window:allow-set-enabled,
+ core:window:allow-set-focus,
+ core:window:allow-set-focusa
+ble, core:window:allow-set-fu
+llscreen, core:window:allow-s
+et-icon, core:window:allow-se
+t-ignore-cursor-events, core:
+window:allow-set-max-size, co
+re:window:allow-set-maximizab
+le, core:window:allow-set-min
+-size, core:window:allow-set-
+minimizable, core:window:allo
+w-set-overlay-icon, core:wind
+ow:allow-set-position, core:w
+indow:allow-set-progress-bar,
+ core:window:allow-set-resiza
+ble, core:window:allow-set-sh
+adow, core:window:allow-set-s
+imple-fullscreen, core:window
+:allow-set-size, core:window:
+allow-set-size-constraints, c
+ore:window:allow-set-skip-tas
+kbar, core:window:allow-set-t
+heme, core:window:allow-set-t
+itle, core:window:allow-set-t
+itle-bar-style, core:window:a
+llow-set-visible-on-all-works
+paces, core:window:allow-show
+, core:window:allow-start-dra
+gging, core:window:allow-star
+t-resize-dragging, core:windo
+w:allow-theme, core:window:al
+low-title, core:window:allow-
+toggle-maximize, core:window:
+allow-unmaximize, core:window
+:allow-unminimize, core:windo
+w:deny-available-monitors, co
+re:window:deny-center, core:w
+indow:deny-close, core:window
+:deny-create, core:window:den
+y-current-monitor, core:windo
+w:deny-cursor-position, core:
+window:deny-destroy, core:win
+dow:deny-get-all-windows, cor
+e:window:deny-hide, core:wind
+ow:deny-inner-position, core:
+window:deny-inner-size, core:
+window:deny-internal-toggle-m
+aximize, core:window:deny-is-
+always-on-top, core:window:de
+ny-is-closable, core:window:d
+eny-is-decorated, core:window
+:deny-is-enabled, core:window
+:deny-is-focused, core:window
+:deny-is-fullscreen, core:win
+dow:deny-is-maximizable, core
+:window:deny-is-maximized, co
+re:window:deny-is-minimizable
+, core:window:deny-is-minimiz
+ed, core:window:deny-is-resiz
+able, core:window:deny-is-vis
+ible, core:window:deny-maximi
+ze, core:window:deny-minimize
+, core:window:deny-monitor-fr
+om-point, core:window:deny-ou
+ter-position, core:window:den
+y-outer-size, core:window:den
+y-primary-monitor, core:windo
+w:deny-request-user-attention
+, core:window:deny-scale-fact
+or, core:window:deny-set-alwa
+ys-on-bottom, core:window:den
+y-set-always-on-top, core:win
+dow:deny-set-background-color
+, core:window:deny-set-badge-
+count, core:window:deny-set-b
+adge-label, core:window:deny-
+set-closable, core:window:den
+y-set-content-protected, core
+:window:deny-set-cursor-grab,
+ core:window:deny-set-cursor-
+icon, core:window:deny-set-cu
+rsor-position, core:window:de
+ny-set-cursor-visible, core:w
+indow:deny-set-decorations, c
+ore:window:deny-set-effects, 
+core:window:deny-set-enabled,
+ core:window:deny-set-focus, 
+core:window:deny-set-focusabl
+e, core:window:deny-set-fulls
+creen, core:window:deny-set-i
+con, core:window:deny-set-ign
+ore-cursor-events, core:windo
+w:deny-set-max-size, core:win
+dow:deny-set-maximizable, cor
+e:window:deny-set-min-size, c
+ore:window:deny-set-minimizab
+le, core:window:deny-set-over
+lay-icon, core:window:deny-se
+t-position, core:window:deny-
+set-progress-bar, core:window
+:deny-set-resizable, core:win
+dow:deny-set-shadow, core:win
+dow:deny-set-simple-fullscree
+n, core:window:deny-set-size,
+ core:window:deny-set-size-co
+nstraints, core:window:deny-s
+et-skip-taskbar, core:window:
+deny-set-theme, core:window:d
+eny-set-title, core:window:de
+ny-set-title-bar-style, core:
+window:deny-set-visible-on-al
+l-workspaces, core:window:den
+y-show, core:window:deny-star
+t-dragging, core:window:deny-
+start-resize-dragging, core:w
+indow:deny-theme, core:window
+:deny-title, core:window:deny
+-toggle-maximize, core:window
+:deny-unmaximize, core:window
+:deny-unminimize, shell:defau
+lt, shell:allow-execute, shel
+l:allow-kill, shell:allow-ope
+n, shell:allow-spawn, shell:a
+llow-stdin-write, shell:deny-
+execute, shell:deny-kill, she
+ll:deny-open, shell:deny-spaw
+n, shell:deny-stdin-write
+warning: build failed, waitin
+g for other jobs to finish...

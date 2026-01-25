@@ -1,6 +1,7 @@
 
 
-import { ChatMessage } from "../types";
+// unused import removed to fix build error
+// import { ChatMessage } from "../types";
 
 export interface GeminiResponse {
   response?: string;

@@ -1,0 +1,291 @@
+﻿cargo :    Compiling accounti
+ng-flow v0.1.0 (C:\Projects\A
+ccountingFlow\src-tauri)
+위치 줄:1 문자:1
++ cargo check 2> errors_final
+_4.txt; powershell -Command "
+Get-Content e ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (   Comp  
+  iling ac...Flow\src-taur   
+ i):String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+error[E0425]: cannot find fun
+ction `evaluate_lcm` in modul
+e `crate::scm::scm_service`
+   --> src\accounting\report_
+engine.rs:113:44
+    |
+113 |     let scm_val = crate
+::scm::scm_service::evaluate_
+lcm(&inventory);
+    |                        
+                    ^^^^^^^^^
+^^^ not found in `crate::scm:
+:scm_service`
+
+error[E0412]: cannot find typ
+e `ValuationSummary` in modul
+e `crate::scm::scm_service`
+   --> src\commands.rs:299:11
+4
+    |
+299 | pub fn evaluate_invento
+ry_assets(inventory: Vec<crat
+e::core::models::InventoryIte
+m>) -> crate::scm::scm_servic
+e::ValuationSummary {
+    |                        
+                             
+                             
+                             
+   ^^^^^^^^^^^^^^^^ not found
+ in `crate::scm::scm_service`
+
+error[E0425]: cannot find fun
+ction `evaluate_lcm` in modul
+e `crate::scm::scm_service`
+   --> src\commands.rs:300:30
+    |
+300 |     crate::scm::scm_ser
+vice::evaluate_lcm(&inventory
+)
+    |                        
+      ^^^^^^^^^^^^ not found 
+in `crate::scm::scm_service`
+
+warning: unused doc comment
+  --> src\core\security.rs:7:
+1
+   |
+ 7 | / /**
+ 8 | |  * [Security Module] T
+enant Isolation & KMS (Key Ma
+nagement System)
+ 9 | |  * 
+10 | |  * ?뷀꽣?꾨씪?댁쫰湲?蹂댁븞 ?붽뎄?
+ы빆??異⑹”?섍린 ?꾪븳 寃⑸━ 諛???愿由?紐⑤
+뱢?낅땲??
+...  |
+15 | |  * 3. In-Memory Vault:
+ ?ㅼ쓽 硫붾え由????덉쟾??寃⑸━ 蹂닿? (?ㅼ젣
+ ?댁쁺 ?쒖뿉??Encrypted File/Hard
+ware HSM ?곕룞 沅뚯옣)
+16 | |  */
+   | |___^ rustdoc does not g
+enerate documentation for mac
+ro invocations
+   |
+   = help: to document an ite
+m produced by a macro, the ma
+cro must produce the document
+ation as part of its expansio
+n
+   = note: `#[warn(unused_doc
+_comments)]` (part of `#[warn
+(unused)]`) on by default
+
+warning: unused import: `Star
+tupInsights`
+ --> src\accounting\ir_engine
+.rs:3:55
+  |
+3 | use crate::accounting::in
+sights::{calculate_insights, 
+StartupInsights};
+  |                          
+                             
+^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_impo
+rts)]` (part of `#[warn(unuse
+d)]`) on by default
+
+warning: unused import: `Jour
+nalEntry`
+ --> src\accounting\parser.rs
+:1:46
+  |
+1 | use crate::core::models::
+{ParsedTransaction, JournalEn
+try};
+  |                          
+                    ^^^^^^^^^
+^^^
+
+warning: unused import: `Data
+`
+ --> src\accounting\parser.rs
+:5:30
+  |
+5 | use calamine::{Reader, Xl
+sx, Data};
+  |                          
+    ^^^^
+
+warning: unused import: `crat
+e::ai::robust_parser::parse_r
+obust_csv`
+ --> src\ai\migration_engine.
+rs:2:5
+  |
+2 | use crate::ai::robust_par
+ser::parse_robust_csv;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Jour
+nalEntry`
+ --> src\ai\csv_inference.rs:
+2:46
+  |
+2 | use crate::core::models::
+{ParsedTransaction, JournalEn
+try};
+  |                          
+                    ^^^^^^^^^
+^^^
+
+warning: unused variable: `to
+day`
+  --> src\accounting\forecast
+_engine.rs:36:9
+   |
+36 |     let today = chrono::
+Local::now().naive_local();
+   |         ^^^^^ help: if t
+his is intentional, prefix it
+ with an underscore: `_today`
+   |
+   = note: `#[warn(unused_var
+iables)]` (part of `#[warn(un
+used)]`) on by default
+
+warning: value assigned to `c
+apitalized_amount` is never r
+ead
+  --> src\accounting\advanced
+_ledger.rs:41:38
+   |
+41 |         let mut capitali
+zed_amount = 0.0;
+   |                         
+             ^^^
+   |
+   = help: maybe it is overwr
+itten before being read?
+   = note: `#[warn(unused_ass
+ignments)]` (part of `#[warn(
+unused)]`) on by default
+
+warning: value assigned to `h
+eader_map` is never read
+  --> src\accounting\parser.r
+s:74:26
+   |
+74 |     let mut header_map =
+ std::collections::HashMap::n
+ew();
+   |                         
+ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^
+   |
+   = help: maybe it is overwr
+itten before being read?
+
+warning: unused variable: `ke
+y`
+   --> src\accounting\parser.
+rs:140:10
+    |
+140 |     for (key, group) in
+ groups {
+    |          ^^^ help: if t
+his is intentional, prefix it
+ with an underscore: `_key`
+
+warning: value assigned to `t
+ax` is never read
+   --> src\tax\tax_bridge.rs:
+200:19
+    |
+200 |     let mut tax = 0.0;
+    |                   ^^^
+    |
+    = help: maybe it is overw
+ritten before being read?
+
+warning: unused variable: `i`
+  --> src\ai\robust_parser.rs
+:84:10
+   |
+84 |     for (i, fields) in a
+ll_records.iter().enumerate()
+.skip(start_row) {
+   |          ^ help: if this
+ is intentional, prefix it wi
+th an underscore: `_i`
+
+warning: unused variable: `st
+atus`
+   --> src\ai\robust_parser.r
+s:145:28
+    |
+145 |                  let (v
+al, status, _) = clean_amount
+_with_status(f);
+    |                        
+    ^^^^^^ help: if this is i
+ntentional, prefix it with an
+ underscore: `_status`
+
+warning: variable does not ne
+ed to be mutable
+  --> src\ai\office_parser.rs
+:23:13
+   |
+23 |         let mut slide_in
+dices: Vec<usize> = (1..=50).
+collect(); // Max 50 slides c
+heck
+   |             ----^^^^^^^^
+^^^^^
+   |             |
+   |             help: remove
+ this `mut`
+   |
+   = note: `#[warn(unused_mut
+)]` (part of `#[warn(unused)]
+`) on by default
+
+warning: unused variable: `he
+ader_tokens`
+  --> src\ai\csv_inference.rs
+:49:9
+   |
+49 |     let header_tokens: V
+ec<&str> = header_line.split(
+|c| c == ',' || c == '\t' || 
+c == ';').collect();
+   |         ^^^^^^^^^^^^^ he
+lp: if this is intentional, p
+refix it with an underscore: 
+`_header_tokens`
+
+Some errors have detailed exp
+lanations: E0412, E0425.
+For more information about an
+ error, try `rustc --explain 
+E0412`.
+warning: `accounting-flow` (l
+ib) generated 15 warnings
+error: could not compile `acc
+ounting-flow` (lib) due to 3 
+previous errors; 15 warnings 
+emitted
+

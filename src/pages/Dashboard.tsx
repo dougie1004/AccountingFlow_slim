@@ -27,10 +27,11 @@ import { ManagementReportPanel } from '../components/dashboard/ManagementReportP
 import { CFOReportCard } from '../components/dashboard/CFOReportCard';
 import { CEOQuickBar } from '../components/dashboard/CEOQuickBar';
 import { Tooltip } from '../components/common/Tooltip';
-import { generateShowcaseData } from '../utils/mockDataGenerator';
+import { generateShowcaseData, generateSystemWideMockData } from '../utils/mockDataGenerator';
+import { formatCLevel } from '../utils/formatUtils';
 
 export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab }) => {
-    const { ledger, financials, addEntries, resetData, loadSimulation } = useAccounting();
+    const { ledger, financials, config, resetData, loadSimulation } = useAccounting();
 
     // Layout stability fix for Recharts
     const [isMounted, setIsMounted] = useState(false);
@@ -42,8 +43,8 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
     const [isDemoMode, setIsDemoMode] = useState(false);
 
     const handleRunSimulation = () => {
-        const results = generateShowcaseData();
-        loadSimulation({ ledger: results });
+        const results = generateSystemWideMockData();
+        loadSimulation(results);
     };
 
     const toggleDemoMode = () => {
@@ -98,7 +99,10 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
         ledger.forEach(e => {
             if (e.description.includes('[R&D]')) rndAssetValue += e.amount;
             if (e.description.includes('Stock Option')) stockOptionExpense += e.amount;
-            if (e.vendor === 'Forex') fxGainLoss += (e.amount * 0.05);
+            if (e.vendor === 'Forex') {
+                fxGainLoss += (e.amount * 0.05);
+                fxExposure += e.amount;
+            }
         });
 
         const estimatedTaxCredit = rndAssetValue * 0.25;
@@ -106,12 +110,35 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
         const totalExpenseLast3m = cashFlowData.slice(-3).reduce((sum, d) => sum + d.expense, 0);
         const averageMonthlyBurn = totalExpenseLast3m / Math.min(3, cashFlowData.length || 1);
         const averageMonthlyRevenue = totalRevenueLast3m / Math.min(3, cashFlowData.length || 1);
-        const isProfitable = averageMonthlyRevenue >= averageMonthlyBurn;
 
-        return { cashFlowData, rndAssetValue, stockOptionExpense, fxGainLoss, fxExposure, estimatedTaxCredit, averageMonthlyBurn, averageMonthlyRevenue, isProfitable };
+        // 흑자 여부는 매출이 발생하고, 그 매출이 비용보다 클 때만 true로 설정
+        const isProfitable = averageMonthlyRevenue > 0 && averageMonthlyRevenue >= averageMonthlyBurn;
+        const hasActivity = ledger.length > 0;
+
+        return {
+            cashFlowData,
+            totalRndInvestment: rndAssetValue,
+            stockOptionExpense,
+            fxGainLoss,
+            fxExposure,
+            estimatedTaxCredit,
+            averageMonthlyBurn,
+            averageMonthlyRevenue,
+            isProfitable,
+            hasActivity
+        };
     }, [ledger]);
 
     const briefing = useMemo(() => {
+        if (!analytics.hasActivity) {
+            return {
+                status: 'READY',
+                cashText: `₩${financials.realAvailableCash.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                schedule: "데이터 연동 대기 중",
+                message: "현재 분석할 경영 데이터가 존재하지 않습니다. 전표 데이터 또는 시뮬레이션 데이터셋을 가동하여 분석을 시작하십시오."
+            };
+        }
+
         // More conservative runway calculation (Enterprise Standard)
         // If profitable, runway is effectively infinite
         const runway = analytics.isProfitable ? 999 : (analytics.averageMonthlyBurn > 0 ? financials.realAvailableCash / analytics.averageMonthlyBurn : 24);
@@ -150,11 +177,11 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
             <header className="flex flex-col gap-6">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
-                        <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                        <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-3">
                             <Activity className="text-indigo-400" size={32} />
                             경영 관리 대시보드
                         </h2>
-                        <p className="text-slate-400 font-bold mt-2 ml-1 text-sm uppercase tracking-wider">Enterprise Financial Controller Console</p>
+                        <p className="text-slate-400 font-bold mt-2 ml-1 text-xs md:text-sm uppercase tracking-wider">Enterprise Financial Controller Console</p>
                     </div>
                     <div className="flex gap-3">
                         <button
@@ -181,6 +208,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                 financials={financials}
                 avgMonthlyBurn={analytics.averageMonthlyBurn}
                 isProfitable={analytics.isProfitable}
+                hasActivity={analytics.hasActivity}
             />
 
             <div className="flex items-center gap-2 px-6 py-3 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl w-fit">
@@ -233,23 +261,30 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                 </div>
 
                 <div className="lg:col-span-1">
-                    <CFOReportCard metrics={analytics} />
+                    <CFOReportCard
+                        metrics={analytics}
+                        onViewReport={() => setTab('reports')}
+                        certifications={{
+                            hasRDDept: config.entityMetadata?.hasRDDept,
+                            hasRDLab: config.entityMetadata?.hasRDLab
+                        }}
+                    />
                 </div>
 
                 <div className="md:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {kpiCards.map((kpi, idx) => (
-                        <div key={idx} className="bg-[#151D2E] p-8 rounded-[2.5rem] border border-white/5 hover:border-indigo-500/30 transition-all group">
-                            <div className={`w-12 h-12 rounded-2xl ${kpi.bg} ${kpi.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
-                                <kpi.icon size={24} />
+                        <div key={idx} className="bg-[#151D2E] p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border border-white/5 hover:border-indigo-500/30 transition-all group overflow-hidden">
+                            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl ${kpi.bg} ${kpi.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                                <kpi.icon size={20} className="sm:size-6" />
                             </div>
                             <Tooltip key={kpi.label} content={kpi.description} position="top">
                                 <div className="p-2 -m-2 inline-block">
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 cursor-help flex items-center gap-1 border-b border-white/10 w-fit pointer-events-none">
+                                    <p className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 cursor-help flex items-center gap-1 border-b border-white/10 w-fit pointer-events-none">
                                         {kpi.label} <HelpCircle size={10} className="text-slate-600" />
                                     </p>
                                 </div>
                             </Tooltip>
-                            <h4 className="text-3xl font-black text-white tracking-tighter">₩{kpi.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</h4>
+                            <h4 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tighter truncate">{formatCLevel(kpi.value)}</h4>
                         </div>
                     ))}
                 </div>
@@ -269,25 +304,25 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                 </div>
 
                 <div className="md:col-span-2 lg:col-span-4">
-                    <div className="bg-[#151D2E] border border-white/5 p-8 rounded-[2.5rem] flex items-center justify-between group hover:border-indigo-500/40 transition-all shadow-xl">
-                        <div className="flex items-center gap-6">
-                            <div className="p-4 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-600/20 group-hover:scale-110 transition-transform">
-                                <Activity className="text-white" size={28} />
+                    <div className="bg-[#151D2E] border border-white/5 p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group hover:border-indigo-500/40 transition-all shadow-xl gap-6">
+                        <div className="flex items-start sm:items-center gap-4 sm:gap-6">
+                            <div className="p-3 sm:p-4 bg-indigo-600 rounded-xl sm:rounded-2xl shadow-xl shadow-indigo-600/20 group-hover:scale-110 transition-transform flex-shrink-0">
+                                <Activity className="text-white" size={24} />
                             </div>
                             <div className="space-y-1">
-                                <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+                                <h3 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2 sm:gap-3 flex-wrap">
                                     CFO Strategic Performance Report
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${['STABLE', 'GROWTH'].includes(briefing.status) ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
+                                    <span className={`text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full ${['STABLE', 'GROWTH'].includes(briefing.status) ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
                                         {briefing.status}
                                     </span>
                                 </h3>
-                                <div className="flex flex-col md:flex-row md:items-center gap-4 text-slate-300 text-sm font-bold">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-slate-300 text-xs sm:text-sm font-bold">
                                     <Tooltip content="총 현금에서 확정 부채(AP, VAT) 및 사용 제한 보조금을 차감한, 경영진이 실질적으로 즉시 집행 가능한 자금입니다." position="top">
-                                        <span className="flex items-center gap-1 cursor-help border-b border-indigo-400/20"><Wallet size={14} className="text-indigo-400" /> 실가용자금: {briefing.cashText} <HelpCircle size={12} className="text-indigo-500/50" /></span>
+                                        <span className="flex items-center gap-1 cursor-help border-b border-indigo-400/20"><Wallet size={12} className="text-indigo-400" /> 실가용자금: {briefing.cashText} <HelpCircle size={10} className="text-indigo-500/50" /></span>
                                     </Tooltip>
-                                    <span className="flex items-center gap-1"><Calendar size={14} className="text-indigo-400" /> {briefing.schedule}</span>
+                                    <span className="flex items-center gap-1"><Calendar size={12} className="text-indigo-400" /> {briefing.schedule}</span>
                                 </div>
-                                <p className="text-slate-400 font-bold text-sm pt-2">
+                                <p className="text-slate-400 font-bold text-xs sm:text-sm pt-2 leading-relaxed">
                                     {briefing.message}
                                 </p>
                             </div>

@@ -1,0 +1,250 @@
+﻿use crate::core::models::{
+    Asset, JournalEntry, Order, OrderItem, SimulationResult, TenantConfig, 
+    EntityMetadata, TaxPolicy
+};
+use crate::{asset_manager, scm_service, tax_validator, tax_bridge};
+use uuid;
+
+pub fn run_simulation() -> SimulationResult {
+    let mut ledger: Vec<JournalEntry> = Vec::new();
+    let mut assets: Vec<Asset> = Vec::new();
+    let mut orders: Vec<Order> = Vec::new();
+    let mut version_counter: u32 = 1;
+
+    // 1. Setup Company
+    let company_metadata = EntityMetadata {
+        company_name: "(二??먯씠?꾩씠?뚰겕".to_string(),
+        reg_id: "220-81-62517".to_string(),
+        rep_name: "諛뺤???.to_string(),
+        corp_type: "SME".to_string(),
+        fiscal_year_end: "12-31".to_string(),
+    };
+
+    let company_config = TenantConfig {
+        tenant_id: "sim-tenant-001".to_string(),
+        closing_date: Some("2025-12-31".to_string()),
+        is_read_only: false, // Open for demo
+        entity_metadata: Some(company_metadata.clone()),
+        tax_policy: Some(TaxPolicy {
+            depreciation_method: "STRAIGHT_LINE".to_string(),
+            entertainment_limit_base: 24_000_000.0,
+            vat_filing_cycle: "Quarterly".to_string(),
+        }),
+    };
+
+    // 2. Initial Capital (Jan 1)
+    ledger.push(JournalEntry {
+        id: uuid::Uuid::new_v4().to_string(),
+        date: "2025-01-01".to_string(),
+        description: "Initial Capital Injection".to_string(),
+        vendor: Some("Shareholders".to_string()),
+        debit_account: "Cash".to_string(),
+        credit_account: "Capital Stock".to_string(),
+        amount: 100_000_000.0,
+        vat: 0.0,
+        entry_type: "Equity".to_string(),
+        status: "Approved".to_string(),
+        tax_code: None,
+        version: version_counter,
+        last_modified_by: Some("System".to_string()),
+        attachment_url: None,
+        ocr_data: None,
+        compliance_context: None,
+    });
+    version_counter += 1;
+
+    // 3. Asset Acquisition (Mar 15) - Machinery & Vehicle
+    let machine = Asset {
+        id: "AST-2025-001".to_string(),
+        name: "High-Speed Server Rack".to_string(),
+        acquisition_date: "2025-03-15".to_string(),
+        cost: 50_000_000.0,
+        depreciation_method: "STRAIGHT_LINE".to_string(),
+        useful_life: 5,
+        residual_value: 1000.0,
+        accumulated_depreciation: 0.0,
+        current_value: 50_000_000.0,
+        accumulated_depreciation_account: Some("Accumulated Depreciation (Machinery)".to_string()),
+        expense_account: Some("Depreciation Expense".to_string()),
+    };
+    assets.push(machine);
+    
+    // JE for Asset Purchase
+    ledger.push(JournalEntry {
+        id: uuid::Uuid::new_v4().to_string(),
+        date: "2025-03-15".to_string(),
+        description: "Purchase Server Rack".to_string(),
+        vendor: Some("Nvidia Korea".to_string()),
+        debit_account: "Machinery".to_string(),
+        credit_account: "Accounts Payable".to_string(),
+        amount: 50_000_000.0,
+        vat: 5_000_000.0,
+        entry_type: "Asset".to_string(),
+        status: "Approved".to_string(),
+        tax_code: Some("ASSET_ACQ".to_string()),
+        version: version_counter,
+        last_modified_by: Some("System".to_string()),
+        attachment_url: Some("https://example.com/inv_nvidia.pdf".to_string()),
+        ocr_data: None,
+        compliance_context: None,
+    });
+    version_counter += 1;
+
+    // 4. Monthly Activity Loop (Jan - Dec)
+    for month in 1..=12 {
+        let date_str = format!("2025-{:02}-28", month); // Simplified EOM
+        
+        // A. Sales (Increasing trend)
+        let base_sales = 20_000_000.0;
+        let sales_amount = base_sales * (1.0 + (month as f64 * 0.1)); // 10% growth per month
+        
+        let sales_order = Order {
+            id: format!("SO-2025-{:02}01", month),
+            date: date_str.clone(),
+            partner_id: "Global Client Inc.".to_string(),
+            type_field: "SALES".to_string(),
+            status: "INVOICED".to_string(), // Trigger auto-journal
+            items: vec![OrderItem { sku: "SaaS-Sub".to_string(), quantity: 1, unit_price: sales_amount, amount: sales_amount }],
+            total_amount: sales_amount,
+            vat: sales_amount * 0.1,
+        };
+        orders.push(sales_order.clone());
+        
+        if let Ok(entries) = scm_service::process_order_journaling(&sales_order, &mut version_counter) {
+            ledger.extend(entries);
+        }
+
+        // B. Purchases (Expenses)
+        let cost_amount = sales_amount * 0.4;
+        let purchase_order = Order {
+            id: format!("PO-2025-{:02}01", month),
+            date: date_str.clone(),
+            partner_id: "AWS Korea".to_string(),
+            type_field: "PURCHASE".to_string(),
+            status: "FULFILLED".to_string(), // Trigger auto-journal
+            items: vec![OrderItem { sku: "Hosting".to_string(), quantity: 1, unit_price: cost_amount, amount: cost_amount }],
+            total_amount: cost_amount,
+            vat: cost_amount * 0.1,
+        };
+        orders.push(purchase_order.clone());
+
+        if let Ok(entries) = scm_service::process_order_journaling(&purchase_order, &mut version_counter) {
+            ledger.extend(entries);
+        }
+
+        // C. Depreciation (Run Batch)
+        // Only if assets owned by this date
+        // Simplified: Run for all assets effectively "owned"
+        let dep_entries = asset_manager::calculate_monthly_depreciation(&mut assets, date_str.clone(), &mut version_counter);
+        ledger.extend(dep_entries);
+    }
+
+    // 5. Risk Injection (Tax Adjustments)
+    // A. Entertainment Expense > Limit (60M Total)
+    ledger.push(JournalEntry {
+        id: uuid::Uuid::new_v4().to_string(),
+        date: "2025-06-20".to_string(),
+        description: "Yearly Client Network Event (Large)".to_string(),
+        vendor: Some("Grand Hyatt Seoul".to_string()),
+        debit_account: "Entertainment Expense".to_string(),
+        credit_account: "Accounts Payable".to_string(),
+        amount: 45_000_000.0, 
+        vat: 4_500_000.0,
+        entry_type: "Expense".to_string(),
+        status: "Approved".to_string(),
+        tax_code: Some("ENTERTAINMENT".to_string()),
+        version: version_counter,
+        last_modified_by: Some("System".to_string()),
+        attachment_url: Some("https://example.com/receipt_hyatt.pdf".to_string()),
+        ocr_data: None,
+        compliance_context: None,
+    });
+    version_counter += 1;
+
+    // A-1. 3 items without evidence (5M each)
+    for i in 1..=3 {
+        ledger.push(JournalEntry {
+            id: uuid::Uuid::new_v4().to_string(),
+            date: format!("2025-07-{:02}", 10+i),
+            description: format!("Casual Lunch with Partner #{}", i),
+            vendor: Some("Unverified Business".to_string()),
+            debit_account: "Entertainment Expense".to_string(),
+            credit_account: "Cash".to_string(),
+            amount: 5_000_000.0,
+            vat: 0.0,
+            entry_type: "Expense".to_string(),
+            status: "Approved".to_string(),
+            tax_code: Some("ENTERTAINMENT_NO_PROOF".to_string()),
+            version: version_counter,
+            last_modified_by: Some("User".to_string()),
+            attachment_url: None, // Missing proof!
+            ocr_data: None,
+            compliance_context: None,
+        });
+        version_counter += 1;
+    }
+
+    // B. Business Passenger Car Risk (15M, Uninsured)
+    ledger.push(JournalEntry {
+        id: uuid::Uuid::new_v4().to_string(),
+        date: "2025-08-15".to_string(),
+        description: "Company Car Maintenance (GV80) - Insurance Lapsed".to_string(),
+        vendor: Some("Premium Service Center".to_string()),
+        debit_account: "Vehicle Maintenance Expense".to_string(),
+        credit_account: "Corporate Card".to_string(),
+        amount: 15_000_000.0,
+        vat: 1_500_000.0,
+        entry_type: "Expense".to_string(),
+        status: "Approved".to_string(),
+        tax_code: Some("CAR_UNINSURED".to_string()),
+        version: version_counter,
+        last_modified_by: Some("User".to_string()),
+        attachment_url: Some("https://example.com/car_repair.pdf".to_string()),
+        ocr_data: Some("{\"insurance_coverage\": false}".to_string()),
+        compliance_context: None,
+    });
+    version_counter += 1;
+
+    // C. Depreciation Disallowance (Acquired 100M machine, Accounting Dep 40M)
+    ledger.push(JournalEntry {
+        id: uuid::Uuid::new_v4().to_string(),
+        date: "2025-12-31".to_string(),
+        description: "Excessive Depreciation for Special Machine".to_string(),
+        vendor: Some("Internal Entry".to_string()),
+        debit_account: "Depreciation Expense".to_string(),
+        credit_account: "Accumulated Depreciation".to_string(),
+        amount: 40_000_000.0,
+        vat: 0.0,
+        entry_type: "Adjustment".to_string(),
+        status: "Approved".to_string(),
+        tax_code: Some("DEPRECIATION_EXCESS".to_string()),
+        version: version_counter,
+        last_modified_by: Some("Finance Manager".to_string()),
+        attachment_url: None,
+        ocr_data: None,
+        compliance_context: None,
+    });
+    version_counter += 1;
+
+    // 6. Tax Bridge & Validation
+    let adjustments = tax_bridge::calculate_tax_adjustments(ledger.clone());
+    let snapshot = crate::core::models::AuditSnapshot {
+        snapshot_id: "SIM-SNAP-001".to_string(),
+        timestamp: chrono::Local::now().to_rfc3339(),
+        financial_data_hash: "simulated_hash_12345".to_string(),
+        record_count: ledger.len(),
+        total_amount: ledger.iter().map(|e| e.amount).sum(),
+        integrity_hash: "simulated_integrity_hash".to_string(),
+    };
+    
+    let validation_results = tax_validator::run_validation(&snapshot, Some(&company_metadata));
+
+    SimulationResult {
+        ledger,
+        assets,
+        orders,
+        adjustments,
+        validation_results,
+        company_config,
+    }
+}

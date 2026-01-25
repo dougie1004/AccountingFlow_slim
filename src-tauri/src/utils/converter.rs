@@ -17,10 +17,11 @@ pub fn suggest_mapping(headers: Vec<String>) -> HashMap<String, String> {
     // Flatten and split if headers are clumped (Frontend/Backend consistency)
     let mut actual_headers = Vec::new();
     for h in headers {
-        if h.contains(',') && !h.contains('\"') {
-            for sub in h.split(',') { actual_headers.push(sub.trim().to_string()); }
+        let h_clean = deep_clean_value(&h);
+        if h_clean.contains(',') && !h_clean.contains('\"') {
+            for sub in h_clean.split(',') { actual_headers.push(sub.trim().to_string()); }
         } else {
-            actual_headers.push(h);
+            actual_headers.push(h_clean);
         }
     }
 
@@ -28,11 +29,11 @@ pub fn suggest_mapping(headers: Vec<String>) -> HashMap<String, String> {
         let h_norm = normalize_key(&header);
         
         // 1. Transaction Date (Extended)
-        if h_norm.contains("일자") || h_norm.contains("날짜") || h_norm.contains("date") || h_norm.contains("일시") || h_norm.contains("time") || h_norm.contains("거래일") || h_norm.contains("사용일") || h_norm.contains("승인일") {
+        if h_norm.contains("일자") || h_norm.contains("날짜") || h_norm.contains("date") || h_norm.contains("일시") || h_norm.contains("time") || h_norm.contains("거래일") || h_norm.contains("사용일") || h_norm.contains("승인일") || h_norm.contains("취득") {
             mapping.insert(header.clone(), "tx_date".to_string());
         } 
         // 2. Amount (Prioritize '금액' over '결제')
-        else if h_norm.contains("금액") || h_norm.contains("합계") || h_norm.contains("amount") || h_norm.contains("price") || h_norm.contains("총액") || h_norm.contains("비용") || h_norm.contains("지출") || h_norm.contains("공급") || h_norm.contains("가격") {
+        else if h_norm.contains("금액") || h_norm.contains("합계") || h_norm.contains("amount") || h_norm.contains("price") || h_norm.contains("총액") || h_norm.contains("비용") || h_norm.contains("지출") || h_norm.contains("공급") || h_norm.contains("가격") || h_norm.contains("보험료") || h_norm.contains("산출") || h_norm.contains("납부") {
             mapping.insert(header.clone(), "amount".to_string());
         }
         // 3. Vendor
@@ -117,7 +118,7 @@ pub fn get_headers(bytes: &[u8], file_name: &str) -> Result<Vec<String>, String>
         // [Antigravity] Smart Header Search for Excel
         let rows: Vec<Vec<String>> = range.rows()
             .take(20) // Scan top 20 rows
-            .map(|row| row.iter().map(|c| c.to_string().trim().to_string()).collect())
+            .map(|row| row.iter().map(|c| deep_clean_value(&c.to_string())).collect())
             .collect();
 
         if let Some((_, best_headers)) = find_best_header_row(&rows) {
@@ -126,7 +127,7 @@ pub fn get_headers(bytes: &[u8], file_name: &str) -> Result<Vec<String>, String>
         
         // Fallback to first row
         if let Some(row) = range.rows().next() {
-            return Ok(row.iter().map(|c| c.to_string().trim().to_string()).collect());
+            return Ok(row.iter().map(|c| deep_clean_value(&c.to_string())).collect());
         }
     } else {
         let decoded = crate::ai::robust_parser::detect_and_decode(bytes)?;
@@ -134,13 +135,14 @@ pub fn get_headers(bytes: &[u8], file_name: &str) -> Result<Vec<String>, String>
         
         let mut rdr = ReaderBuilder::new()
             .has_headers(false)
+            .flexible(true) // [Antigravity] CRITICAL: Handle inconsistent column counts in messy CSVs
             .delimiter(delimiter)
             .from_reader(decoded.as_bytes());
             
         let records: Vec<Vec<String>> = rdr.records()
-            .take(20) // Scan top 20 lines
+            .take(30) // Scan more rows to find buried headers
             .filter_map(|r| r.ok())
-            .map(|r| r.iter().map(|s| s.trim().replace("\u{feff}", "").to_string()).collect())
+            .map(|r| r.iter().map(|s| deep_clean_value(s)).collect())
             .collect();
 
         if let Some((_, best_headers)) = find_best_header_row(&records) {
@@ -164,17 +166,25 @@ fn find_best_header_row(rows: &[Vec<String>]) -> Option<(usize, Vec<String>)> {
     for (i, row) in rows.iter().enumerate() {
         let mut score = 0;
         let joined = row.join(" ").to_lowercase();
+        let non_empty_count = row.iter().filter(|s| !s.trim().is_empty()).count();
         
-        // Significant keywords
-        if joined.contains("date") || joined.contains("일자") || joined.contains("날짜") { score += 3; }
-        if joined.contains("amount") || joined.contains("금액") || joined.contains("합계") { score += 3; }
-        if joined.contains("vendor") || joined.contains("거래처") || joined.contains("상호") { score += 2; }
-        if joined.contains("desc") || joined.contains("적요") || joined.contains("내용") { score += 2; }
-        if joined.contains("balance") || joined.contains("잔액") { score += 1; }
+        // 1. Column Search Logic (Cumulative Scoring)
+        if joined.contains("일자") || joined.contains("날짜") || joined.contains("date") || joined.contains("일시") { score += 3; }
+        if joined.contains("취득") { score += 3; }
+        if joined.contains("금액") || joined.contains("합계") || joined.contains("amount") || joined.contains("원") || joined.contains("공급") { score += 3; }
+        if joined.contains("산출") || joined.contains("보수") || joined.contains("보험료") || joined.contains("납부") || joined.contains("수당") || joined.contains("보수월액") { score += 3; }
+        if joined.contains("거래처") || joined.contains("상호") || joined.contains("vendor") || joined.contains("성명") || joined.contains("가입자") || joined.contains("순번") { score += 3; }
+        if joined.contains("내용") || joined.contains("적요") || joined.contains("description") || joined.contains("비고") || joined.contains("항목") { score += 2; }
+        if joined.contains("잔액") || joined.contains("balance") { score += 1; }
         
-        // Penalize very short rows or rows with empty cells (likely title or metadata)
-        let empty_count = row.iter().filter(|s| s.is_empty()).count();
-        if row.len() > 1 && empty_count > row.len() / 2 { score -= 2; }
+        // 2. Structural Preference
+        if non_empty_count >= 5 { score += 5; }
+        else if non_empty_count >= 3 { score += 2; }
+        
+        // Penalize metadata rows (Title or Metadata like "Date: 123")
+        let empty_count = row.iter().filter(|s| s.trim().is_empty()).count();
+        if row.len() > 1 && empty_count > row.len() / 2 { score -= 6; }
+        if joined.contains(":") || joined.contains("：") { score -= 4; }
 
         if score > best_score {
             best_score = score;
@@ -188,6 +198,27 @@ fn find_best_header_row(rows: &[Vec<String>]) -> Option<(usize, Vec<String>)> {
     } else {
         None
     }
+}
+
+// [Antigravity] Extract Global Metadata (Title/Context) from top lines
+fn extract_global_metadata(rows: &[Vec<String>]) -> String {
+    for row in rows.iter().take(5) {
+        let joined = row.join(" ").trim().to_string();
+        if joined.is_empty() { continue; }
+        
+        // [Antigravity] Avoid picking up data rows as titles
+        // If it contains a date-like pattern or too many columns with data, it's not a title.
+        if joined.chars().filter(|c| *c == '-').count() >= 2 || (row.len() > 3 && row.iter().any(|s| s.chars().any(|c| c.is_numeric()))) {
+            continue;
+        }
+
+        // Keywords that signal a document title/context
+        if joined.contains("내역서") || joined.contains("고지서") || joined.contains("계산서") || joined.contains("청구서") || joined.contains("Statement") || joined.contains("Invoice") || joined.contains("명세") {
+             // Return cleaned title
+             return joined.replace("[", "").replace("]", "").trim().to_string();
+        }
+    }
+    String::new()
 }
 
 // [Antigravity] Deep Clean: Trim spaces and remove wrapping quotes
@@ -228,6 +259,8 @@ pub fn process_with_mapping(
         
         let mut start_idx = 0;
         let mut col_map = HashMap::new();
+        // Delay metadata extraction until we find headers
+
         for (i, row) in rows.iter().enumerate().take(20) {
              let current_col_map = build_index_map(row, &mapping);
              if current_col_map.contains_key("tx_date") && current_col_map.contains_key("amount") {
@@ -238,10 +271,13 @@ pub fn process_with_mapping(
              }
         }
         
+        let global_desc = if start_idx > 0 { extract_global_metadata(&rows[..start_idx-1]) } else { String::new() };
+        println!("[Mapping Engine] Detected Global Context (Above Header): '{}'", global_desc);
+        
         if col_map.is_empty() { return Err("매핑된 헤더를 찾을 수 없습니다.".to_string()); }
 
         for row in rows.into_iter().skip(start_idx) {
-            if let Some(tx) = row_to_tx(&row, &col_map) {
+            if let Some(tx) = row_to_tx(&row, &col_map, &global_desc) {
                 results.push(tx);
             }
         }
@@ -249,22 +285,29 @@ pub fn process_with_mapping(
         let decoded = crate::ai::robust_parser::detect_and_decode(bytes)?;
         let delimiter = detect_delimiter(&decoded);
         
-        let mut rdr = ReaderBuilder::new().has_headers(false).flexible(true).delimiter(delimiter).from_reader(decoded.as_bytes());
+        let mut rdr = ReaderBuilder::new()
+            .has_headers(false)
+            .flexible(true)
+            .delimiter(delimiter)
+            .trim(csv::Trim::All) // [Antigravity] Handle trailing/leading spaces
+            .from_reader(decoded.as_bytes());
+
         let all_records: Vec<Vec<String>> = rdr.records()
             .filter_map(|r| r.ok())
-            .map(|r| r.iter().map(|s| deep_clean_value(s)).collect()) // Apply Deep Clean
+            .map(|r| r.iter().map(|s| deep_clean_value(s)).collect())
             .collect();
         
         let mut start_idx = 0;
         let mut col_map = HashMap::new();
+        // Delay metadata extraction until we find headers
 
         for (i, row) in all_records.iter().enumerate().take(20) {
              // ... (Header Search Logic - simplified for replacement)
              let mut check_row = row.clone();
              if check_row.len() == 1 {
-                 if check_row[0].contains('\t') { check_row = check_row[0].split('\t').map(|s| deep_clean_value(s)).collect(); }
-                 else if check_row[0].contains(',') { check_row = check_row[0].split(',').map(|s| deep_clean_value(s)).collect(); }
-                 else if check_row[0].contains(';') { check_row = check_row[0].split(';').map(|s| deep_clean_value(s)).collect(); }
+                 if check_row[0].contains('\t') { check_row = smart_split(&check_row[0], b'\t'); }
+                 else if check_row[0].contains(',') { check_row = smart_split(&check_row[0], b','); }
+                 else if check_row[0].contains(';') { check_row = smart_split(&check_row[0], b';'); }
              }
              let current_col_map = build_index_map(&check_row, &mapping);
              if current_col_map.contains_key("tx_date") && current_col_map.contains_key("amount") {
@@ -275,17 +318,20 @@ pub fn process_with_mapping(
              }
         }
 
+        let global_desc = if start_idx > 0 { extract_global_metadata(&all_records[..start_idx-1]) } else { String::new() };
+        println!("[Mapping Engine] Detected Global Context (Above Header): '{}'", global_desc);
+
         if col_map.is_empty() { return Err("매핑된 헤더를 CSV 파일에서 찾을 수 없습니다.".to_string()); }
 
         for (idx, row) in all_records.into_iter().skip(start_idx).enumerate() {
              let mut process_row = row.clone();
              if process_row.len() == 1 && col_map.values().max().unwrap_or(&0) > &0 {
-                 if process_row[0].contains('\t') { process_row = process_row[0].split('\t').map(|s| deep_clean_value(s)).collect(); }
-                 else if process_row[0].contains(',') { process_row = process_row[0].split(',').map(|s| deep_clean_value(s)).collect(); }
-                 else if process_row[0].contains(';') { process_row = process_row[0].split(';').map(|s| deep_clean_value(s)).collect(); }
+                 if process_row[0].contains('\t') { process_row = smart_split(&process_row[0], b'\t'); }
+                 else if process_row[0].contains(',') { process_row = smart_split(&process_row[0], b','); }
+                 else if process_row[0].contains(';') { process_row = smart_split(&process_row[0], b';'); }
              }
 
-             if let Some(tx) = row_to_tx(&process_row, &col_map) {
+             if let Some(tx) = row_to_tx(&process_row, &col_map, &global_desc) {
                  results.push(tx);
              } else {
                  if !process_row.iter().all(|s| s.is_empty()) {
@@ -301,6 +347,22 @@ pub fn process_with_mapping(
     
     if results.is_empty() { println!("[Mapping Engine] WARNING: No valid transactions extracted."); }
     Ok(results)
+}
+
+// [Antigravity] Smart Splitter for Single-Column Dirty Rows
+fn smart_split(s: &str, delimiter: u8) -> Vec<String> {
+    let mut rdr = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .delimiter(delimiter)
+        .trim(csv::Trim::All)
+        .from_reader(s.as_bytes());
+    
+    if let Some(result) = rdr.records().next() {
+        if let Ok(record) = result {
+            return record.iter().map(|field| deep_clean_value(field)).collect();
+        }
+    }
+    vec![deep_clean_value(s)]
 }
 
 fn build_index_map(headers: &[String], mapping: &HashMap<String, String>) -> HashMap<String, usize> {
@@ -329,11 +391,17 @@ fn build_index_map(headers: &[String], mapping: &HashMap<String, String>) -> Has
     index_map
 }
 
-fn row_to_tx(row: &[String], col_map: &HashMap<String, usize>) -> Option<ParsedTransaction> {
+fn row_to_tx(row: &[String], col_map: &HashMap<String, usize>, global_desc: &str) -> Option<ParsedTransaction> {
     let date_raw = col_map.get("tx_date").and_then(|&i| row.get(i)).cloned().unwrap_or_default();
     let amount_raw = col_map.get("amount").and_then(|&i| row.get(i)).cloned().unwrap_or_default();
     let vendor = col_map.get("vendor").and_then(|&i| row.get(i)).cloned().unwrap_or_else(|| "기타".to_string());
-    let desc = col_map.get("description").and_then(|&i| row.get(i)).cloned().unwrap_or_default();
+    let mut desc = col_map.get("description").and_then(|&i| row.get(i)).cloned().unwrap_or_default();
+    
+    // [Antigravity] Context Injection: Only use global_desc if it's broad and valid
+    if desc.trim().is_empty() && !global_desc.is_empty() {
+        desc = global_desc.to_string();
+    }
+
     let payment = col_map.get("payment_type").and_then(|&i| row.get(i)).cloned();
     let bank_name = col_map.get("bank_name").and_then(|&i| row.get(i)).cloned();
     let bank_account = col_map.get("bank_account").and_then(|&i| row.get(i)).cloned();
@@ -343,8 +411,14 @@ fn row_to_tx(row: &[String], col_map: &HashMap<String, usize>) -> Option<ParsedT
     let clean_date = sanitize_date(&date_raw);
     let clean_amount = sanitize_amount(&amount_raw);
 
-    // Validation: Date is mandatory. 
-    // [Antigravity] Zero-Value Allowance: Allow 0 amount (e.g. Stock Options, Non-monetary adjustments)
+    // [Antigravity] Survival-mode Validation
+    // 1. Skip rows that look like document titles or summaries
+    let lower_desc = desc.to_lowercase();
+    if lower_desc.contains("[") && lower_desc.contains("]") && lower_desc.contains("내역서") { return None; }
+    if lower_desc.contains("작성일자") || lower_desc.contains("관리번호") { return None; }
+    if lower_desc.contains("합계") || lower_desc.contains("total") || lower_desc.contains("소계") { return None; }
+
+    // 2. Date is mandatory
     if clean_date.is_empty() {
         return None;
     }
@@ -434,8 +508,12 @@ fn row_to_tx(row: &[String], col_map: &HashMap<String, usize>) -> Option<ParsedT
 }
 
 pub fn sanitize_amount(s: &str) -> f64 {
-    // [Antigravity] Number Sanitizer: Handle 100,000,000 AND 1.5E+08 (Scientific)
-    let clean: String = s.chars()
+    let raw = s.trim();
+    if raw.is_empty() { return 0.0; }
+
+    // [Antigravity] Survival-mode Aggressive Extraction
+    // Handle: "₩ 1,200,000원", "1.5E+08", "(1,000)"
+    let clean: String = raw.chars()
         .filter(|c| c.is_ascii_digit() || *c == '.' || *c == '-' || *c == 'E' || *c == 'e' || *c == '+')
         .collect();
     
@@ -445,8 +523,8 @@ pub fn sanitize_amount(s: &str) -> f64 {
 
     let mut val = clean.parse::<f64>().unwrap_or(0.0);
     
-    // Special check for accounting format "(123)" if it didn't have a minus sign
-    if s.contains('(') && s.contains(')') && val > 0.0 {
+    // Check for negative accounting format "(123)"
+    if raw.contains('(') && raw.contains(')') && val > 0.0 {
         val = -val;
     }
 

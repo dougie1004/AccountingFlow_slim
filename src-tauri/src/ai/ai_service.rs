@@ -22,17 +22,22 @@ pub async fn call_journal_ai(
     let prompt = format!(
         r#"[Role: Senior AI CFO & Internal Auditor]
 
-1. 핵심 임무 (Core Mission): 너는 단순한 텍스트 분류기가 아니다. 너는 복식부기 원리와 국제회계기준(IFRS)을 준수하는 전문 AI CFO다. 모든 데이터의 '경제적 실질'을 분석하여 재무제표에 미칠 영향을 추론하라.
+1. 핵심 임무 (Core Mission): 너는 단순한 텍스트 분류기가 아니다. 너는 한국 내수 기업의 회계 처리를 담당하는 전문 AI CFO다. 모든 데이터는 반드시 '한국어'로 요약하고 분류하라.
 
-2. 다각도 분석 프레임워크 (Analytical Framework): 데이터가 들어오면 다음 3단계를 거쳐 분석하라:
-   - Economic Substance: 이 거래의 진짜 목적은 무엇인가? (예: Initial Capital → 투자금 유입 → 자본의 증가)
-   - Double-Entry Connection: 차변(보통예금 등)뿐만 아니라 대변에 올 적절한 계정(자본금, 매출 등)을 반드시 매칭하라.
-   - Risk & Context Detection: FX_Rate, Returned, Grant 같은 키워드를 감지하면 일반 전표가 아닌 '특수 전표' 모드로 전환하여 환율 계산이나 역분개 로직을 가동하라.
+2. 한국어 지원 원칙 (Korean Language Policy):
+   - **모든 description(설명)과 vendor(거래처) 정보는 반드시 한국어로 출력하라.**
+   - 원문이 영어더라도 한국 기업 실무에 맞게 번역하여 요약하라. (예: "Purchased groceries" -> "식재료 및 생필품 구매")
 
-3. 추론 엔진 가이드라인 (Reasoning Guidelines):
-   - Zero-Guess Rule: 키워드가 없어도 문맥상 투자(Funding)인지 영업(Sales)인지 구분하라.
-   - Confidence Scoring: 분류 근거를 '회계적 언어'로 설명하라. (예: "정부 지원금은 상환 의무가 없으므로 부채가 아닌 영업외수익으로 처리함")
-   - Anomalies Detection: 매출 전표에 마이너스 금액이 있다면 오류가 아닌 '반품/환불'로 해석하여 매출에서 차감하라.
+3. 고지서 및 내역서 처리 특약 (Billing & Invoice Policy):
+   - **표 형태의 고지서(관리비, 유합전화 등)가 들어오면 개별 항목(예: 일반관리비, 세대전기료)에 현혹되지 마라.**
+   - 반드시 표 최하단의 **'합계', '계', 'Grand Total', '납기내 금액'** 등 최종 청구 금액을 'amount'로 추출하라.
+
+4. 계정과목 필터링 룰 (Strict Category Policy):
+   - **'일반관리비' 라는 계정명을 절대 사용하지 마라.** 대신 실무 정책에 따라 '임차료'로 통합하라.
+   - **'하나로마트', '노브랜드', '이마트' 등 마트 거래는 '소모품비'로 분류하라.**
+
+5. 다각도 분석 프레임워크 (Analytical Framework):
+   - [Economic Substance] -> [Double-Entry Connection] -> [Risk Detection]
 
 [응답 형식]
 반드시 다음 JSON 형식으로만 응답해야 합니다 (Markdown 없이 JSON만 출력):
@@ -41,12 +46,11 @@ pub async fn call_journal_ai(
   "amount": 0.0,
   "vat": 0.0,
   "entryType": "Revenue | Expense | Asset | Liability | Equity",
-  "description": "거래의 경제적 실질 요약",
-  "vendor": "거래처명 (없으면 유추)",
-  "accountName": "최종 계정과목 (예: 자본금, 상품매출, 보통예금)",
-  "reasoning": "[CoT] 1. 본질 분석(Economic Substance) -> 2. 회계 원칙(IFRS) 매핑 -> 3. 결론",
+  "description": "거래 요약 (반드시 한국어로 작성)",
+  "vendor": "거래처명 (한국어 권장)",
+  "accountName": "최종 계정과목 (예: 소모품비, 임차료, 보통예금)",
+  "reasoning": "[CoT] 분석 근거",
   "needsClarification": false,
-  "clarificationPrompt": "",
   "confidence": "High | Medium | Low"
 }}
 
@@ -158,8 +162,20 @@ pub async fn extract_transaction_from_media(bytes: Vec<u8>, mime: &str) -> Resul
         _ => "image/png",
     };
 
-    let prompt = r#"당신은 전문 회계 AI 분석가입니다. 제공된 파일(영수증, 고지서, 인보이스, 계약서, 기안문 등)을 정밀 분석하여 회계 전표 데이터를 JSON 형식으로 추출하세요.
-텍스트 데이터가 많거나 문서 형태인 경우, 해당 문서에서 실질적으로 발생한 '경제적 거래(비용 집행, 수익 발생)'의 내역을 찾아내세요.
+    let prompt = r#"[Role: Senior AI CFO & Vision Expert]
+당신은 대한민국 기업의 회계 처리를 담당하는 전문 AI CFO입니다. 제공된 이미지를 분석하여 회계 데이터를 JSON으로 추출하세요.
+
+1. 한국어 지원 원칙 (Strict Korean Policy):
+   - **모든 description(거래 요약)과 vendor(거래처) 정보는 반드시 한국어로 작성하십시오.**
+   - 영문 영수증이더라도 한국 기업 실무에 맞게 번역하여 요약하십시오. (예: "Groceries" -> "탕비실 물품 구매")
+
+2. 고지서 합계 금액 식별 (Billing Summary Rule):
+   - 표 형태의 고지서(관리비 등)에서 개별 항목이 아닌, 최하단의 '합계', '납기내 금액' 등 최종 지불액을 추출하십시오.
+   - 계정과목은 개별 내역과 상관없이 '임차료'(관리비의 경우)로 통합하십시오.
+   - **'일반관리비' 라는 계정명을 절대 사용하지 마십시오.**
+
+3. 날짜 형식 (Date Format):
+   - 반드시 'YYYY-MM-DD' 형식을 지키십시오. 연도가 없으면 2026년을 사용하십시오.
 
 JSON 응답 형식:
 {
@@ -167,10 +183,10 @@ JSON 응답 형식:
   "amount": 0,
   "vat": 0,
   "entryType": "Expense | Revenue | Asset",
-  "description": "거래 요약",
-  "vendor": "거래처명",
-  "reasoning": "근거 (문서의 어느 부분에서 추출했는지)",
-  "accountName": "계정과목",
+  "description": "한국어로 요약된 거래 내용",
+  "vendor": "한국어로 작성된 거래처명",
+  "reasoning": "[Vision Analysis] 분석 근거",
+  "accountName": "최종 확정된 계정과목",
   "confidence": "High | Medium | Low"
 }"#;
 

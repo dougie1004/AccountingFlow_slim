@@ -27,7 +27,7 @@ import {
 import { useAccounting } from '../hooks/useAccounting';
 import { invoke } from '@tauri-apps/api/core';
 
-export const SCM: React.FC = () => {
+export const SCM: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab }) => {
     const context = useAccounting() as any;
     const { scmOrders, updateScmOrder, inventory, financials, ledger } = context;
 
@@ -148,7 +148,10 @@ export const SCM: React.FC = () => {
                             : (metrics.ccc > 30 ? '현금 회전 속도\n개선이 필요합니다' : '적정 재고 수준\n유지 중입니다')
                         }
                     </h3>
-                    <button className="mt-4 flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-xs font-black transition-all">
+                    <button
+                        onClick={() => setTab?.('reports')}
+                        className="mt-4 flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-xs font-black transition-all"
+                    >
                         재무 분석 리포트
                         <ArrowRight size={14} />
                     </button>
@@ -235,7 +238,7 @@ export const SCM: React.FC = () => {
                             재고 자본 리포트
                         </h3>
                         <p className="text-indigo-200 text-sm font-medium leading-relaxed mb-8">
-                            현재 매입된 자산의 {((metrics.inventoryCost / metrics.purchaseCost) * 100).toFixed(1)}%가 대차대조표상 재고 자산으로 남아 있으며, 나머지는 매출원가로 인식되어 손익에 반영되었습니다.
+                            현재 매입된 자산의 {metrics.purchaseCost > 0 ? Math.min(100, (metrics.inventoryCost / (metrics.purchaseCost + metrics.inventoryCost)) * 100).toFixed(1) : '100'}%가 대차대조표상 재고 자산으로 남아 있으며, 나머지는 매출원가로 인식되어 손익에 반영되었습니다.
                         </p>
                     </div>
 

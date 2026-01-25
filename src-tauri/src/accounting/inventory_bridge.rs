@@ -11,7 +11,6 @@ pub fn convert_order_to_journal(order: &Order, tenant_id: &str) -> Vec<JournalEn
     let date = &order.date;
     let net_amount = order.total_amount;
     let vat_amount = order.vat;
-    let total = net_amount + vat_amount;
 
     match order.type_field.as_str() {
         "Sales" | "판매" | "RETURN_SALES" => {
@@ -35,6 +34,13 @@ pub fn convert_order_to_journal(order: &Order, tenant_id: &str) -> Vec<JournalEn
                 attachment_url: None,
                 ocr_data: None,
                 compliance_context: Some(format!("ERP 판매 모듈 {}", if is_reversal { "역분개 생성" } else { "자동생성" })),
+                tax_base_amount: None,
+                audit_trail: vec![],
+                parse_status: None,
+                raw_data_snapshot: None,
+                transaction_group_id: None,
+                employee_tags: vec![],
+                is_insurance_part: false,
             });
         }
         "Purchase" | "구매" | "RETURN_PURCHASE" => {
@@ -58,6 +64,13 @@ pub fn convert_order_to_journal(order: &Order, tenant_id: &str) -> Vec<JournalEn
                 attachment_url: None,
                 ocr_data: None,
                 compliance_context: Some(format!("ERP 구매 모듈 {}", if is_reversal { "역분개 생성" } else { "자동생성" })),
+                tax_base_amount: None,
+                audit_trail: vec![],
+                parse_status: None,
+                raw_data_snapshot: None,
+                transaction_group_id: None,
+                employee_tags: vec![],
+                is_insurance_part: false,
             });
         }
         _ => {}

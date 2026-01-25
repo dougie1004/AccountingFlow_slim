@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     TrendingUp,
     ShieldCheck,
@@ -20,12 +21,14 @@ import { useAccounting } from '../hooks/useAccounting';
 import { invoke } from '@tauri-apps/api/core';
 import { ManagementReport } from '../types';
 import { Tooltip } from '../components/common/Tooltip';
+import { formatCLevel } from '../utils/formatUtils';
 
 export const Reports: React.FC = () => {
     const context = useAccounting() as any;
-    const { financials, ledger, inventory } = context;
+    const { financials, ledger, inventory, assets } = context;
     const [report, setReport] = useState<ManagementReport | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [showNewAssetScenario, setShowNewAssetScenario] = useState(false);
 
     const {
         revenue, expenses, netIncome, cash, ar, ap, fixedAssets, vatNet, capital, retainedEarnings
@@ -38,32 +41,37 @@ export const Reports: React.FC = () => {
     const handleGenerateAIReport = async () => {
         setIsGenerating(true);
         if (!(window as any).__TAURI_INTERNALS__) {
+            const rndExpense = ledger
+                .filter((e: any) => e.description.includes('R&D') || e.description.includes('연구'))
+                .reduce((sum: number, e: any) => sum + e.amount, 0);
+            const estTaxCredit = rndExpense * 0.25;
+
             await new Promise(r => setTimeout(r, 2500));
             const mockReport: ManagementReport = {
                 reportTitle: "2026년 1월 전략 재무 인사이트 (Executive Briefing)",
                 reportDate: new Date().toISOString().split('T')[0],
-                executiveSummary: "현재 그룹의 재무 구조는 견고한 매출 성장 하에 안정적인 유동성을 확보하고 있습니다. 특히 AI 거버넌스 엔진이 감지한 비용 절감 기회와 컴플라이언스 위험도가 낮은 수준으로 유지되고 있어, 공격적인 확장을 고려할 시기입니다.",
+                executiveSummary: `현재 그룹의 재무 구조는 ₩${(revenue / 1000000).toFixed(1)}M 규모의 매출 성장 하에 안정적인 유동성을 확보하고 있습니다. 특히 AI 거버넌스 엔진이 감지한 비용 절감 기회와 법인세 ${((estTaxCredit / 10000)).toLocaleString()}만원 규모의 R&D 세액공제 최적화가 가능할 것으로 분석됩니다.`,
                 financialOverview: {
                     totalRevenue: revenue,
                     totalExpenses: expenses,
                     netIncome: netIncome,
                     profitMargin: revenue > 0 ? (netIncome / revenue) * 100 : 0,
                     topExpenseCategories: [
-                        { category: "인건비(H/C)", amount: expenses * 0.6, percentage: 60, trend: "Stable" },
-                        { category: "솔루션 인프라", amount: expenses * 0.2, percentage: 20, trend: "Stable" }
+                        { category: "인건비(H/C)", amount: expenses * 0.5, percentage: 50, trend: "Stable" },
+                        { category: "R&D 투자", amount: rndExpense, percentage: (rndExpense / expenses) * 100, trend: "Increasing" }
                     ]
                 },
                 scmInsights: {
-                    inventoryCost: 156000000,
-                    inventoryNrv: 148000000,
-                    valuationLoss: 8000000,
-                    alert: "평가 손실 실시간 반영됨"
+                    inventoryCost: inventory.reduce((sum: number, item: any) => sum + (item.cost * item.quantity), 0),
+                    inventoryNrv: inventory.reduce((sum: number, item: any) => sum + (item.cost * item.quantity), 0) * 0.95,
+                    valuationLoss: inventory.reduce((sum: number, item: any) => sum + (item.cost * item.quantity), 0) * 0.05,
+                    alert: "재고 자산 평가 모델 적용됨"
                 },
                 taxCompliance: {
                     taxableIncome: netIncome * 1.05,
-                    estimatedTax: netIncome * 0.1,
-                    effectiveRate: 10,
-                    majorAdjustment: "접대비 한도 초과분 및 사외 지출 손금불산입 완료"
+                    estimatedTax: (netIncome * 0.1) - estTaxCredit,
+                    effectiveRate: netIncome > 0 ? (((netIncome * 0.1) - estTaxCredit) / netIncome) * 100 : 0,
+                    majorAdjustment: `연구인력개발비 세액공제(25%) ₩${(estTaxCredit / 10000).toLocaleString()}만원 반영 완료`
                 },
                 trendAnalysis: [],
                 riskAssessment: {
@@ -71,13 +79,22 @@ export const Reports: React.FC = () => {
                     cashFlowRisk: "Low",
                     complianceRisk: "Safe",
                     operationalRisk: "Low",
-                    mitigationStrategies: ["AI 기반 실시간 전표 이상 징후 상시 모니터링 가동"]
+                    mitigationStrategies: ["AI 기반 실시간 전표 이상 징후 상시 모니터링 가동", "연구소 요건 상시 점검 프로세스 가동"]
                 },
                 recommendations: [
-                    "SaaS 플랫폼 지출 패턴 분석을 통한 운영 효율화 가이드 적용",
-                    "기결산 데이터 기반의 선제적 법인세 절세 시나리오 검토"
+                    "R&D 자산화 전략을 통한 BPS(주당순자산) 가치 극대화 추진",
+                    "기업부설연구소 사후 관리 및 기술 기록물(Research Log) 아카이빙 강화",
+                    "전담 세무사와의 협업을 통한 기말 세무 조정 최적화"
                 ],
-                detailedAnalysis: "당월 분석된 18건의 고액 거래 및 주요 매입 채무에 대한 AI 검토 결과, 모든 항목이 내부 회계 관리 제도에 부합함을 확인했습니다. 특히 저가법(LCM)이 적용된 재고 자산 평가는 기말 결산을 위한 Audit-Ready 상태를 완벽히 유지하고 있습니다."
+                detailedAnalysis: `당월 분석된 전표 및 연구 활동 기록을 검토한 결과, 총 ₩${(rndExpense / 1000000).toFixed(1)}M 규모의 R&D 투자가 확인되었습니다. 중소기업 특별세액감면 및 연구인력개발비 세액공제 요건을 충족하고 있어 상당한 절세 효과가 기대됩니다. 특히 저가법(LCM)이 적용된 재고 자산 평가는 Audit-Ready 상태를 완벽히 유지하고 있습니다.`,
+                disclaimer: "본 리포트에서 산출된 R&D 세액공제 추정치는 당사가 '기업부설연구소' 또는 '연구개발전담부서' 인가를 득하고 관련 요건을 모두 충족하고 있다는 전제하에 산정된 수치입니다. 실제 세액공제 적용 가능 여부 및 정확한 법인세 산출은 반드시 전담 세무사 또는 전문 회계사와 상담하시기 바랍니다.",
+                checklist: ["연구인력개발비 비치여부 확인", "연구소 전용공간 분리 및 현판 부착", "연구개발계획서 및 보고서 작성"],
+                bpsInsight: "R&D 자산화 전략 적용 시 BPS 가치가 약 15% 상승하는 효과가 기대됩니다.",
+                assetInsights: {
+                    totalFixedAssets: fixedAssets,
+                    annualDepreciation: fixedAssets / 5,
+                    next5YearForecast: [fixedAssets / 5, fixedAssets / 6, fixedAssets / 8, fixedAssets / 10, fixedAssets / 12]
+                }
             };
             setReport(mockReport);
             setIsGenerating(false);
@@ -87,6 +104,7 @@ export const Reports: React.FC = () => {
             const result = await invoke<ManagementReport>('generate_management_report', {
                 ledger,
                 inventory,
+                assets,
                 periodStart: '2026-01-01',
                 periodEnd: '2026-01-31'
             });
@@ -102,6 +120,12 @@ export const Reports: React.FC = () => {
     const [insights, setInsights] = useState<any>(null);
 
     React.useEffect(() => {
+        if (!report && !isGenerating && ledger.length > 0) {
+            handleGenerateAIReport();
+        }
+    }, [ledger.length, report]);
+
+    React.useEffect(() => {
         if (!insights && ledger.length > 0) {
             invoke('get_startup_insights', { ledger })
                 .then((res) => setInsights(res))
@@ -111,225 +135,257 @@ export const Reports: React.FC = () => {
 
     return (
         <div className="space-y-10 pb-24 p-6 bg-[#0B1221] min-h-screen">
-            {/* Header with Luxury Polish */}
+            {/* Header */}
             <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2 mb-2">
                         <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
                             <CheckCircle2 className="text-indigo-400 w-4 h-4" />
                         </div>
-                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Automated Analysis Verified</span>
+                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Automated Analysis Verified</span>
                     </div>
-                    <h1 className="text-4xl font-black text-white tracking-tight">
-                        AI 경영 분석 리포트
-                    </h1>
-                    <p className="text-slate-400 font-bold mt-1 text-sm">Automated Accounting & Financial Report</p>
+                    <h1 className="text-4xl font-black text-white tracking-tight">AI 경영 분석 리포트</h1>
+                    <p className="text-slate-400 font-bold text-sm">Automated Accounting & Financial Report</p>
                 </div>
                 <button
                     onClick={handleGenerateAIReport}
                     disabled={isGenerating}
-                    className="flex items-center gap-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-10 py-5 rounded-[2rem] font-black text-lg shadow-2xl shadow-indigo-600/30 hover:scale-[1.03] active:scale-95 transition-all disabled:opacity-50"
+                    className="flex items-center gap-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-10 py-5 rounded-[2rem] font-black text-lg shadow-2xl hover:scale-[1.03] transition-all disabled:opacity-50"
                 >
                     {isGenerating ? <Activity className="animate-spin" size={24} /> : <Sparkles size={24} />}
-                    {isGenerating ? 'Intelligence Engine 가동 중...' : 'CFO 경영 리포트 생성'}
+                    {isGenerating ? 'Analyzing...' : 'CFO 경영 리포트 생성'}
                 </button>
             </header>
 
             {/* Strategic KPI Section */}
             {insights && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
-                    <div className="bg-[#151D2E]/80 backdrop-blur-xl rounded-[2.5rem] border border-white/5 p-8 shadow-3xl group transition-all hover:bg-[#1a253a]">
-                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Total Liquidity Focus</p>
+                    <div className="bg-[#151D2E] rounded-[2.5rem] border border-white/5 p-8 shadow-3xl">
+                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-4">Total Liquidity Focus</p>
                         <h3 className="text-4xl font-black text-white tracking-tighter">
-                            ₩{(insights.cashAnalysis.totalCashBalance / 1000000).toFixed(1)}M
+                            {formatCLevel(insights.cashAnalysis.totalCashBalance)}
                         </h3>
                         <div className="mt-6 pt-6 border-t border-white/5 space-y-3">
                             <div className="flex justify-between items-center text-xs font-bold">
-                                <span className="text-slate-500">납부 예정 부가세 (Est.)</span>
-                                <span className="text-rose-400 font-mono">₩{(insights.cashAnalysis.estimatedVatToPay / 1000000).toFixed(1)}M</span>
+                                <span className="text-slate-500">납부 예정 부가세</span>
+                                <span className="text-rose-400">{formatCLevel(insights.cashAnalysis.estimatedVatToPay)}</span>
                             </div>
                             <div className="flex justify-between items-center text-sm font-black">
                                 <span className="text-indigo-400">실질 가용 현금</span>
-                                <span className="text-indigo-400 font-mono">₩{(insights.cashAnalysis.realAvailableCash / 1000000).toFixed(1)}M</span>
+                                <span className="text-indigo-400">{formatCLevel(insights.cashAnalysis.realAvailableCash)}</span>
                             </div>
                         </div>
                     </div>
 
-                    <Tooltip content="현금, 매출채권, 고정자산 등을 모두 포함한 기업의 총 자산 규모입니다." position="top">
-                        <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 hover:border-indigo-500/30 transition-all cursor-help group shadow-2xl h-full">
-                            <h4 className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em] mb-4 group-hover:text-indigo-400 transition-colors flex items-center gap-1">
-                                Total Assets <HelpCircle size={10} />
-                            </h4>
-                            <p className="text-3xl font-black text-white tracking-tighter">₩{totalAssets.toLocaleString()}</p>
-                        </div>
-                    </Tooltip>
-                    <Tooltip content="매입채무 및 미지급 부가세 등 향후 지급해야 할 부채의 총액입니다." position="top">
-                        <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 hover:border-indigo-500/30 transition-all cursor-help group shadow-2xl h-full">
-                            <h4 className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em] mb-4 group-hover:text-amber-400 transition-colors flex items-center gap-1">
-                                Total Liabilities <HelpCircle size={10} />
-                            </h4>
-                            <p className="text-3xl font-black text-white tracking-tighter">₩{totalLiabilities.toLocaleString()}</p>
-                        </div>
-                    </Tooltip>
-                    <Tooltip content="자본금과 이익잉여금을 포함한 기업의 순자산(자기자본) 가치입니다." position="top">
-                        <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 hover:border-indigo-500/30 transition-all cursor-help group shadow-2xl h-full">
-                            <h4 className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em] mb-4 group-hover:text-emerald-400 transition-colors flex items-center gap-1">
-                                Total Equity <HelpCircle size={10} />
-                            </h4>
-                            <p className="text-3xl font-black text-white tracking-tighter">₩{totalEquity.toLocaleString()}</p>
-                        </div>
-                    </Tooltip>
-
-                    <div className="bg-[#151D2E]/80 backdrop-blur-xl rounded-[2.5rem] border border-white/5 p-8 shadow-3xl group transition-all hover:bg-[#1a253a]">
-                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Runway Analysis</p>
-                        <h3 className={`text-4xl font-black tracking-tighter ${insights.burnMetrics.runwayMonths < 6 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                            {insights.burnMetrics.runwayMonths.toFixed(1)} Months
-                        </h3>
-                        <p className="mt-4 text-xs font-bold text-slate-500 leading-relaxed uppercase tracking-wider">
-                            Avg. Monthly Burn: <span className="text-white">₩{(insights.burnMetrics.averageMonthlyBurn / 1000000).toFixed(1)}M</span>
-                        </p>
+                    <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5">
+                        <h4 className="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-4">Total Assets</h4>
+                        <p className="text-3xl font-black text-white italic">{formatCLevel(totalAssets)}</p>
                     </div>
 
-                    <div className="bg-gradient-to-br from-indigo-500/10 to-violet-500/10 backdrop-blur-xl rounded-[2.5rem] border border-indigo-500/20 p-8 shadow-3xl">
-                        <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Grant Management</p>
-                        <h3 className="text-4xl font-black text-white tracking-tighter">
-                            ₩{(insights.governmentGrants.reduce((acc: any, curr: any) => acc + curr.remainingBalance, 0) / 1000000).toFixed(1)}M
-                        </h3>
-                        <div className="mt-6 inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 rounded-full text-[10px] font-black text-indigo-300">
-                            <CheckCircle2 size={12} /> {insights.governmentGrants.length} Active Grants
-                        </div>
+                    <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5">
+                        <h4 className="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-4">Runway</h4>
+                        <p className={`text-3xl font-black ${insights.burnMetrics.runwayMonths < 6 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            {insights.burnMetrics.runwayMonths.toFixed(1)} Months
+                        </p>
                     </div>
                 </div>
             )}
 
             {!report ? (
-                <div className="flex flex-col items-center justify-center py-32 text-center space-y-8 bg-[#151D2E]/30 rounded-[3rem] border border-white/5 border-dashed">
-                    <div className="w-24 h-24 bg-indigo-500/5 rounded-[2rem] flex items-center justify-center border border-indigo-500/10">
-                        <Search size={48} className="text-indigo-400/50" />
-                    </div>
-                    <div className="space-y-4">
-                        <h3 className="text-2xl font-black text-white">AI 경영진 보고서 대기 중</h3>
-                        <p className="text-slate-500 font-bold max-w-lg leading-loose">
-                            상단의 생성 버튼을 탐색하십시오. AI가 실시간 전표 정합성, SCM 가치 평가,<br />
-                            조세 컴플라이언스 데이터를 통합하여 경영진 전용 리포트를 구성합니다.
-                        </p>
-                    </div>
+                <div className="flex flex-col items-center justify-center py-32 text-center space-y-8 bg-[#151D2E]/30 rounded-[3rem] border border-dashed border-white/10">
+                    <Search size={48} className="text-indigo-400/30" />
+                    <h3 className="text-2xl font-black text-white">AI 경영진 보고서 대기 중</h3>
                 </div>
             ) : (
                 <div className="space-y-12 animate-in fade-in duration-500">
+                    {/* Executive Summary Card */}
                     <div className="bg-gradient-to-br from-[#1E293B] to-[#070C15] rounded-[3.5rem] p-12 text-white shadow-3xl relative overflow-hidden border border-white/5">
                         <div className="relative z-10 space-y-6">
-                            <div className="flex items-center justify-between">
-                                <span className="bg-white/10 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] border border-white/10">CFO Executive Summary</span>
-                                <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs">
-                                    <Lock size={12} /> SHA-256 Verified Audit Trail
-                                </div>
-                            </div>
-                            <h2 className="text-4xl font-black leading-tight tracking-tight max-w-3xl">{report.reportTitle}</h2>
-                            <p className="text-2xl font-bold text-slate-400 leading-relaxed italic max-w-4xl">
-                                "{report.executiveSummary}"
-                            </p>
+                            <span className="bg-white/10 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em]">CFO Executive Summary</span>
+                            <h2 className="text-4xl font-black tracking-tight">{report.reportTitle}</h2>
+                            <p className="text-2xl font-bold text-slate-400 italic leading-relaxed">"{report.executiveSummary}"</p>
                         </div>
-                        <div className="absolute bottom-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none"></div>
                     </div>
 
+                    {/* Main Content Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                        {/* Left Content */}
                         <div className="lg:col-span-2 space-y-10">
-                            <div className="bg-[#151D2E] rounded-[2.5rem] border border-white/5 p-10 shadow-2xl relative">
+                            {/* Detailed Analysis */}
+                            <div className="bg-[#151D2E] rounded-[2.5rem] border border-white/5 p-10 shadow-2xl">
                                 <h3 className="text-xl font-black text-white flex items-center gap-3 mb-8">
                                     <Activity className="text-indigo-400" /> Intelligence Insight Brief
                                 </h3>
-                                <div className="text-slate-300 leading-loose text-lg font-bold whitespace-pre-wrap p-8 bg-black/20 rounded-3xl border border-white/5 italic">
+                                <div className="text-slate-300 leading-loose text-lg font-bold italic bg-black/20 p-8 rounded-3xl border border-white/5">
                                     {report.detailedAnalysis}
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Triple-Column Grid for SCM/Tax/Assets */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                                 <div className="bg-[#151D2E] rounded-[2.5rem] border border-white/5 p-8 space-y-6">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                            <TrendingUp size={16} /> Asset Valuation (SCM)
-                                        </h4>
-                                        <span className={`text-[10px] px-3 py-1 rounded-full font-black ${report.scmInsights.valuationLoss > 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                                            {report.scmInsights.alert}
-                                        </span>
-                                    </div>
+                                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                        <TrendingUp size={16} /> Asset Valuation (SCM)
+                                    </h4>
                                     <div className="space-y-4">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-bold text-slate-400">재고 취득 원가</span>
-                                            <span className="text-lg font-black text-white">₩{report.scmInsights.inventoryCost.toLocaleString()}</span>
+                                        <div className="flex justify-between">
+                                            <span className="text-xs font-medium text-slate-400">재고 취득 원가</span>
+                                            <span className="text-lg font-black text-white">{formatCLevel(report.scmInsights.inventoryCost)}</span>
                                         </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-bold text-slate-400">당기 평가 손실액</span>
-                                            <span className="text-lg font-black text-rose-400">₩{report.scmInsights.valuationLoss.toLocaleString()}</span>
+                                        <div className="flex justify-between">
+                                            <span className="text-xs font-medium text-slate-400">당기 평가 손실액</span>
+                                            <span className="text-lg font-black text-rose-400">{formatCLevel(report.scmInsights.valuationLoss)}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="bg-[#151D2E] rounded-[2.5rem] border border-white/5 p-8 space-y-6">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                            <Calculator size={16} /> Tax Governance
-                                        </h4>
-                                        <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-3 py-1 rounded-full font-black">Eff. Rate {report.taxCompliance.effectiveRate.toFixed(1)}%</span>
-                                    </div>
+                                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                        <Calculator size={16} /> Tax Governance
+                                    </h4>
                                     <div className="space-y-4">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-bold text-slate-400">예상 법인세 산출액</span>
-                                            <span className="text-lg font-black text-white">₩{report.taxCompliance.estimatedTax.toLocaleString()}</span>
+                                        <div className="flex justify-between">
+                                            <span className="text-xs font-medium text-slate-400">예상 법인세 산출액</span>
+                                            <span className="text-lg font-black text-white">{formatCLevel(report.taxCompliance.estimatedTax)}</span>
                                         </div>
                                         <div className="flex justify-between items-start">
-                                            <span className="text-xs font-bold text-slate-400 shrink-0">주요 세무 조정</span>
-                                            <span className="text-xs font-black text-indigo-300 text-right ml-4">{report.taxCompliance.majorAdjustment}</span>
+                                            <span className="text-xs font-medium text-slate-400">주요 세무 조정</span>
+                                            <span className="text-[10px] font-black text-indigo-300 text-right">{report.taxCompliance.majorAdjustment}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-[#151D2E] rounded-[2.5rem] border border-white/5 p-8 space-y-6">
+                                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                        <TrendingDown size={16} /> Asset Depreciation
+                                    </h4>
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between">
+                                            <span className="text-xs font-medium text-slate-400">총 고정 자산 (Net)</span>
+                                            <span className="text-lg font-black text-white">{formatCLevel(report.assetInsights.totalFixedAssets)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-xs font-medium text-slate-400">연간 예상 상각비</span>
+                                            <span className="text-lg font-black text-indigo-400">{formatCLevel(report.assetInsights.annualDepreciation)}</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Depreciation Forecast Chart */}
+                            <div className="bg-[#151D2E] rounded-[2.5rem] border border-white/5 p-10 shadow-2xl">
+                                <div className="flex items-center justify-between mb-8">
+                                    <h3 className="text-xl font-black text-white flex items-center gap-3">
+                                        <Activity className="text-emerald-400" /> 5-Year Depreciation Forecast
+                                    </h3>
+                                    <button
+                                        onClick={() => setShowNewAssetScenario(!showNewAssetScenario)}
+                                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${showNewAssetScenario ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10'}`}
+                                    >
+                                        + 신규 서버 도입 (2억) 시나리오 {showNewAssetScenario ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+                                <div className="h-64 flex items-end gap-6 px-10">
+                                    {report.assetInsights.next5YearForecast.map((value, i) => {
+                                        // Scenario: Acquire 200M KRW Server (Useful Life 5 years, DB method approx 0.451 for simplicity or SL)
+                                        // Let's assume SL (40M/year) for simpler visual impact in this demo
+                                        const scenarioValue = showNewAssetScenario ? value + 40000000 : value;
+                                        const maxValue = Math.max(...report.assetInsights.next5YearForecast) + (showNewAssetScenario ? 40000000 : 0);
+
+                                        return (
+                                            <div key={i} className="flex-1 flex flex-col items-center gap-4 group h-full">
+                                                <div className="relative w-full flex-1 flex flex-col justify-end">
+                                                    <motion.div
+                                                        initial={{ height: 0 }}
+                                                        animate={{ height: `${(scenarioValue / Math.max(maxValue, 1)) * 100}%` }}
+                                                        className={`w-full rounded-t-2xl transition-all shadow-xl ${showNewAssetScenario ? 'bg-gradient-to-t from-emerald-600 to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-t from-indigo-600 to-violet-500 shadow-indigo-500/20'} group-hover:brightness-110`}
+                                                    />
+                                                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-white text-[#0B1221] text-[10px] font-black px-3 py-1.5 rounded-lg shadow-2xl whitespace-nowrap z-20">
+                                                        {formatCLevel(scenarioValue)}
+                                                        {showNewAssetScenario && <span className="block text-[9px] text-slate-400 text-center">(+40M)</span>}
+                                                    </div>
+                                                </div>
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{2026 + i}년</span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
                         </div>
 
+                        {/* Right Sidebar */}
                         <div className="space-y-8">
-                            <div className="bg-gradient-to-br from-[#151D2E] to-[#0B1221] rounded-[2.5rem] border border-white/5 p-10 space-y-8 shadow-2xl">
+                            {/* BPS Insight */}
+                            {report.bpsInsight && (
+                                <div className="bg-gradient-to-br from-indigo-600/20 to-violet-600/20 rounded-[2.5rem] border border-indigo-500/30 p-8 shadow-2xl animate-in zoom-in duration-500">
+                                    <h3 className="text-sm font-black text-indigo-400 flex items-center gap-2 mb-4 uppercase tracking-[0.2em]">
+                                        <Sparkles size={18} /> Optimization Tip
+                                    </h3>
+                                    <p className="text-white font-bold leading-relaxed">{report.bpsInsight}</p>
+                                </div>
+                            )}
+
+                            {/* Compliance Checklist */}
+                            {report.checklist && (
+                                <div className="bg-[#151D2E] rounded-[2.5rem] border border-white/5 p-10 space-y-6 shadow-2xl">
+                                    <h3 className="text-lg font-black text-white flex items-center gap-3">
+                                        <ShieldCheck size={20} className="text-emerald-400" /> Compliance Checklist
+                                    </h3>
+                                    <div className="space-y-4">
+                                        {report.checklist.map((item, i) => (
+                                            <div key={i} className="flex items-center gap-3 bg-white/5 p-4 rounded-xl border border-white/5">
+                                                <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                                                <span className="text-xs font-bold text-slate-300">{item}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Recommendations */}
+                            <div className="bg-gradient-to-br from-[#151D2E] to-[#0B1221] rounded-[2.5rem] border border-white/5 p-10 space-y-6 shadow-2xl">
                                 <h3 className="text-lg font-black text-white flex items-center gap-3">
                                     <Zap size={20} className="text-amber-400" /> Strategic Actions
                                 </h3>
                                 <div className="space-y-4">
-                                    {report.recommendations.map((rec, idx) => (
-                                        <div key={idx} className="bg-white/5 p-5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all cursor-default">
-                                            <p className="text-xs font-black text-white leading-relaxed">{rec}</p>
+                                    {report.recommendations.map((rec, i) => (
+                                        <div key={i} className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                                            <p className="text-xs font-bold text-white leading-relaxed">{rec}</p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
+                        </div>
+                    </div>
 
-                            <div className="bg-[#151D2E] rounded-[2.5rem] border border-white/5 p-10 space-y-8 shadow-2xl">
-                                <h3 className="text-lg font-black text-white flex items-center gap-3">
-                                    <AlertCircle size={20} className="text-rose-400" /> Governance Risk
-                                </h3>
-                                <div className="space-y-6">
-                                    <div className="p-5 bg-white/5 rounded-2xl">
-                                        <div className="flex justify-between mb-2">
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Composite Risk Level</span>
-                                            <span className={`text-[10px] font-black ${report.riskAssessment.overallRisk === 'High' ? 'text-rose-500' : 'text-emerald-500'}`}>{report.riskAssessment.overallRisk}</span>
+                    {/* Disclaimer Section */}
+                    {report.disclaimer && (
+                        <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-[2.5rem] p-10 mt-10">
+                            <div className="flex items-start gap-4">
+                                <ShieldCheck className="text-indigo-400 shrink-0 mt-1" size={24} />
+                                <div className="space-y-4">
+                                    <h4 className="text-white font-black text-lg">Legal Disclaimer & Assumptions</h4>
+                                    <p className="text-slate-400 text-sm leading-loose font-medium">{report.disclaimer}</p>
+                                    <div className="pt-4 border-t border-white/5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="bg-[#0B1221] p-6 rounded-2xl border border-white/5">
+                                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">R&D Credit Requirements</p>
+                                            <p className="text-[11px] text-slate-500 leading-relaxed font-bold">
+                                                • 조세특례제한법 제10조 근거<br />
+                                                • 기업부설연구소/연구전담부서 인가 필수<br />
+                                                • 연구소 전용 공간 확보 및 연구원 상주 필수
+                                            </p>
                                         </div>
-                                        <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-1000 ${report.riskAssessment.overallRisk === 'High' ? 'bg-rose-500 w-3/4' : 'bg-emerald-500 w-1/4'}`}></div>
+                                        <div className="bg-[#0B1221] p-6 rounded-2xl border border-white/5">
+                                            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Professional Advisory</p>
+                                            <p className="text-[11px] text-slate-500 leading-relaxed font-bold italic">
+                                                세무 리스크 방지를 위해 기말 세무 조정 전 반드시 전담 세무 전문가의 최종 검토를 받으시기 바랍니다.
+                                            </p>
                                         </div>
-                                    </div>
-                                    <div className="bg-rose-500/10 border border-rose-500/20 p-5 rounded-2xl">
-                                        <p className="text-[10px] font-black text-rose-400 uppercase mb-3 tracking-widest">Mitigation Strategy</p>
-                                        <ul className="text-xs text-rose-200 font-bold space-y-3">
-                                            {report.riskAssessment.mitigationStrategies.map((s, i) => (
-                                                <li key={i} className="flex gap-2">
-                                                    <span className="text-rose-500">•</span>
-                                                    {s}
-                                                </li>
-                                            ))}
-                                        </ul>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             )}
         </div>

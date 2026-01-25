@@ -11,22 +11,11 @@
   --brand-accent: #818CF8;
   /* Indigo 400 */
 
-  /* High-Performance Theme (Dark) */
-  --bg-main: #0B1221;
-  --bg-surface: #151D2E;
-  --bg-sidebar: #070C18;
-  --bg-input: rgba(255, 255, 255, 0.03);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 
-  /* Critical Visibility Tokens (Fixing "Invisible Text") */
-  --text-pure: #FFFFFF;
-  --text-high: #F8FAFC;
-  /* Slate 50 */
-  --text-mid: #CBD5E1;
-  /* Slate 300 */
-  --text-low: #64748B;
-  /* Slate 500 */
-
-  /* Status Colors */
+  /* Status Colors (Theme-independent) */
   --status-safe: #10B981;
   --status-warning: #F59E0B;
   --status-critical: #EF4444;
@@ -36,15 +25,43 @@
   --sidebar-width: 280px;
   --radius-lg: 1.5rem;
   --radius-xl: 2rem;
+}
+
+/* Dark Theme (Default) */
+:root.dark,
+:root:not(.light) {
+  --bg-main: #0B1221;
+  --bg-surface: #151D2E;
+  --bg-sidebar: #070C18;
+  --bg-input: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.08);
 
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --text-pure: #FFFFFF;
+  --text-high: #F8FAFC;
+  --text-mid: #CBD5E1;
+  --text-low: #64748B;
+
   color-scheme: dark;
   color: var(--text-high);
   background-color: var(--bg-main);
+}
 
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
+/* Light Theme */
+:root.light {
+  --bg-main: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-sidebar: #FFFFFF;
+  --bg-input: rgba(0, 0, 0, 0.03);
+  --glass-border: rgba(0, 0, 0, 0.08);
+
+  --text-pure: #0F172A;
+  --text-high: #1E293B;
+  --text-mid: #475569;
+  --text-low: #94A3B8;
+
+  color-scheme: light;
+  color: var(--text-high);
+  background-color: var(--bg-main);
 }
 
 body {

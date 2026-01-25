@@ -72,22 +72,74 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
                                     "{entry.description || '내용 없음'}"
                                 </td>
                                 <td className="px-6 py-4 text-center">
-                                    <div
-                                        className="flex items-center justify-center gap-1 group/evidence relative cursor-pointer"
-                                        onClick={() => {
-                                            if (entry.attachmentUrl) {
-                                                window.open(entry.attachmentUrl, '_blank');
-                                            } else {
-                                                setActiveEntryId(entry.id);
-                                                fileInputRef.current?.click();
-                                            }
-                                        }}
-                                    >
-                                        <Paperclip size={18} className={`${entry.attachmentUrl ? 'text-indigo-400' : 'text-slate-600'} hover:scale-125 transition-all`} />
-                                        {entry.attachmentUrl && (
-                                            <div className="absolute -top-2 -right-2 bg-indigo-600 rounded-full p-0.5 shadow-lg animate-in zoom-in">
-                                                <CheckCircle size={10} className="text-white" />
-                                            </div>
+                                    <div className="flex items-center justify-center gap-2">
+                                        <div
+                                            className="relative cursor-pointer group/evidence"
+                                            onClick={() => {
+                                                if (entry.attachmentUrl) {
+                                                    // Show preview modal
+                                                    const modal = document.createElement('div');
+                                                    modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in';
+                                                    modal.innerHTML = `
+                                                        <div class="relative max-w-4xl max-h-[90vh] p-4">
+                                                            <img src="${entry.attachmentUrl}" class="max-w-full max-h-full rounded-2xl shadow-2xl" />
+                                                            <button class="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-sm transition-all">
+                                                                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                                            </button>
+                                                        </div>
+                                                    `;
+                                                    modal.onclick = (e) => {
+                                                        const target = e.target as HTMLElement;
+                                                        if (target === modal || target.tagName === 'BUTTON' || target.closest('button')) {
+                                                            modal.remove();
+                                                        }
+                                                    };
+                                                    document.body.appendChild(modal);
+                                                }
+                                            }}
+                                        >
+                                            <Paperclip size={18} className={`${entry.attachmentUrl ? 'text-indigo-400' : 'text-slate-600'} group-hover/evidence:scale-125 transition-all`} />
+                                            {entry.attachmentUrl && (
+                                                <div className="absolute -top-1 -right-1 bg-indigo-600 rounded-full p-0.5 shadow-lg animate-in zoom-in">
+                                                    <CheckCircle size={8} className="text-white" />
+                                                </div>
+                                            )}
+                                            {!entry.attachmentUrl && (
+                                                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover/evidence:opacity-100 transition-opacity whitespace-nowrap">
+                                                    <span className="text-[9px] font-black text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20">
+                                                        증빙 첨부
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {entry.attachmentUrl ? (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveEntryId(entry.id);
+                                                    fileInputRef.current?.click();
+                                                }}
+                                                className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                title="증빙 교체"
+                                            >
+                                                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path d="M1 4v10a2 2 0 002 2h10a2 2 0 002-2V4M1 4h14M1 4l2-3h10l2 3M5 7v6M9 7v6" />
+                                                </svg>
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveEntryId(entry.id);
+                                                    fileInputRef.current?.click();
+                                                }}
+                                                className="p-1.5 text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                title="증빙 첨부"
+                                            >
+                                                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path d="M12 5v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5m14 0H2m5 0V3a1 1 0 011-1h4a1 1 0 011 1v2" />
+                                                </svg>
+                                            </button>
                                         )}
                                     </div>
                                 </td>

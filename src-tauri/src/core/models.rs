@@ -1,5 +1,14 @@
 ﻿use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum ParseStatus {
+    Ok,
+    Warning,
+    NeedConfirm,
+    Error,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ParsedTransaction {
@@ -9,6 +18,10 @@ pub struct ParsedTransaction {
     pub amount: f64,
     #[serde(default)]
     pub vat: f64,
+    #[serde(default)]
+    pub tax_base_amount: Option<f64>, // For Tax Credit Base (e.g. Salary amount)
+    #[serde(default)]
+    pub quantity: Option<f64>,
     pub entry_type: Option<String>,
     pub description: Option<String>,
     pub vendor: Option<String>,
@@ -31,6 +44,18 @@ pub struct ParsedTransaction {
     pub credit_account: Option<String>,
     #[serde(default)]
     pub audit_trail: Vec<String>,
+
+    // [Antigravity] Safe-Parser Fields
+    pub parse_status: Option<ParseStatus>,
+    pub raw_data_snapshot: Option<String>,
+    pub parse_error_msg: Option<String>,
+
+    // [Step 1] Payroll/Insurance Splitting
+    pub transaction_group_id: Option<String>,
+    #[serde(default)]
+    pub employee_tags: Vec<String>,
+    #[serde(default)]
+    pub is_insurance_part: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -54,6 +79,19 @@ pub struct JournalEntry {
     pub attachment_url: Option<String>,
     pub ocr_data: Option<String>,
     pub compliance_context: Option<String>,
+    #[serde(default)]
+    pub tax_base_amount: Option<f64>,
+    #[serde(default)]
+    pub audit_trail: Vec<String>,
+    pub parse_status: Option<ParseStatus>,
+    pub raw_data_snapshot: Option<String>,
+
+    // [Step 1] Payroll/Insurance Splitting
+    pub transaction_group_id: Option<String>,
+    #[serde(default)]
+    pub employee_tags: Vec<String>,
+    #[serde(default)]
+    pub is_insurance_part: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -66,6 +104,8 @@ pub struct EntityMetadata {
     pub fiscal_year_end: String,
     #[serde(default)]
     pub is_startup_tax_benefit: bool,
+    #[serde(default)]
+    pub num_employees: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -75,6 +115,17 @@ pub struct TaxPolicy {
     pub entertainment_limit_base: f64,
     pub vat_filing_cycle: String,
     pub ai_governance_threshold: f64,
+    pub insurance_rates: Option<InsuranceRates>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct InsuranceRates {
+    pub national_pension: f64, // e.g. 0.045
+    pub health_insurance: f64, 
+    pub long_term_care: f64,  // Rate within health insurance
+    pub employment_insurance_employee: f64,
+    pub employment_insurance_employer: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -174,6 +225,29 @@ pub struct Asset {
     pub useful_life: u32,
     pub residual_value: f64,
     pub accumulated_depreciation: f64,
+    #[serde(default)]
+    pub base_useful_life: Option<u32>,
+    #[serde(default)]
+    pub is_sme_special_life: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DepreciationScheduleItem {
+    pub period: String,
+    pub beginning_value: f64,
+    pub depreciation_expense: f64,
+    pub accumulated_depreciation: f64,
+    pub ending_value: f64,
+    pub tax_limit: Option<f64>,
+    pub disallowed_amount: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetSchedule {
+    pub asset_id: String,
+    pub items: Vec<DepreciationScheduleItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -1,75 +1,603 @@
-﻿cargo :     Blocking waiting 
-for file lock on package cach
-e
+﻿cargo :    Compiling accounti
+ng-flow v0.1.0 (C:\Projects\A
+ccountingFlow\src-tauri)
 위치 줄:1 문자:1
 + cargo check 2> errors.txt; 
-Get-Content errors.txt | Set-
-Content error ...
+powershell -Command "Get-Cont
+ent errors.tx ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo           
-   : NotSpecified: (    Blo  
-  cking wa...n package cac   
- he:String) [], RemoteExc    
+   : NotSpecified: (   Comp  
+  iling ac...Flow\src-taur   
+ i):String) [], RemoteExc    
 eption
     + FullyQualifiedErrorId  
    : NativeCommandError
  
-    Blocking waiting for file
- lock on package cache
-    Blocking waiting for file
- lock on package cache
-   Compiling accounting-flow 
-v0.1.0 (C:\Projects\Accountin
-gFlow\src-tauri)
-warning: unused imports: `EUC
-_KR` and `UTF_8`
- --> src\core\file_utils.rs:1
-:19
+warning: unused doc comment
+  --> src\core\security.rs:7:
+1
+   |
+ 7 | / /**
+ 8 | |  * [Security Module] T
+enant Isolation & KMS (Key Ma
+nagement System)
+ 9 | |  * 
+10 | |  * ?뷀꽣?꾨씪?댁쫰湲?蹂댁븞 ?붽뎄?
+ы빆??異⑹”?섍린 ?꾪븳 寃⑸━ 諛???愿由?紐⑤
+뱢?낅땲??
+...  |
+15 | |  * 3. In-Memory Vault:
+ ?ㅼ쓽 硫붾え由????덉쟾??寃⑸━ 蹂닿? (?ㅼ젣
+ ?댁쁺 ?쒖뿉??Encrypted File/Hard
+ware HSM ?곕룞 沅뚯옣)
+16 | |  */
+   | |___^ rustdoc does not g
+enerate documentation for mac
+ro invocations
+   |
+   = help: to document an ite
+m produced by a macro, the ma
+cro must produce the document
+ation as part of its expansio
+n
+   = note: `#[warn(unused_doc
+_comments)]` (part of `#[warn
+(unused)]`) on by default
+
+warning: unused import: `Star
+tupInsights`
+ --> src\accounting\ir_engine
+.rs:3:55
   |
-1 | use encoding_rs::{EUC_KR,
- UTF_8, UTF_16LE};
-  |                   ^^^^^^ 
- ^^^^^
+3 | use crate::accounting::in
+sights::{calculate_insights, 
+StartupInsights};
+  |                          
+                             
+^^^^^^^^^^^^^^^
   |
   = note: `#[warn(unused_impo
 rts)]` (part of `#[warn(unuse
 d)]`) on by default
 
-warning: unused import: `taur
-i_plugin_shell::process::Comm
-and`
- --> src\core\config_manager.
-rs:6:5
+warning: unused import: `Jour
+nalEntry`
+ --> src\accounting\parser.rs
+:1:46
   |
-6 | use tauri_plugin_shell::p
-rocess::Command;
-  |     ^^^^^^^^^^^^^^^^^^^^^
-^^^^^^^^^^^^^^^
+1 | use crate::core::models::
+{ParsedTransaction, JournalEn
+try};
+  |                          
+                    ^^^^^^^^^
+^^^
+
+warning: unused import: `Data
+`
+ --> src\accounting\parser.rs
+:5:30
+  |
+5 | use calamine::{Reader, Xl
+sx, Data};
+  |                          
+    ^^^^
 
 warning: unused import: `crat
-e::ai::ai_service`
- --> src\accounting\batch_pro
-cessor.rs:2:5
+e::ai::robust_parser::parse_r
+obust_csv`
+ --> src\ai\migration_engine.
+rs:2:5
   |
-2 | use crate::ai::ai_service
-;
+2 | use crate::ai::robust_par
+ser::parse_robust_csv;
   |     ^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
-warning: unused import: `UTF_
-8`
- --> src\ai\robust_parser.rs:
-3:27
+warning: unused import: `Jour
+nalEntry`
+ --> src\ai\csv_inference.rs:
+2:46
   |
-3 | use encoding_rs::{EUC_KR,
- UTF_8, UTF_16LE};
+2 | use crate::core::models::
+{ParsedTransaction, JournalEn
+try};
   |                          
- ^^^^^
+                    ^^^^^^^^^
+^^^
 
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+   --> src\accounting\assets.
+rs:126:22
+    |
+126 |         entries.push(Jo
+urnalEntry {
+    |                      ^^
+^^^^^^^^^^ missing `employee_
+tags`, `is_insurance_part` an
+d `transaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+  --> src\accounting\inventor
+y_bridge.rs:21:26
+   |
+21 |             entries.push
+(JournalEntry {
+   |                         
+ ^^^^^^^^^^^^ missing `employ
+ee_tags`, `is_insurance_part`
+ and `transaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+  --> src\accounting\inventor
+y_bridge.rs:48:26
+   |
+48 |             entries.push
+(JournalEntry {
+   |                         
+ ^^^^^^^^^^^^ missing `employ
+ee_tags`, `is_insurance_part`
+ and `transaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+  --> src\accounting\simulati
+on_engine.rs:17:17
+   |
+17 |     ledger.push(JournalE
+ntry {
+   |                 ^^^^^^^^
+^^^^ missing `employee_tags`,
+ `is_insurance_part` and `tra
+nsaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+  --> src\accounting\simulati
+on_engine.rs:40:17
+   |
+40 |     ledger.push(JournalE
+ntry {
+   |                 ^^^^^^^^
+^^^^ missing `employee_tags`,
+ `is_insurance_part` and `tra
+nsaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+  --> src\accounting\simulati
+on_engine.rs:64:17
+   |
+64 |     ledger.push(JournalE
+ntry {
+   |                 ^^^^^^^^
+^^^^ missing `employee_tags`,
+ `is_insurance_part` and `tra
+nsaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+   --> src\accounting\simulat
+ion_engine.rs:137:21
+    |
+137 |         ledger.push(Jou
+rnalEntry {
+    |                     ^^^
+^^^^^^^^^ missing `employee_t
+ags`, `is_insurance_part` and
+ `transaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+   --> src\accounting\simulat
+ion_engine.rs:162:17
+    |
+162 |     ledger.push(Journal
+Entry {
+    |                 ^^^^^^^
+^^^^^ missing `employee_tags`
+, `is_insurance_part` and `tr
+ansaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+   --> src\accounting\simulat
+ion_engine.rs:186:17
+    |
+186 |     ledger.push(Journal
+Entry {
+    |                 ^^^^^^^
+^^^^^ missing `employee_tags`
+, `is_insurance_part` and `tr
+ansaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+   --> src\accounting\simulat
+ion_engine.rs:211:17
+    |
+211 |     ledger.push(Journal
+Entry {
+    |                 ^^^^^^^
+^^^^^ missing `employee_tags`
+, `is_insurance_part` and `tr
+ansaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+   --> src\accounting\simulat
+ion_engine.rs:234:17
+    |
+234 |     ledger.push(Journal
+Entry {
+    |                 ^^^^^^^
+^^^^^ missing `employee_tags`
+, `is_insurance_part` and `tr
+ansaction_group_id`
+
+error[E0560]: struct `TaxPoli
+cy` has no field named `depre
+ciation_method`
+   --> src\accounting\simulat
+ion_engine.rs:270:17
+    |
+270 |                 depreci
+ation_method: "DB".to_string(
+),
+    |                 ^^^^^^^
+^^^^^^^^^^^^ `TaxPolicy` does
+ not have this field
+    |
+    = note: available fields 
+are: `insurance_rates`
+
+error[E0560]: struct `TaxPoli
+cy` has no field named `enter
+tainment_limit_base`
+   --> src\accounting\simulat
+ion_engine.rs:271:17
+    |
+271 |                 enterta
+inment_limit_base: 36_000_000
+.0,
+    |                 ^^^^^^^
+^^^^^^^^^^^^^^^^^ `TaxPolicy`
+ does not have this field
+    |
+    = note: available fields 
+are: `insurance_rates`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+  --> src\scm\scm_service.rs:
+42:29
+   |
+42 |             let mut entr
+y = JournalEntry {
+   |                         
+    ^^^^^^^^^^^^ missing `emp
+loyee_tags`, `is_insurance_pa
+rt` and `transaction_group_id
+`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+  --> src\scm\scm_service.rs:
+74:26
+   |
+74 |             entries.push
+(JournalEntry {
+   |                         
+ ^^^^^^^^^^^^ missing `employ
+ee_tags`, `is_insurance_part`
+ and `transaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+  --> src\scm\scm_service.rs:
+99:26
+   |
+99 |             entries.push
+(JournalEntry {
+   |                         
+ ^^^^^^^^^^^^ missing `employ
+ee_tags`, `is_insurance_part`
+ and `transaction_group_id`
+
+error[E0063]: missing fields 
+`employee_tags`, `is_insuranc
+e_part` and `transaction_grou
+p_id` in initializer of `mode
+ls::JournalEntry`
+   --> src\scm\scm_service.rs
+:132:5
+    |
+132 |     JournalEntry {
+    |     ^^^^^^^^^^^^ missin
+g `employee_tags`, `is_insura
+nce_part` and `transaction_gr
+oup_id`
+
+error[E0560]: struct `ParsedT
+ransaction` has no field name
+d `parse_status`
+   --> src\ai\robust_parser.r
+s:190:13
+    |
+190 |             parse_statu
+s: Some(row_status.clone()),
+    |             ^^^^^^^^^^^
+^ `ParsedTransaction` does no
+t have this field
+    |
+    = note: available fields 
+are: `quantity`, `vendor_reg_
+no`, `vendor_representative`,
+ `vendor_address`, `account_n
+ame` ... and 13 others
+
+error[E0560]: struct `ParsedT
+ransaction` has no field name
+d `raw_data_snapshot`
+   --> src\ai\robust_parser.r
+s:191:13
+    |
+191 |             raw_data_sn
+apshot: Some(raw_row_string),
+    |             ^^^^^^^^^^^
+^^^^^^ `ParsedTransaction` do
+es not have this field
+    |
+    = note: available fields 
+are: `quantity`, `vendor_reg_
+no`, `vendor_representative`,
+ `vendor_address`, `account_n
+ame` ... and 13 others
+
+error[E0609]: no field `parse
+_status` on type `ParsedTrans
+action`
+   --> src\ai\robust_parser.r
+s:214:35
+    |
+214 |         if tx.amount ==
+ 0.0 && tx.parse_status != So
+me(ParseStatus::NeedConfirm) 
+{
+    |                        
+           ^^^^^^^^^^^^ unkno
+wn field
+    |
+    = note: available fields 
+are: `date`, `id`, `amount`, 
+`vat`, `tax_base_amount` ... 
+and 24 others
+
+error[E0609]: no field `parse
+_status` on type `ParsedTrans
+action`
+   --> src\ai\robust_parser.r
+s:217:16
+    |
+217 |             tx.parse_st
+atus = Some(ParseStatus::Need
+Confirm);
+    |                ^^^^^^^^
+^^^^ unknown field
+    |
+    = note: available fields 
+are: `date`, `id`, `amount`, 
+`vat`, `tax_base_amount` ... 
+and 24 others
+
+error[E0609]: no field `parse
+_status` on type `ParsedTrans
+action`
+   --> src\ai\robust_parser.r
+s:229:15
+    |
+229 |         if tx.parse_sta
+tus == Some(ParseStatus::Need
+Confirm) || tx.parse_status =
+= Some(ParseStatus::Error) {
+    |               ^^^^^^^^^
+^^^ unknown field
+    |
+    = note: available fields 
+are: `date`, `id`, `amount`, 
+`vat`, `tax_base_amount` ... 
+and 24 others
+
+error[E0609]: no field `parse
+_status` on type `ParsedTrans
+action`
+   --> src\ai\robust_parser.r
+s:229:68
+    |
+229 |         if tx.parse_sta
+tus == Some(ParseStatus::Need
+Confirm) || tx.parse_status =
+= Some(ParseStatus::Error) {
+    |                        
+                             
+               ^^^^^^^^^^^^ u
+nknown field
+    |
+    = note: available fields 
+are: `date`, `id`, `amount`, 
+`vat`, `tax_base_amount` ... 
+and 24 others
+
+warning: unused variable: `to
+day`
+  --> src\accounting\forecast
+_engine.rs:36:9
+   |
+36 |     let today = chrono::
+Local::now().naive_local();
+   |         ^^^^^ help: if t
+his is intentional, prefix it
+ with an underscore: `_today`
+   |
+   = note: `#[warn(unused_var
+iables)]` (part of `#[warn(un
+used)]`) on by default
+
+warning: unused variable: `ne
+t_assets`
+   --> src\accounting\report_
+engine.rs:146:9
+    |
+146 |     let net_assets: f64
+ = financial_overview.total_r
+evenue - financial_overview.t
+otal_expenses; // Simplified
+    |         ^^^^^^^^^^ help
+: if this is intentional, pre
+fix it with an underscore: `_
+net_assets`
+
+warning: value assigned to `c
+apitalized_amount` is never r
+ead
+  --> src\accounting\advanced
+_ledger.rs:41:38
+   |
+41 |         let mut capitali
+zed_amount = 0.0;
+   |                         
+             ^^^
+   |
+   = help: maybe it is overwr
+itten before being read?
+   = note: `#[warn(unused_ass
+ignments)]` (part of `#[warn(
+unused)]`) on by default
+
+warning: value assigned to `h
+eader_map` is never read
+  --> src\accounting\parser.r
+s:74:26
+   |
+74 |     let mut header_map =
+ std::collections::HashMap::n
+ew();
+   |                         
+ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^
+   |
+   = help: maybe it is overwr
+itten before being read?
+
+warning: unused variable: `ke
+y`
+   --> src\accounting\parser.
+rs:140:10
+    |
+140 |     for (key, group) in
+ groups {
+    |          ^^^ help: if t
+his is intentional, prefix it
+ with an underscore: `_key`
+
+warning: value assigned to `t
+ax` is never read
+   --> src\tax\tax_bridge.rs:
+200:19
+    |
+200 |     let mut tax = 0.0;
+    |                   ^^^
+    |
+    = help: maybe it is overw
+ritten before being read?
+
+warning: variable does not ne
+ed to be mutable
+  --> src\ai\office_parser.rs
+:23:13
+   |
+23 |         let mut slide_in
+dices: Vec<usize> = (1..=50).
+collect(); // Max 50 slides c
+heck
+   |             ----^^^^^^^^
+^^^^^
+   |             |
+   |             help: remove
+ this `mut`
+   |
+   = note: `#[warn(unused_mut
+)]` (part of `#[warn(unused)]
+`) on by default
+
+warning: unused variable: `he
+ader_tokens`
+  --> src\ai\csv_inference.rs
+:49:9
+   |
+49 |     let header_tokens: V
+ec<&str> = header_line.split(
+|c| c == ',' || c == '\t' || 
+c == ';').collect();
+   |         ^^^^^^^^^^^^^ he
+lp: if this is intentional, p
+refix it with an underscore: 
+`_header_tokens`
+
+Some errors have detailed exp
+lanations: E0063, E0560, E060
+9.
+For more information about an
+ error, try `rustc --explain 
+E0063`.
 warning: `accounting-flow` (l
-ib) generated 4 warnings (run
- `cargo fix --lib -p accounti
-ng-flow` to apply 4 suggestio
-ns)
-    Finished `dev` profile [u
-noptimized + debuginfo] targe
-t(s) in 13.87s
+ib) generated 14 warnings
+error: could not compile `acc
+ounting-flow` (lib) due to 23
+ previous errors; 14 warnings
+ emitted

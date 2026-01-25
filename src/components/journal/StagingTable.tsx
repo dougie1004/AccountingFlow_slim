@@ -6,6 +6,8 @@ import { JournalEntry, Partner, ParsedTransaction } from '../../types';
 import { AccountingContext } from '../../context/AccountingContext';
 import { ALL_ACCOUNTS } from '../../constants/accounts';
 import { invoke } from '@tauri-apps/api/core';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import * as XLSX from 'xlsx';
 import { cleanMarkdown } from '../../utils/textUtils';
 import { PiiText } from '../common/PiiText';
 
@@ -16,16 +18,23 @@ interface StagingTableProps {
     data: ParsedTransaction[];
     partners: Partner[];
     onConfirm: (entries: JournalEntry[]) => void;
+    onCancel?: () => void;
 }
 
-export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onConfirm }) => {
+export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onConfirm, onCancel }) => {
     const context = useContext(AccountingContext) as any;
     const { addPartner, addAsset, config } = context;
     const { parseTransaction, isParsing } = useAI();
     const { processMassBatch } = useMassProcessor();
-    const [stagedData, setStagedData] = useState<ParsedTransaction[]>(data);
+    const [stagedData, setStagedData] = useState<ParsedTransaction[]>(
+        data.map(item => ({
+            ...item,
+            originalAmount: (item as any).originalAmount !== undefined ? (item as any).originalAmount : item.amount
+        }))
+    );
     const [analyzingIndex, setAnalyzingIndex] = useState<number | null>(null);
     const [selectedRow, setSelectedRow] = useState<number | null>(null);
+    const [editingCell, setEditingCell] = useState<{ index: number; field: 'date' | 'amount' } | null>(null);
     const [isMassProcessing, setIsMassProcessing] = useState(false);
     const [processProgress, setProcessProgress] = useState<{ current: number; total: number } | null>(null);
     const [validationResult, setValidationResult] = useState<any>(null);
@@ -241,10 +250,10 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {/* Main Grid */}
-                <div className="lg:col-span-2 professional-card overflow-hidden">
-                    <div className="overflow-x-auto max-h-[600px] scrollbar-thin scrollbar-thumb-white/10">
+                <div className="lg:col-span-2 xl:col-span-3 professional-card overflow-hidden">
+                    <div className="overflow-x-auto max-h-[750px] scrollbar-thin scrollbar-thumb-white/10">
                         <table className="w-full text-sm text-left border-collapse">
                             <thead className="sticky top-0 bg-[#151D2E] z-10 border-b border-white/5">
                                 <tr className="text-slate-500 font-black uppercase text-[10px] tracking-widest">
@@ -266,22 +275,46 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                             className={`transition-all cursor-pointer ${idx === analyzingIndex ? 'bg-indigo-500/5' : ''} ${selectedRow === idx ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'}`}
                                         >
                                             <td className="px-6 py-4">
-                                                {row.needsClarification || row.confidence !== 'High' ? (
-                                                    <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] animate-pulse" />
-                                                ) : (
-                                                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                                )}
+                                                <div className="flex items-center gap-2">
+                                                    {row.needsClarification || row.confidence !== 'High' ? (
+                                                        <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] animate-pulse" />
+                                                    ) : (
+                                                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                                    )}
+                                                    {row.transactionId && <Shield size={10} className="text-indigo-400" title="Protected Group Entry" />}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 font-mono text-xs text-slate-400 whitespace-nowrap">
-                                                <div>{row.date || ''}</div>
-                                                {row.id && (
+                                                {editingCell?.index === idx && editingCell.field === 'date' ? (
+                                                    <input
+                                                        autoFocus
+                                                        type="text"
+                                                        className="bg-[#1a2235] border border-indigo-500/50 rounded px-1 py-0.5 text-white w-24 outline-none"
+                                                        defaultValue={row.date || ''}
+                                                        onBlur={(e) => {
+                                                            const newValue = e.target.value;
+                                                            const updated = [...stagedData];
+                                                            updated[idx] = { ...updated[idx], date: newValue };
+                                                            setStagedData(updated);
+                                                            setEditingCell(null);
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') e.currentTarget.blur();
+                                                        }}
+                                                    />
+                                                ) : (
                                                     <div
+                                                        className="cursor-text hover:text-indigo-400 transition-colors"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            alert(`전표 원천 증빙 정보: ${row.id}\n추적성: AI 생성 초안 (데이터 맵핑 기반)`);
+                                                            setEditingCell({ index: idx, field: 'date' });
                                                         }}
-                                                        className="mt-1 text-[9px] text-indigo-400 font-bold cursor-pointer hover:underline"
                                                     >
+                                                        {row.date || '날짜 없음'}
+                                                    </div>
+                                                )}
+                                                {row.id && (
+                                                    <div className="mt-1 text-[9px] text-indigo-400 font-bold">
                                                         {row.id}
                                                     </div>
                                                 )}
@@ -295,7 +328,43 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <span className="font-black text-white text-base">₩{(row.amount || 0).toLocaleString()}</span>
+                                                {editingCell?.index === row.originalIndex && editingCell.field === 'amount' ? (
+                                                    <input
+                                                        autoFocus
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        className="bg-[#1a2235] border-2 border-indigo-500 rounded-xl px-2 py-1.5 text-white w-36 text-right outline-none font-black text-base shadow-[0_0_20px_rgba(99,102,241,0.4)]"
+                                                        value={stagedData[row.originalIndex].amount === 0 ? "" : stagedData[row.originalIndex].amount}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value.replace(/[^0-9]/g, '');
+                                                            const newValue = val === "" ? 0 : parseInt(val, 10);
+
+                                                            const updated = [...stagedData];
+                                                            updated[row.originalIndex] = { ...updated[row.originalIndex], amount: newValue };
+                                                            setStagedData(updated);
+                                                        }}
+                                                        onBlur={() => setEditingCell(null)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') setEditingCell(null);
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div
+                                                        className="cursor-text group py-1.5"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingCell({ index: row.originalIndex, field: 'amount' });
+                                                        }}
+                                                    >
+                                                        <span className={`font-black text-lg transition-all flex items-center justify-end gap-1 ${(row as any).originalAmount !== undefined && row.amount !== (row as any).originalAmount
+                                                            ? 'text-rose-400'
+                                                            : 'text-white group-hover:text-indigo-400'
+                                                            }`}>
+                                                            {(row as any).originalAmount !== undefined && row.amount !== (row as any).originalAmount && <AlertTriangle size={14} className="animate-pulse" />}
+                                                            ₩{(row.amount || 0).toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                )}
                                                 {row.vat > 0 && <p className="text-[10px] text-slate-500 font-bold">VAT ₩{(row.vat || 0).toLocaleString()}</p>}
                                             </td>
                                             <td className="px-6 py-4">
@@ -443,10 +512,92 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                         />
                                     </div>
                                 </div>
+
+                                {/* [Integrity V2] Conditional Discrepancy Reason Field */}
+                                {((stagedData[selectedRow] as any).originalAmount !== undefined &&
+                                    stagedData[selectedRow].amount !== (stagedData[selectedRow] as any).originalAmount) && (
+                                        <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                                            <label className="text-[10px] font-black text-rose-400 uppercase tracking-wider block ml-1 flex items-center gap-1">
+                                                <AlertTriangle size={10} /> Discrepancy Reason (증빙 불일치 사유)
+                                            </label>
+                                            <textarea
+                                                placeholder="증빙과 금액이 다른 이유를 입력해 주세요 (예: 부분 환불, AI 오인식 수정 등)..."
+                                                value={(stagedData[selectedRow] as any).discrepancyReason || ""}
+                                                onChange={(e) => {
+                                                    const newData = [...stagedData];
+                                                    (newData[selectedRow] as any).discrepancyReason = e.target.value;
+                                                    setStagedData(newData);
+                                                }}
+                                                className="w-full px-3 py-2 bg-rose-500/5 border border-rose-500/20 rounded-lg text-rose-200 font-bold text-[11px] focus:ring-1 focus:ring-rose-500 outline-none h-16 resize-none placeholder:text-rose-500/30"
+                                            />
+                                        </div>
+                                    )}
+
+                                {/* [Withholding Tax V2] Payroll Breakdown Assistant */}
+                                {(stagedData[selectedRow].description?.includes('급여') || stagedData[selectedRow].accountName?.includes('급여')) && (
+                                    <div className="p-5 bg-blue-500/10 border border-blue-500/20 rounded-2xl space-y-4 animate-in slide-in-from-right-4 duration-500">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-blue-400">
+                                                <Landmark size={18} />
+                                                <span className="text-xs font-black uppercase tracking-tight">Payroll Tax Assistant</span>
+                                            </div>
+                                            <div className="bg-blue-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase">원천세 자동계산</div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-slate-500 uppercase">국민연금 (4.5%)</label>
+                                                <div className="text-xs font-bold text-white">₩{Math.floor(stagedData[selectedRow].amount * (config.taxPolicy?.insuranceRates?.nationalPension || 0.045)).toLocaleString()}</div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-slate-500 uppercase">건강보험 (3.545%)</label>
+                                                <div className="text-xs font-bold text-white">₩{Math.floor(stagedData[selectedRow].amount * (config.taxPolicy?.insuranceRates?.healthInsurance || 0.03545)).toLocaleString()}</div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-slate-500 uppercase">근로소득세 (간이세액 추정)</label>
+                                                <div className="text-xs font-bold text-rose-400">₩{Math.floor(stagedData[selectedRow].amount * 0.03).toLocaleString()}</div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-slate-500 uppercase text-emerald-400">실수령액 (Net)</label>
+                                                <div className="text-sm font-black text-emerald-400">₩{Math.floor(stagedData[selectedRow].amount * 0.9).toLocaleString()}</div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                const amount = stagedData[selectedRow].amount;
+                                                const pension = Math.floor(amount * (config.taxPolicy?.insuranceRates?.nationalPension || 0.045));
+                                                const health = Math.floor(amount * (config.taxPolicy?.insuranceRates?.healthInsurance || 0.03545));
+                                                const tax = Math.floor(amount * 0.03);
+                                                const net = amount - (pension + health + tax);
+
+                                                const groupId = `PAY-${crypto.randomUUID().slice(0, 8)}`;
+                                                const baseRow = stagedData[selectedRow];
+
+                                                const splits: ParsedTransaction[] = [
+                                                    { ...baseRow, transactionId: groupId, position: 'Debit', amount, accountName: '급여', reasoning: '[원천세 분할] 총급여 인식', payrollSplit: { pension, health, tax, net } },
+                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: pension, accountName: '예수금 (국민연금)', reasoning: '[원천세 분할] 국민연금 공제', discrepancyReason: '[AI] 급여 원천세 공제 분할' } as any,
+                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: health, accountName: '예수금 (건강보험)', reasoning: '[원천세 분할] 건강보험 공제', discrepancyReason: '[AI] 급여 원천세 공제 분할' } as any,
+                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: tax, accountName: '예수금 (원천세)', reasoning: '[원천세 분할] 소득세 공제', discrepancyReason: '[AI] 급여 원천세 공제 분할' } as any,
+                                                    { ...baseRow, transactionId: groupId, position: 'Credit', amount: net, accountName: '미지급급여', reasoning: '[원천세 분할] 실지급액', discrepancyReason: '[AI] 급여 원천세 공제 분할' } as any
+                                                ];
+
+                                                const newData = [...stagedData];
+                                                newData.splice(selectedRow, 1, ...splits);
+                                                setStagedData(newData);
+                                                setSelectedRow(null);
+                                                alert(`${splits.length}건의 복합 분개로 분할되었습니다. 상단 검증 배지를 확인해 주세요.`);
+                                            }}
+                                            className="w-full py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-[10px] font-black rounded-xl transition-all border border-blue-600/30"
+                                        >
+                                            분개 자동 생성 및 적용
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Lease Strategy Assistant (NEW!) */}
-                            {stagedData[selectedRow].description?.includes('리스') && (
+                            {stagedData[selectedRow].description?.includes('리스') && !stagedData[selectedRow].transactionId && (
                                 <div className="p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-4 animate-in zoom-in-95 duration-300">
                                     <div className="flex items-center gap-2 text-emerald-400">
                                         <TrendingDown size={18} />
@@ -480,12 +631,218 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                         </button>
                                     </div>
                                     {stagedData[selectedRow].accountName === '차량운반구' && (
-                                        <div className="px-3 py-2 bg-emerald-500/20 rounded-lg border border-emerald-500/30">
-                                            <p className="text-[9px] font-bold text-emerald-300">
-                                                * 금융리스 선택 시 '리스부채'도 함께 생성됩니다. (세무 조정 필요)
-                                            </p>
+                                        <div className="space-y-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-black text-emerald-400 uppercase">Interest Rate Assistant</span>
+                                                <div className="flex items-center gap-1 text-[9px] text-emerald-500">
+                                                    <Calculator size={10} />
+                                                    Base: {((stagedData[selectedRow].leaseInterestRate || config.taxPolicy?.defaultLeaseRate || 0.072) * 100).toFixed(1)}%
+                                                    {stagedData[selectedRow].leaseInterestRate ? '(Contract)' : config.taxPolicy?.defaultLeaseRate ? '(Company)' : '(System)'}
+                                                </div>
+                                            </div>
+
+                                            {/* Lease Type Selection & Guidance */}
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black text-slate-500 uppercase">Lease Category (시장 금리 가이드)</label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            const newData = [...stagedData];
+                                                            newData[selectedRow].leaseAssetType = 'Vehicle';
+                                                            setStagedData(newData);
+                                                        }}
+                                                        className={`py-2 rounded-lg border text-[10px] font-bold transition-all ${stagedData[selectedRow].leaseAssetType === 'Vehicle' ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white/5 border-white/10 text-slate-400'}`}
+                                                    >
+                                                        자동차 리스 (8.0%±)
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const newData = [...stagedData];
+                                                            newData[selectedRow].leaseAssetType = 'Machinery';
+                                                            setStagedData(newData);
+                                                        }}
+                                                        className={`py-2 rounded-lg border text-[10px] font-bold transition-all ${stagedData[selectedRow].leaseAssetType === 'Machinery' ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white/5 border-white/10 text-slate-400'}`}
+                                                    >
+                                                        기계/장비 리스 (6.8%±)
+                                                    </button>
+                                                </div>
+                                                <div className="p-2 bg-indigo-500/5 rounded border border-indigo-500/10 text-[9px] font-bold text-indigo-300 leading-tight">
+                                                    <span className="text-indigo-400">💡 Smart Advice:</span> {stagedData[selectedRow].leaseAssetType === 'Vehicle'
+                                                        ? "자동차는 감가상각이 빨라 캐피탈사 스프레드가 높게(1.5%~3%) 형성됩니다. 연 8.0% 내외가 현실적입니다."
+                                                        : "범용 장비는 자동차보다 스프레드가 낮으나, 신용 등급에 따라 6.5%~7.5% 범위 내외에서 결정됩니다."}
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-2 border-t border-emerald-500/10 pt-3">
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-slate-500">계약기간 (개월)</label>
+                                                    <input
+                                                        type="number"
+                                                        value={stagedData[selectedRow].leaseTerm || 60}
+                                                        onChange={(e) => {
+                                                            const newData = [...stagedData];
+                                                            newData[selectedRow].leaseTerm = Number(e.target.value);
+                                                            setStagedData(newData);
+                                                        }}
+                                                        className="w-full bg-white/5 border border-white/10 rounded-md px-2 py-1 text-xs text-white outline-none focus:border-emerald-500/50"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-slate-500 flex justify-between items-center">
+                                                        <span>적용 이자율 (%)</span>
+                                                        <span className={`text-[7px] ${(stagedData[selectedRow].leaseInterestRate || 0.072) < 0.065 || (stagedData[selectedRow].leaseInterestRate || 0.072) > 0.085 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                            {(stagedData[selectedRow].leaseInterestRate || 0.072) >= 0.065 && (stagedData[selectedRow].leaseInterestRate || 0.072) <= 0.085 ? 'Market Ready' : 'Out of Range'}
+                                                        </span>
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        value={((stagedData[selectedRow].leaseInterestRate || config.taxPolicy?.defaultLeaseRate || 0.072) * 100).toFixed(1)}
+                                                        onChange={(e) => {
+                                                            const newData = [...stagedData];
+                                                            newData[selectedRow].leaseInterestRate = Number(e.target.value) / 100;
+                                                            setStagedData(newData);
+                                                        }}
+                                                        className="w-full bg-white/5 border border-white/10 rounded-md px-2 py-1 text-xs text-white outline-none focus:border-emerald-500/50"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="h-32 w-full bg-black/20 rounded-xl p-2 border border-white/5">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <AreaChart data={(() => {
+                                                        const row = stagedData[selectedRow];
+                                                        const term = row.leaseTerm || 60;
+                                                        const rate = row.leaseInterestRate || config.taxPolicy?.defaultLeaseRate || 0.072;
+                                                        const monthlyPayment = row.amount;
+                                                        const r = rate / 12;
+                                                        let balance = Math.floor(monthlyPayment * ((1 - Math.pow(1 + r, -term)) / r));
+                                                        const amortData = [];
+                                                        for (let i = 1; i <= term; i++) {
+                                                            const interest = Math.floor(balance * r);
+                                                            const principal = monthlyPayment - interest;
+                                                            balance -= principal;
+                                                            if (i === 1 || i === term || i % Math.ceil(term / 6) === 0) {
+                                                                amortData.push({ month: `${i}개월`, interest, principal });
+                                                            }
+                                                        }
+                                                        return amortData;
+                                                    })()}>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                                                        <XAxis dataKey="month" hide />
+                                                        <Tooltip
+                                                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', fontSize: '10px' }}
+                                                            itemStyle={{ fontWeight: 'black' }}
+                                                        />
+                                                        <Area type="monotone" dataKey="principal" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="원금" />
+                                                        <Area type="monotone" dataKey="interest" stackId="1" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.3} name="이자" />
+                                                    </AreaChart>
+                                                </ResponsiveContainer>
+                                            </div>
+
+                                            <button
+                                                onClick={() => {
+                                                    const row = stagedData[selectedRow];
+
+                                                    // Defense Wall #1: Prevent double capitalization
+                                                    if (row.transactionId || row.accountName?.includes('사용권자산')) {
+                                                        alert('이미 자산화 처리가 완료된 항목입니다. 중복 처리는 시스템 무결성을 위해 차단됩니다.');
+                                                        return;
+                                                    }
+
+                                                    const term = row.leaseTerm || 60;
+                                                    const rate = row.leaseInterestRate || config.taxPolicy?.defaultLeaseRate || 0.072;
+                                                    const monthlyPayment = row.amount;
+
+                                                    // Present Value Calculation
+                                                    const r = rate / 12;
+                                                    const n = term;
+                                                    const pvFactor = (1 - Math.pow(1 + r, -n)) / r;
+                                                    const totalPV = Math.floor(monthlyPayment * pvFactor);
+
+                                                    const groupId = `LEASE-${crypto.randomUUID().slice(0, 8)}`;
+
+                                                    const splits: ParsedTransaction[] = [
+                                                        {
+                                                            ...row,
+                                                            transactionId: groupId,
+                                                            position: 'Debit',
+                                                            amount: totalPV,
+                                                            accountName: '차량운반구 (사용권자산)',
+                                                            reasoning: `[K-IFRS 1116] 자산 인식 (시장금리 가이드 준수: ${(rate * 100).toFixed(1)}%, ${term}개월 PV 계산)`,
+                                                            discrepancyReason: '[K-IFRS 1116] 사용권자산 공정가치(PV) 인식'
+                                                        } as any,
+                                                        {
+                                                            ...row,
+                                                            transactionId: groupId,
+                                                            position: 'Credit',
+                                                            amount: totalPV,
+                                                            accountName: '리스부채',
+                                                            reasoning: `[K-IFRS 1116] 리스부채 총액 인식 (이자율 ${(rate * 100).toFixed(1)}%)`,
+                                                            discrepancyReason: '[K-IFRS 1116] 리스부채 총액(PV) 인식'
+                                                        } as any
+                                                    ];
+
+                                                    const paymentRecognition: ParsedTransaction[] = [
+                                                        {
+                                                            ...row,
+                                                            transactionId: groupId,
+                                                            position: 'Debit',
+                                                            amount: monthlyPayment,
+                                                            accountName: '리스부채',
+                                                            reasoning: `[K-IFRS 1116] 1회차 리스료 상환`
+                                                        },
+                                                        {
+                                                            ...row,
+                                                            transactionId: groupId,
+                                                            position: 'Credit',
+                                                            amount: monthlyPayment,
+                                                            accountName: '보통예금',
+                                                            reasoning: `[K-IFRS 1116] 리스료 자동이체`
+                                                        }
+                                                    ];
+
+                                                    const newData = [...stagedData];
+                                                    newData.splice(selectedRow, 1, ...splits, ...paymentRecognition);
+                                                    setStagedData(newData);
+                                                    setSelectedRow(null);
+                                                    alert(`K-IFRS 1116 리스 자산화 완료: 총 ₩${totalPV.toLocaleString()} 인식되었습니다.`);
+                                                }}
+                                                className="w-full py-2 bg-emerald-500 text-white text-[10px] font-black rounded-lg shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all"
+                                            >
+                                                상환 스케줄표 생성 및 자산 확정
+                                            </button>
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {/* Payroll Actions (HomeTax Export) */}
+                            {stagedData[selectedRow].entryType === 'Payroll' && (
+                                <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl space-y-2">
+                                    <button
+                                        onClick={() => {
+                                            const payrollRows = stagedData.filter(r => r.entryType === 'Payroll' || (r as any).payrollSplit);
+                                            const exportData = payrollRows.map(r => ({
+                                                '성명': r.vendor || '미지정',
+                                                '지급일자': r.date,
+                                                '총급여': r.amount,
+                                                '국민연금': (r as any).payrollSplit?.pension || 0,
+                                                '건강보험': (r as any).payrollSplit?.health || 0,
+                                                '소득세': (r as any).payrollSplit?.tax || 0,
+                                                '차인지급액': (r as any).payrollSplit?.net || r.amount,
+                                                '비고': r.reasoning
+                                            }));
+
+                                            const ws = XLSX.utils.json_to_sheet(exportData);
+                                            const wb = XLSX.utils.book_new();
+                                            XLSX.utils.book_append_sheet(wb, ws, "Payroll_Report");
+                                            XLSX.writeFile(wb, `HomeTax_Payroll_${new Date().toISOString().split('T')[0]}.xlsx`);
+                                        }}
+                                        className="w-full py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-[10px] font-black rounded-lg border border-blue-600/30 flex items-center justify-center gap-2"
+                                    >
+                                        <Download size={14} />
+                                        홈택스 신고용 엑셀 다운로드
+                                    </button>
                                 </div>
                             )}
 
@@ -515,9 +872,17 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                             <button
                                                 onClick={() => {
                                                     const row = stagedData[selectedRow];
+
+                                                    // Defense Wall #2: Prevent derived entries from being registered as assets
+                                                    if (row.accountName?.includes('사용권자산') || row.accountName?.includes('리스부채')) {
+                                                        alert('리스 자산화로 생성된 파생 항목입니다. 원천 리스료 전표에서 자산 대장 등록을 진행하거나, 금융리스 결산 기능을 이용해 주세요.');
+                                                        return;
+                                                    }
+
                                                     const qty = row.quantity || 1;
                                                     const unitCost = row.unitPrice || (row.amount / qty);
 
+                                                    // Audit Log Entry
                                                     for (let i = 0; i < qty; i++) {
                                                         addAsset({
                                                             id: crypto.randomUUID(),
@@ -627,51 +992,32 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                     )}
 
                     {/* Footer Actions */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-3">
+                        <button
+                            onClick={() => {
+                                if (window.confirm('모든 대기 중인 전표를 취소하고 처음부터 다시 시작하시겠습니까?')) {
+                                    setStagedData([]);
+                                    setSelectedRow(null);
+                                    if (onCancel) onCancel();
+                                }
+                            }}
+                            className="w-full bg-white/5 text-slate-400 py-3 rounded-xl font-black text-xs hover:bg-rose-500/10 hover:text-rose-400 transition-all flex items-center justify-center gap-2"
+                        >
+                            <Trash2 size={14} />
+                            모두 취소하고 다시 업로드
+                        </button>
                         <button
                             onClick={async () => {
-                                const entries = stagedData
-                                    .filter(r => r.accountName)
-                                    .map(r => {
-                                        let debitAccount = r.accountName || r.description;
-                                        let creditAccount = '미지급금'; // 카드 결제가 기본이므로 미지급금으로
-                                        switch (r.entryType) {
-                                            case 'Expense':
-                                            case 'Asset':
-                                                debitAccount = r.accountName || r.description;
-                                                // 미확정(Unconfirmed) 상태에서는 실집행 전이므로 무조건 미지급금 처리
-                                                creditAccount = '미지급금';
-                                                break;
-                                            case 'Equity':
-                                            case 'Revenue':
-                                            case 'Liability':
-                                                debitAccount = '미수금'; // 미확정 시 미수금 처리
-                                                creditAccount = r.accountName || r.description;
-                                                break;
-                                            case 'Payroll':
-                                                debitAccount = '급여';
-                                                creditAccount = '미지급급여';
-                                                break;
-                                        }
+                                // --- [NEW] EVIDENCE TAMPER PROTECTION (FLEXIBLE) ---
+                                const imbalancedWithoutReason = stagedData.filter(r =>
+                                    r.accountName &&
+                                    (r as any).originalAmount !== undefined &&
+                                    r.amount !== (r as any).originalAmount &&
+                                    !(r as any).discrepancyReason?.trim()
+                                );
 
-                                        return {
-                                            id: crypto.randomUUID(),
-                                            date: r.date,
-                                            description: r.description,
-                                            vendor: r.vendor && r.vendor.trim() !== '' ? r.vendor : undefined,
-                                            debitAccount,
-                                            creditAccount,
-                                            amount: r.amount,
-                                            vat: r.vat,
-                                            type: r.entryType as any,
-                                            status: 'Unconfirmed',
-                                            version: 1,
-                                            complianceContext: r.auditTrail?.join(' | ')
-                                        };
-                                    });
-
-                                if (entries.length === 0) {
-                                    alert('전송할 전표가 없습니다. 계정과목이 지정된 항목만 전송됩니다.');
+                                if (imbalancedWithoutReason.length > 0) {
+                                    alert(`🚨 [데이터 무결성 주의: 사유 누락]\n\n증빙 금액과 입력 금액이 다른 전표가 존재합니다. 업무 정당성을 위해 우측 패널에서 반드시 '불일치 사유'를 입력해 주세요.`);
                                     return;
                                 }
 
@@ -700,18 +1046,40 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                             }
                                         }
 
+                                        // [Integrity V2] Connect the Audit Trace
+                                        const finalCompliance = (tx as any).discrepancyReason
+                                            ? `[증빙불일치 사유: ${(tx as any).discrepancyReason}] | ${tx.reasoning}`
+                                            : tx.reasoning;
+
+                                        // Determine Debit/Credit accounts based on composite position or simple entry logic
+                                        let debitAccount = tx.accountName || '계정 미지정';
+                                        let creditAccount = tx.entryType === 'Revenue' ? (tx.accountName || '현금/매수금') : '미지급금';
+
+                                        if (tx.position === 'Debit') {
+                                            debitAccount = tx.accountName || '계정 미지정';
+                                            creditAccount = '[분개그룹 클리어링]';
+                                        } else if (tx.position === 'Credit') {
+                                            debitAccount = '[분개그룹 클리어링]';
+                                            creditAccount = tx.accountName || '계정 미지정';
+                                        } else if (tx.entryType === 'Payroll') {
+                                            debitAccount = '급여';
+                                            creditAccount = '미지급급여';
+                                        }
+
                                         return {
                                             id,
                                             date: tx.date || new Date().toISOString().split('T')[0],
                                             description: tx.description,
                                             vendor: tx.vendor,
-                                            debitAccount: tx.accountName || '계정 미지정',
-                                            creditAccount: tx.entryType === 'Revenue' ? (tx.accountName || '현금/매수금') : '미지급금',
+                                            debitAccount,
+                                            creditAccount,
                                             amount: tx.amount,
                                             vat: tx.vat,
                                             type: tx.entryType,
                                             status: 'Unconfirmed',
-                                            complianceContext: tx.reasoning
+                                            complianceContext: finalCompliance,
+                                            attachmentUrl: (tx as any).attachmentUrl,
+                                            auditTrail: [`Staged-to-Ledger handoff at ${new Date().toISOString()}`]
                                         } as JournalEntry;
                                     }));
 
@@ -762,6 +1130,6 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };

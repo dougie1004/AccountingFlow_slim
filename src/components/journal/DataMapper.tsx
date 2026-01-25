@@ -23,10 +23,18 @@ const STANDARD_FIELDS = [
 export const DataMapper: React.FC<DataMapperProps> = ({ fileName, headers: rawHeaders, initialMapping, onConfirm, onCancel, error, isProcessing }) => {
     // Apply splitting
     const headers = React.useMemo(() => {
-        if (rawHeaders.length === 1 && rawHeaders[0].includes(',')) {
-            return rawHeaders[0].split(',').map(h => h.trim());
+        let processed = rawHeaders.map(h => {
+            let val = h.trim();
+            if (val.startsWith('"') && val.endsWith('"')) {
+                val = val.substring(1, val.length - 1).trim();
+            }
+            return val;
+        });
+
+        if (processed.length === 1 && processed[0].includes(',')) {
+            return processed[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
         }
-        return rawHeaders;
+        return processed;
     }, [rawHeaders]);
     // We want a mapping of StandardField -> HeaderName
     const [fieldToHeader, setFieldToHeader] = useState<Record<string, string>>({});

@@ -5,6 +5,7 @@ use crate::core::models::{
 use crate::core::bank_models::BankMapping;
 use std::collections::HashMap;
 use crate::ai::ai_service;
+use crate::ai::csv_inference;
 use crate::accounting::{simulation_engine, assets, inventory_bridge};
 use crate::tax::{tax_bridge, tax_validator, hometax::HometaxEngine};
 use crate::core::security::SecurityGuard;
@@ -185,6 +186,11 @@ pub fn run_closing(mut assets: Vec<Asset>, date: String, tenant_id: String) -> V
 }
 
 #[tauri::command]
+pub fn get_depreciation_schedule(asset: Asset) -> crate::core::models::AssetSchedule {
+    assets::generate_depreciation_schedule(&asset)
+}
+
+#[tauri::command]
 pub async fn run_tax_bridge(
     ledger: Vec<JournalEntry>,
     config: Option<TenantConfig>,
@@ -199,6 +205,7 @@ pub async fn run_tax_bridge(
             corp_type: "SME".to_string(),
             fiscal_year_end: "12-31".to_string(),
             is_startup_tax_benefit: false,
+            num_employees: 0,
         }
     };
     crate::tax::tax_bridge::generate_hometax_xml(ledger, &metadata, vec![])
@@ -210,8 +217,25 @@ pub fn get_tax_adjustments(ledger: Vec<JournalEntry>) -> Vec<TaxAdjustment> {
 }
 
 #[tauri::command]
-pub fn estimate_corporate_tax(taxable_income: f64, is_sme: bool) -> crate::tax::tax_bridge::TaxEstimation {
-    crate::tax::tax_bridge::calculate_estimated_tax(taxable_income, is_sme)
+pub fn estimate_corporate_tax(
+    book_income: f64,
+    taxable_income: f64, 
+    is_sme: bool, 
+    rnd_investment: f64,
+    num_employees: u32,
+    youth_employees: u32
+) -> crate::tax::tax_bridge::TaxEstimation {
+    crate::tax::tax_bridge::calculate_estimated_tax(book_income, taxable_income, is_sme, rnd_investment, num_employees, youth_employees)
+}
+
+#[tauri::command]
+pub fn generate_tax_pro_pack(
+    ledger: Vec<JournalEntry>,
+    assets: Vec<Asset>,
+    config: TenantConfig
+) -> Result<String, String> {
+    let metadata = config.entity_metadata.ok_or("엔티티 메타데이터가 필요합니다.")?;
+    Ok(crate::tax::tax_bridge::generate_tax_pro_pack(ledger, assets, metadata))
 }
 
 #[tauri::command]
@@ -237,10 +261,12 @@ pub fn check_modification_allowed(date: String, config: TenantConfig) -> bool {
 #[tauri::command]
 pub fn generate_filing(snapshot: AuditSnapshot, config: TenantConfig) -> Result<String, String> {
     SecurityGuard::validate_tenant(&config.tenant_id)?;
-    let meta = config.entity_metadata.ok_or("엔티티 메타데이터가 없습니다.")?;
+    let meta = config.entity_metadata.clone().ok_or("엔티티 메타데이터가 없습니다.")?;
     
     let path = HometaxEngine::generate_vat_xml(&snapshot.ledger, &meta, &config.tenant_id)?;
-    Ok(format!("국세청 신고 파일(XML)이 성공적으로 생성되었습니다: {:?}", path))
+    // Return the actual XML content instead of a message for the frontend to download
+    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    Ok(content)
 }
 
 #[tauri::command]
@@ -334,10 +360,11 @@ pub async fn generate_cash_flow_forecast(
 pub async fn generate_management_report(
     ledger: Vec<JournalEntry>,
     inventory: Vec<crate::core::models::InventoryItem>,
+    assets: Vec<Asset>,
     period_start: String,
     period_end: String,
 ) -> Result<crate::accounting::report_engine::ManagementReport, String> {
-    crate::accounting::report_engine::generate_management_report(ledger, inventory, period_start, period_end).await
+    crate::accounting::report_engine::generate_management_report(ledger, inventory, assets, period_start, period_end).await
 }
 
 #[tauri::command]
@@ -493,4 +520,9 @@ pub async fn process_advanced_ledger(
 #[tauri::command]
 pub fn get_ir_financial_summary(ledger: Vec<JournalEntry>) -> crate::accounting::ir_engine::IRFinancialSummary {
     crate::accounting::ir_engine::generate_ir_summary(&ledger)
+}
+
+#[tauri::command]
+pub fn parse_universal_file(file_bytes: Vec<u8>) -> Result<csv_inference::InferenceResult, String> {
+    crate::ai::csv_inference::analyze_csv(file_bytes)
 }

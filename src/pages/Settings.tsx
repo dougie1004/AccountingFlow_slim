@@ -1,118 +1,72 @@
 import React, { useState } from 'react';
 import { Database, Beaker, CheckCircle, AlertCircle, Lock, Calendar } from 'lucide-react';
 import { useAccounting } from '../hooks/useAccounting';
-import { generateMockBatch, simulateAIParsing } from '../utils/mockDataGenerator';
+import { generateSystemWideMockData, simulateAIParsing } from '../utils/mockDataGenerator';
 import { invoke } from '@tauri-apps/api/core';
 import { SetupWizard } from '../components/onboarding/SetupWizard';
 import { EntityMetadata, TaxPolicy } from '../types';
 
+const RateInput: React.FC<{
+    label: string,
+    value: number,
+    tip: string,
+    onChange: (val: number) => void
+}> = ({ label, value, tip, onChange }) => {
+    const formatForDisplay = (v: number) => {
+        return parseFloat((v * 100).toFixed(4)).toString();
+    };
+
+    const [localText, setLocalText] = React.useState(formatForDisplay(value));
+
+    React.useEffect(() => {
+        const displayVal = formatForDisplay(value);
+        if (parseFloat(localText) !== parseFloat(displayVal)) {
+            setLocalText(displayVal);
+        }
+    }, [value]);
+
+    return (
+        <div className="bg-[#151D2E] p-5 rounded-2xl border border-white/5 hover:border-indigo-500/40 transition-all flex flex-col gap-3 shadow-lg">
+            <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider truncate">{label}</label>
+                <div className="flex items-center gap-1.5 opacity-60">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">STD:</span>
+                    <span className="text-[9px] text-indigo-400 font-black">{tip.replace('기정 ', '').replace('업종별 차이', 'Varies')}</span>
+                </div>
+            </div>
+
+            <div className="relative">
+                <input
+                    type="text"
+                    inputMode="decimal"
+                    value={localText}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        setLocalText(val);
+                        const num = parseFloat(val);
+                        if (!isNaN(num)) {
+                            onChange(num / 100);
+                        }
+                    }}
+                    className="w-full bg-[#0B1221] border border-white/10 rounded-xl h-10 px-3 text-base font-black text-white focus:ring-2 focus:ring-indigo-500/40 outline-none transition-all pr-8"
+                    placeholder="0.0"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 font-black opacity-30 text-[10px]">%</span>
+            </div>
+        </div>
+    );
+};
+
 const Settings: React.FC = () => {
-    const { addEntry, addAsset, ledger, addScmOrder, updateInventory } = useAccounting();
+    const { addEntry, addAsset, ledger, addScmOrder, updateInventory, loadSimulation, config, updateConfig } = useAccounting();
     const [closingDate, setClosingDate] = useState('');
     const [isReadOnly, setIsReadOnly] = useState(false);
     const [showWizard, setShowWizard] = useState(false);
-    const [config, setConfig] = useState<{ entity?: EntityMetadata, policy?: TaxPolicy }>({});
+    const [localConfig, setLocalConfig] = useState<{ entity?: EntityMetadata, policy?: TaxPolicy }>({});
 
     const handleLoadTestData = () => {
-        const mockRaw = generateMockBatch();
-
-        mockRaw.forEach(item => {
-            // 1. Add to Ledger
-            if (item.debitAccount && item.creditAccount) {
-                addEntry({
-                    id: crypto.randomUUID(),
-                    date: item.date || new Date().toISOString().split('T')[0],
-                    description: item.description || '',
-                    vendor: item.vendor,
-                    debitAccount: item.debitAccount,
-                    creditAccount: item.creditAccount,
-                    amount: item.amount || 0,
-                    vat: item.vat || 0,
-                    type: item.type as any,
-                    status: item.status as any || 'Unconfirmed',
-                    ocrData: item.ocrData
-                });
-
-                // 2. If Asset, add to Asset Registry (Refined Logic)
-                const fixedAssetAccounts = ['기계장치', '비품', '차량운반구', '건물', '토지', '소프트웨어', '공구와기구'];
-                if (item.type === 'Asset' && fixedAssetAccounts.includes(item.debitAccount || '')) {
-                    const assetName = item.description?.replace('설비 취득 - ', '').replace('고정자산 취득 - ', '') || 'New Asset';
-                    addAsset({
-                        id: `ASSET-${Math.floor(Math.random() * 10000)}`,
-                        name: assetName,
-                        acquisitionDate: item.date || new Date().toISOString(),
-                        cost: item.amount || 0,
-                        depreciationMethod: 'STRAIGHT_LINE',
-                        usefulLife: 5, // Default
-                        residualValue: 0,
-                        accumulatedDepreciation: 0,
-                        currentValue: item.amount || 0,
-                        quantity: 1
-                    });
-                }
-
-                // 3. If SCM Purchase (Materials), add to SCM Orders & Inventory
-                if (item.description?.includes('원자재') || item.debitAccount === '원재료' || item.debitAccount === '상품') {
-                    // Create Purchase Order
-                    const ocrObj = item.ocrData ? JSON.parse(item.ocrData) : {};
-                    const orderId = `PO-${Math.floor(Math.random() * 10000)}`;
-
-                    // Add SCM Order
-                    addScmOrder({
-                        id: orderId,
-                        date: item.date || new Date().toISOString(),
-                        partnerId: item.vendor || 'Unknown Vendor',
-                        typeField: 'PURCHASE',
-                        status: 'CONFIRMED',
-                        totalAmount: item.amount || 0,
-                        vat: item.vat || 0,
-                        items: [{
-                            sku: ocrObj.item || 'RAW-MAT-001',
-                            quantity: ocrObj.quantity || 100,
-                            unitPrice: ocrObj.unitPrice || (item.amount || 0) / 100,
-                            amount: item.amount || 0
-                        }]
-                    });
-
-                    // Add to Inventory Batch
-                    updateInventory(ocrObj.item || 'RAW-MAT-001', {
-                        id: ocrObj.item || 'RAW-MAT-001',
-                        name: ocrObj.item || 'Raw Material',
-                        sku: ocrObj.item || 'RAW-MAT-001',
-                        category: 'Raw Materials',
-                        valuationMethod: 'FIFO',
-                        batches: [{
-                            id: `BATCH-${Math.floor(Math.random() * 1000)}`,
-                            acquisitionDate: item.date || new Date().toISOString(),
-                            quantity: ocrObj.quantity || 100,
-                            unitCost: ocrObj.unitPrice || (item.amount || 0) / 100
-                        }]
-                    });
-                }
-
-                // 4. If SCM Sales, add to SCM Orders (Sales Order)
-                if (item.type === 'Revenue' && (item.creditAccount === '매출' || item.creditAccount === '상품매출')) {
-                    addScmOrder({
-                        id: `SO-${Math.floor(Math.random() * 10000)}`,
-                        date: item.date || new Date().toISOString(),
-                        partnerId: item.vendor || 'Customer',
-                        typeField: 'SALES',
-                        status: 'INVOICED',
-                        totalAmount: item.amount || 0,
-                        vat: item.vat || 0,
-                        items: [{
-                            sku: 'CLOUD-SERVICE-001',
-                            quantity: 1,
-                            unitPrice: item.amount || 0,
-                            amount: item.amount || 0
-                        }]
-                    });
-                }
-            } else {
-                const parsed = simulateAIParsing(item);
-                addEntry(parsed);
-            }
-        });
+        const results = generateSystemWideMockData();
+        loadSimulation(results);
         alert('종합 테스트 데이터(전분야)가 생성되었습니다.');
     };
 
@@ -159,7 +113,7 @@ const Settings: React.FC = () => {
                             </button>
                         </div>
                         <p className="text-xs text-center text-slate-500 font-medium">
-                            {config.entity ? `설정 완료: ${config.entity.companyName}` : '현재 시스템 설정이 완료되지 않았습니다.'}
+                            {config.entityMetadata ? `설정 완료: ${config.entityMetadata.companyName}` : '현재 시스템 설정이 완료되지 않았습니다.'}
                         </p>
                     </div>
                 </div>
@@ -228,10 +182,53 @@ const Settings: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* [Step 1] Insurance Rate Customization Section */}
+            <div className="bg-[#151D2E] p-10 rounded-[2.5rem] border border-white/5 shadow-2xl space-y-10 group/section transition-all hover:border-indigo-500/20">
+                <div className="flex items-center justify-between font-outfit">
+                    <div className="flex items-center gap-5">
+                        <div className="p-4 bg-indigo-500/10 rounded-2xl group-hover/section:bg-indigo-500/20 transition-colors">
+                            <Database className="w-8 h-8 text-indigo-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-white tracking-tight">회사별 임금/보험 요율 설정</h2>
+                            <p className="text-slate-400 font-bold mt-1 text-lg">전표 자동 분할 및 급여 역산에 사용되는 실제 요율을 반영합니다.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                        { label: '국민연금 (개인)', key: 'nationalPension', tip: '기정 4.5%' },
+                        { label: '건강보험 (개인)', key: 'healthInsurance', tip: '기정 3.545%' },
+                        { label: '장기요양 (건강내)', key: 'longTermCare', tip: '기정 12.95%' },
+                        { label: '고용보험 (개인)', key: 'employmentInsuranceEmployee', tip: '기정 0.9%' },
+                        { label: '고용보험 (회사)', key: 'employmentInsuranceEmployer', tip: '업종별 차이' },
+                    ].map((item) => (
+                        <RateInput
+                            key={item.key}
+                            label={item.label}
+                            tip={item.tip}
+                            value={config.taxPolicy?.insuranceRates?.[item.key as keyof typeof config.taxPolicy.insuranceRates] || 0}
+                            onChange={(newVal) => {
+                                updateConfig({
+                                    taxPolicy: {
+                                        ...config.taxPolicy!,
+                                        insuranceRates: {
+                                            ...config.taxPolicy!.insuranceRates!,
+                                            [item.key]: newVal
+                                        }
+                                    }
+                                });
+                            }}
+                        />
+                    ))}
+                </div>
+            </div>
             {showWizard && (
                 <SetupWizard
                     onComplete={(data) => {
-                        setConfig(data);
+                        setLocalConfig(data);
                         setShowWizard(false);
                     }}
                 />

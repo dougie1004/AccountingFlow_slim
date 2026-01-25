@@ -34,6 +34,10 @@ pub fn calculate_depreciation(assets: Vec<Asset>, date_str: String) -> Vec<Journ
             attachment_url: None,
             ocr_data: None,
             compliance_context: None,
+            tax_base_amount: None,
+            audit_trail: vec![],
+            parse_status: None,
+            raw_data_snapshot: None,
         });
     }
 

@@ -10,7 +10,7 @@ import CalendarView from '../components/journal/CalendarView';
 import { ManualEntryModal } from '../components/journal/ManualEntryModal';
 
 const Journal: React.FC = () => {
-    const { ledger, addEntry, partners } = useAccounting();
+    const { ledger, addEntry, partners, stagingTransactions, setStagingTransactions } = useAccounting();
 
     // Filtering state
     const [startDate, setStartDate] = useState('');
@@ -20,7 +20,6 @@ const Journal: React.FC = () => {
     // View & Tab state
     const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
     const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [uploadedData, setUploadedData] = useState<ParsedTransaction[]>([]);
     const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
     // Extract unique vendors for dropdown
@@ -70,42 +69,100 @@ const Journal: React.FC = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* AI Transaction Input Section */}
-            <div className="grid grid-cols-1 xl:grid-cols-[40%_60%] gap-8">
-                {/* Left Panel: Bulk Upload & Staging */}
-                <div className="space-y-6">
-                    <header className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <span className="w-1.5 h-6 bg-emerald-500 rounded-sm"></span>
-                            <h2 className="text-lg font-bold text-white">대량 데이터 일괄 업로드 (CSV/Excel)</h2>
-                        </div>
-                    </header>
-
-                    {uploadedData.length === 0 ? (
-                        <FileUploader onTransactionsLoaded={setUploadedData} />
-                    ) : (
-                        <StagingTable
-                            data={uploadedData}
-                            partners={partners}
-                            onConfirm={(newEntries) => {
-                                newEntries.forEach(addEntry);
-                                setUploadedData([]);
-                            }}
-                        />
-                    )}
-                </div>
-
-                {/* Right Panel: Single Entry (Inquisitive AI) */}
-                <div className="space-y-6">
-                    <header className="flex items-center gap-2">
-                        <span className="w-1.5 h-6 bg-indigo-600 rounded-sm"></span>
-                        <h2 className="text-lg font-bold text-white">AI 지능형 전표 입력</h2>
-                    </header>
-                    <div className="bg-[#151D2E] rounded-3xl border border-white/5 h-full shadow-2xl overflow-hidden">
-                        <TransactionFeed onConfirm={addEntry} />
+            {/* Unified Input Section */}
+            <div className="space-y-6">
+                <header className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-6 bg-emerald-500 rounded-sm"></span>
+                        <h2 className="text-2xl font-bold text-white">통합 데이터 입력 (Universal Ingestion)</h2>
                     </div>
-                </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => {
+                                const testData: ParsedTransaction[] = [
+                                    {
+                                        id: 'TEST-LEASE-001',
+                                        date: new Date().toISOString().split('T')[0],
+                                        description: '제네시스 G80 신차 리스료 (1/60)',
+                                        amount: 1450000,
+                                        vat: 0,
+                                        accountName: '임차료',
+                                        entryType: 'Expense',
+                                        vendor: '(주)현대캐피탈',
+                                        reasoning: '[K-IFRS 1116] 매달 반복되는 리스료 지출이 감지되었습니다. 원금/이자 분리를 위한 리스 자산화 기능을 사용해 보세요.',
+                                        confidence: 'High',
+                                        auditTrail: [`[${new Date().toLocaleTimeString()}] AI 감지: 리스 거래 패턴 식별`]
+                                    },
+                                    {
+                                        id: 'TEST-PAYROLL-001',
+                                        date: new Date().toISOString().split('T')[0],
+                                        description: '2024년 1월 정기 급여 정산 (홍길동)',
+                                        amount: 5200000,
+                                        vat: 0,
+                                        accountName: '급여',
+                                        entryType: 'Payroll',
+                                        vendor: '홍길동',
+                                        reasoning: '임직원 급여 지출입니다. 4대보험 및 소득세 원천징수 분할 전표 생성이 가능합니다.',
+                                        confidence: 'High',
+                                        auditTrail: [`[${new Date().toLocaleTimeString()}] AI 감지: 급여 항목 식별`]
+                                    },
+                                    {
+                                        id: 'TEST-ASSET-001',
+                                        date: new Date().toISOString().split('T')[0],
+                                        description: '워크스테이션 및 AI 서버 장비 도입',
+                                        amount: 15800000,
+                                        vat: 1580000,
+                                        accountName: '비품',
+                                        entryType: 'Asset',
+                                        vendor: '델 테크놀로지스',
+                                        reasoning: '1천만원 이상의 고액 자산 구매입니다. 세무상 유리한 감가상각 처리를 위해 자산 대장에 즉시 등록하는 것을 권장합니다.',
+                                        confidence: 'High',
+                                        auditTrail: [`[${new Date().toLocaleTimeString()}] AI 감지: 고액 자산 취득 식별`]
+                                    }
+                                ];
+                                setStagingTransactions(testData);
+                            }}
+                            className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 text-[10px] font-black rounded-lg border border-indigo-600/30 transition-all flex items-center gap-2"
+                        >
+                            <Database size={12} />
+                            테스트 데이터 로드
+                        </button>
+                        <div className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
+                            <span className="text-xs font-black text-indigo-400 uppercase tracking-wider">AI-Powered</span>
+                        </div>
+                    </div>
+                </header>
+
+                {stagingTransactions.length === 0 ? (
+                    <FileUploader onTransactionsLoaded={setStagingTransactions} />
+                ) : (
+                    <StagingTable
+                        data={stagingTransactions}
+                        partners={partners}
+                        onConfirm={(newEntries) => {
+                            newEntries.forEach(addEntry);
+                            setStagingTransactions([]);
+                        }}
+                        onCancel={() => setStagingTransactions([])}
+                    />
+                )}
             </div>
+
+            {/* Alternative: Text-based AI Input (Collapsible) */}
+            <details className="group">
+                <summary className="cursor-pointer list-none">
+                    <div className="flex items-center justify-between p-6 bg-[#151D2E] rounded-2xl border border-white/5 hover:border-indigo-500/30 transition-all">
+                        <div className="flex items-center gap-3">
+                            <span className="w-1.5 h-6 bg-indigo-600 rounded-sm"></span>
+                            <h3 className="text-lg font-bold text-white">AI 대화형 전표 입력 (선택사항)</h3>
+                        </div>
+                        <span className="text-slate-500 group-open:rotate-180 transition-transform">▼</span>
+                    </div>
+                </summary>
+                <div className="mt-4 bg-[#151D2E] rounded-3xl border border-white/5 shadow-2xl overflow-hidden">
+                    <TransactionFeed onConfirm={addEntry} />
+                </div>
+            </details>
 
             <div className="flex flex-col lg:flex-row lg:items-end justify-between pt-8 border-t border-white/5 gap-6">
                 <div>

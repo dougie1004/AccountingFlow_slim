@@ -18,6 +18,13 @@ export interface JournalEntry {
     type: EntryType;
     status: 'Approved' | 'Unconfirmed' | 'Hold' | 'Pending Review';
     taxCode?: TaxCode;
+
+    // [Integrity Engine V2] 
+    postedBy?: string;      // UserID who performed the 'POST' action
+    postedAt?: string;      // Timestamp of the finalization
+    ledgerType?: 'Candidate' | 'Official'; // Physical isolation indicator
+    integrityHash?: string; // Checksum for tamper-proof records
+
     // Audit Readiness
     version?: number;
     lastModifiedBy?: string;
@@ -27,6 +34,19 @@ export interface JournalEntry {
     clarificationPrompt?: string; // AI Inspector question
     clarificationOptions?: string[]; // AI Inspector suggestions
     confidence?: string;    // AI confidence level
+    suggestedVat?: number;   // AI suggested VAT amount
+    suggestedDescription?: string; // AI suggestion reasoning
+    auditTrail?: string[]; // Log of automated actions (Required for Immutable Audit Log)
+    taxBaseAmount?: number; // AI-extracted Tax Base (e.g. Salary for R&D tax credit)
+
+    // [Antigravity] Safe-Parser Fields
+    parseStatus?: ParseStatus;
+    rawDataSnapshot?: string;
+
+    // [Step 1] Payroll/Insurance Splitting
+    transactionGroupId?: string;
+    employeeTags?: string[];
+    isInsurancePart?: boolean;
 }
 
 export type TaxCode =
@@ -118,7 +138,10 @@ export interface EntityMetadata {
     repName: string;
     corpType: 'SME' | 'Large' | 'Startup';
     fiscalYearEnd: string;
-    isStartupTaxBenefit?: boolean; // 신규 - 청년창업 감면 여부
+    isStartupTaxBenefit?: boolean;
+    hasRDDept?: boolean;
+    hasRDLab?: boolean;
+    numEmployees?: number;
 }
 
 export interface TaxPolicy {
@@ -126,6 +149,16 @@ export interface TaxPolicy {
     entertainmentLimitBase: number;
     vatFilingCycle: 'Quarterly' | 'BiAnnual';
     aiGovernanceThreshold?: number; // 신규 - AI 증빙 요청 임계값
+    insuranceRates?: InsuranceRates;
+    defaultLeaseRate?: number; // 신규 - 기본 리스 할인율 (e.g. 0.048)
+}
+
+export interface InsuranceRates {
+    nationalPension: number;    // e.g. 0.045
+    healthInsurance: number;
+    longTermCare: number;       // Rate within health insurance
+    employmentInsuranceEmployee: number;
+    employmentInsuranceEmployer: number;
 }
 
 export interface InitialBalance {
@@ -164,6 +197,8 @@ export interface SimulationResult {
     ledger: JournalEntry[];
     assets: Asset[];
     orders: Order[];
+    inventory: InventoryItem[];
+    partners: Partner[];
     adjustments: TaxAdjustment[];
     validationResults: ValidationResult[];
     companyConfig: TenantConfig;
@@ -185,6 +220,8 @@ export interface Partner {
     tags?: string[];
 }
 
+export type ParseStatus = 'ok' | 'warning' | 'needConfirm' | 'error';
+
 /**
  * AI 분석 결과 (Rust에서 넘어오는 데이터)
  */
@@ -193,6 +230,7 @@ export interface ParsedTransaction {
     id?: string;
     amount: number;
     vat: number;
+    taxBaseAmount?: number; // AI-extracted Tax Base (e.g. Salary for R&D tax credit)
     entryType?: EntryType | null;
     description: string;
     vendor?: string; // Optional
@@ -216,6 +254,23 @@ export interface ParsedTransaction {
     auditTrail?: string[];
     transactionId?: string; // NEW - 복합 전표 그룹핑 ID (없으면 개별 건으로 처리)
     position?: 'Debit' | 'Credit'; // NEW - 전표 내 위치 (차변/대변 명시)
+
+    // [Antigravity] Safe-Parser Fields
+    parseStatus?: ParseStatus;
+    rawDataSnapshot?: string;
+    parseErrorMsg?: string;
+
+    // [Step 1] Payroll/Insurance Splitting
+    transactionGroupId?: string;
+    employeeTags?: string[];
+    isInsurancePart?: boolean;
+
+    // [Step 2] K-IFRS 1116 Lease Fields
+    leaseInterestRate?: number;
+    leaseTerm?: number;
+    residualValue?: number;
+    leaseAssetType?: 'Vehicle' | 'Machinery';
+    payrollSplit?: { pension: number; health: number; tax: number; net: number };
 }
 
 export interface ComplianceReview {
@@ -274,4 +329,58 @@ export interface ManagementReport {
     };
     recommendations: string[];
     detailedAnalysis: string;
+    disclaimer?: string;
+    checklist?: string[];
+    bpsInsight?: string;
+    assetInsights: AssetInsights;
+}
+
+export interface TaxEstimation {
+    bookIncome: number;
+    taxableIncome: number;
+    baseTax: number;
+    deductions: number;
+    rndCredit: number;
+    employmentCredit: number;
+    finalTax: number;
+    effectiveRate: number;
+    minTax: number;
+    carryoverAmount: number;
+}
+
+export type FileType = 'Payroll' | 'Insurance' | 'BankTransaction' | 'Unknown';
+
+export interface ExtractedMetadata {
+    numEmployees?: number; // Optional in Rust => number | undefined
+    totalAmount: number;
+    periodGuess?: string;
+    detectedType: FileType;
+    summaryText: string;
+    confidence: number;
+}
+
+export interface InferenceResult {
+    metadata: ExtractedMetadata;
+    suggestedEntries: ParsedTransaction[];
+}
+
+export interface AssetInsights {
+    totalFixedAssets: number;
+    annualDepreciation: number;
+    next5YearForecast: number[];
+}
+
+export interface DepreciationScheduleItem {
+    period: string;
+    beginningValue: number;
+    depreciationExpense: number;
+    accumulatedDepreciation: number;
+    endingValue: number;
+    taxLimit?: number;
+    disallowedAmount?: number;
+}
+
+export interface AssetSchedule {
+    assetId: string;
+    items: DepreciationScheduleItem[];
 }

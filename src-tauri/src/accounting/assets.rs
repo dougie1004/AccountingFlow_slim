@@ -1,4 +1,4 @@
-use crate::core::models::{Asset, JournalEntry};
+use crate::core::models::{Asset, JournalEntry, DepreciationScheduleItem, AssetSchedule};
 
 /**
  * 고정자산 관리 엔진 (Fixed Asset Engine)
@@ -12,18 +12,88 @@ pub fn calculate_depreciation_amount(asset: &Asset, year_fraction: f64) -> f64 {
             annual * year_fraction
         }
         "DB" | "정률법" => {
-            // 정률법 상각률 추정 (실무적으로는 상각률표 사용하나 여기서는 간이 계산)
-            // 상각률 = 1 - (잔존가액/취득원가)^(1/내용연수)
-            let rate = if asset.residual_value > 0.0 {
-                1.0 - (asset.residual_value / asset.cost).powf(1.0 / (asset.useful_life as f64))
-            } else {
-                // 내용연수 5년 기준 약 0.451 (사용자 예시 반영)
-                0.451 
-            };
+            let rate = get_standard_db_rate(asset.useful_life);
             let book_value = asset.cost - asset.accumulated_depreciation;
             (book_value * rate) * year_fraction
         }
         _ => 0.0,
+    }
+}
+
+pub fn get_standard_db_rate(useful_life: u32) -> f64 {
+    match useful_life {
+        3 => 0.628,
+        4 => 0.528,
+        5 => 0.451,
+        6 => 0.394,
+        7 => 0.350,
+        8 => 0.313,
+        9 => 0.284,
+        10 => 0.259,
+        12 => 0.221,
+        15 => 0.181,
+        20 => 0.140,
+        _ => 1.0 - (0.05_f64 / 1.0).powf(1.0 / useful_life as f64), // Simple fallback
+    }
+}
+
+pub fn generate_depreciation_schedule(asset: &Asset) -> AssetSchedule {
+    let mut items = Vec::new();
+    let mut current_accumulated = 0.0;
+    let mut current_book_value = asset.cost;
+
+    let db_rate = get_standard_db_rate(asset.useful_life);
+
+    for year in 1..=asset.useful_life {
+        let beginning_value = current_book_value;
+        
+        let annual_depreciation = match asset.depreciation_method.as_str() {
+            "SL" | "정액법" | "STRAIGHT_LINE" => {
+                (asset.cost - asset.residual_value) / (asset.useful_life as f64)
+            }
+            "DB" | "정률법" | "DECLINING_BALANCE" => {
+                beginning_value * db_rate
+            }
+            _ => 0.0,
+        };
+
+        let actual_depreciation = if beginning_value - annual_depreciation < asset.residual_value {
+            (beginning_value - asset.residual_value).max(0.0)
+        } else {
+            annual_depreciation
+        };
+
+        // [Tax Bridge] Calculate Tax Limit (세법상 상각범위액)
+        // 정률법의 경우 세법상으로도 동일한 상각률을 적용하나, 
+        // 회계상 상각비가 세법상 한도를 초과할 경우(Denial)를 시뮬레이션
+        let tax_limit = annual_depreciation; // 간이 구현: 상각 범위는 현재 상각 로직과 동일하다고 가정
+        let disallowed = if actual_depreciation > tax_limit {
+            actual_depreciation - tax_limit
+        } else {
+            0.0
+        };
+
+        current_accumulated += actual_depreciation;
+        current_book_value -= actual_depreciation;
+
+        items.push(DepreciationScheduleItem {
+            period: format!("Year {}", year),
+            beginning_value,
+            depreciation_expense: actual_depreciation,
+            accumulated_depreciation: current_accumulated,
+            ending_value: current_book_value,
+            tax_limit: Some(tax_limit),
+            disallowed_amount: Some(disallowed),
+        });
+
+        if current_book_value <= asset.residual_value {
+            break;
+        }
+    }
+
+    AssetSchedule {
+        asset_id: asset.id.clone(),
+        items,
     }
 }
 
@@ -70,6 +140,13 @@ pub fn generate_closing_entries(
             attachment_url: None,
             ocr_data: None,
             compliance_context: Some(format!("자동 결산 전표 (절사 오차: {:.4})", raw_amount - amount)),
+            tax_base_amount: None,
+            audit_trail: vec![],
+            parse_status: None,
+            raw_data_snapshot: None,
+            transaction_group_id: None,
+            employee_tags: vec![],
+            is_insurance_part: false,
         });
 
         asset.accumulated_depreciation += amount;

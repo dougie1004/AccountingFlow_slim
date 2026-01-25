@@ -49,7 +49,7 @@ export const DemoDataModal: React.FC<DemoDataModalProps> = ({ onClose, onLoad })
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                                    {bankData.map((row, idx) => (
+                                    {bankData.map((row: any, idx: number) => (
                                         <tr key={idx} className="hover:bg-white transition-colors">
                                             <td className="px-6 py-4">{row.date}</td>
                                             <td className="px-6 py-4 font-bold text-slate-900">{row.desc}</td>

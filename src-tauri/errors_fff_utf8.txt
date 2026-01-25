@@ -1,0 +1,39 @@
+﻿cargo :    Compiling accounti
+ng-flow v0.1.0 (C:\Projects\A
+ccountingFlow\src-tauri)
+위치 줄:1 문자:1
++ cargo check 2> errors_final
+_final.txt; powershell -Comma
+nd "Get-Conte ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (   Comp  
+  iling ac...Flow\src-taur   
+ i):String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+error: couldn't read `src\scm
+\scm_service.rs`: stream did 
+not contain valid UTF-8
+  --> src\scm\mod.rs:1:1
+   |
+ 1 | pub mod scm_service;
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+note: byte `180` is not valid
+ utf-8
+  --> src\scm\scm_service.rs:
+17:33
+   |
+17 |     let version = *versi
+on_counter;
+   |                         
+        ^
+
+error: could not compile `acc
+ounting-flow` (lib) due to 1 
+previous error
+

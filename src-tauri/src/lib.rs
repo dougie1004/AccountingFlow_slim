@@ -59,7 +59,9 @@ pub fn run() {
             commands::process_advanced_ledger,
             commands::generate_bridge_package,
             commands::get_compliance_mappings,
-            commands::get_ir_financial_summary
+            commands::get_ir_financial_summary,
+            commands::generate_tax_pro_pack,
+            commands::parse_universal_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -13,11 +13,12 @@ pub fn run_simulation() -> SimulationResult {
 
     // 1. Setup Company
     let company_metadata = EntityMetadata {
-        company_name: "(�??�이?�이?�크".to_string(),
+        company_name: "(ì£??�ì�´?„ì�´?Œí�¬".to_string(),
         reg_id: "220-81-62517".to_string(),
-        rep_name: "박�???.to_string(),
+        rep_name: "ë°•ì???.to_string(),
         corp_type: "SME".to_string(),
         fiscal_year_end: "12-31".to_string(),
+        num_employees: 10,
     };
 
     let company_config = TenantConfig {
@@ -66,6 +67,8 @@ pub fn run_simulation() -> SimulationResult {
         current_value: 50_000_000.0,
         accumulated_depreciation_account: Some("Accumulated Depreciation (Machinery)".to_string()),
         expense_account: Some("Depreciation Expense".to_string()),
+        base_useful_life: None,
+        is_sme_special_life: false,
     };
     assets.push(machine);
     

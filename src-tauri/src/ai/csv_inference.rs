@@ -118,6 +118,7 @@ fn parse_payroll(lines: &[&str], delimiter: u8) -> Result<InferenceResult, Strin
         entry_type: Some("Expense".to_string()),
         description: Some(format!("Payroll Expense ({} Employees)", num_employees)),
         vendor: Some("Payroll Run".to_string()),
+        account_name: Some("급여".to_string()),
         confidence: Some("High".to_string()),
         reasoning: "Universal Parser V3: Payroll Detected".to_string(),
         ..Default::default()
@@ -171,6 +172,7 @@ fn parse_insurance(lines: &[&str], delimiter: u8) -> Result<InferenceResult, Str
         entry_type: Some("Expense".to_string()),
         description: Some("4 Major Insurance Premiums".to_string()),
         vendor: Some("Social Security".to_string()),
+        account_name: Some("보험료".to_string()),
         confidence: Some("Medium".to_string()),
         reasoning: "Universal Parser V3: Insurance Detected".to_string(),
         ..Default::default()

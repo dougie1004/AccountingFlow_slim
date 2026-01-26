@@ -4,7 +4,7 @@ import { useAI } from '../../hooks/useAI';
 import { useMassProcessor } from '../../hooks/useMassProcessor';
 import { JournalEntry, Partner, ParsedTransaction } from '../../types';
 import { AccountingContext } from '../../context/AccountingContext';
-import { ALL_ACCOUNTS } from '../../constants/accounts';
+import { ALL_ACCOUNTS, STANDARD_ACCOUNTS } from '../../constants/accounts';
 import { invoke } from '@tauri-apps/api/core';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
@@ -143,7 +143,24 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
 
             if (result && result.transaction) {
                 const tx = result.transaction;
-                const newTrail = [...(tx.auditTrail || []), `[${new Date().toLocaleTimeString()}] AI 정밀 재분석 완료`];
+
+                // [Self-Correction] AI 추출 계정명을 표준 계정과목으로 자동 매핑
+                const mapToStandard = (name: string): string => {
+                    const n = name.trim();
+                    if (STANDARD_ACCOUNTS.some(a => a.name === n)) return n;
+
+                    // 유사어 매핑 (Semantic Mapping)
+                    if (['식대', '식비', '점심', '저녁', '마라탕', '소반'].some(k => n.includes(k))) return '복리후생비';
+                    if (['차비', '택시', '버스', '기차', '유류', '주유'].some(k => n.includes(k))) return '여비교통비';
+                    if (['접대', '선물', '기프트'].some(k => n.includes(k))) return '접대비';
+                    if (['사무', '문구', '토핑', '물품'].some(k => n.includes(k))) return '소모품비';
+                    if (['월세', '렌트', '리스'].some(k => n.includes(k))) return '임차료';
+
+                    return n || '소모품비'; // Fallback to Supplies if uncertain
+                };
+
+                const standardizedAccount = mapToStandard(tx.accountName || row.accountName || '');
+                const newTrail = [...(tx.auditTrail || []), `[${new Date().toLocaleTimeString()}] AI 계정 표준화 적용: ${standardizedAccount}`];
 
                 newData[i] = {
                     ...tx,
@@ -151,12 +168,14 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                     amount: Number(tx.amount || row.amount || 0),
                     vat: Number(tx.vat || row.vat || 0),
                     description: (tx.description || row.description || '').toString(),
+                    accountName: standardizedAccount, // 여기서 표준화된 이름 주입
                     entryType: (tx.entryType || row.entryType || 'Expense') as any,
                     reasoning: (tx.reasoning || row.reasoning || '').toString(),
                     auditTrail: newTrail
                 } as ParsedTransaction;
                 setStagedData([...newData]);
             }
+
             await new Promise(r => setTimeout(r, 100));
         }
         setAnalyzingIndex(null);
@@ -172,14 +191,33 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
             const result = await processMassBatch(stagedData);
             console.log('[Mass AI] 완료:', result);
 
+            // [Antigravity] 결과물 표준 계정 매핑 필터링
+            const mapToStandard = (name: string): string => {
+                const n = (name || '').trim();
+                if (STANDARD_ACCOUNTS.some(a => a.name === n)) return n;
+                if (['식대', '식비', '점심', '저녁', '마라탕', '소반'].some(k => n.includes(k))) return '복리후생비';
+                if (['차비', '택시', '버스', '기차', '유류', '주유'].some(k => n.includes(k))) return '여비교통비';
+                if (['접대', '선물', '기프트'].some(k => n.includes(k))) return '접대비';
+                if (['사무', '문구', '토핑', '물품'].some(k => n.includes(k))) return '소모품비';
+                if (['월세', '렌트', '리스'].some(k => n.includes(k))) return '임차료';
+                return n || '소모품비';
+            };
+
+            const standardizedResult = result.map(tx => ({
+                ...tx,
+                accountName: mapToStandard(tx.accountName || ''),
+                auditTrail: [...(tx.auditTrail || []), `[${new Date().toLocaleTimeString()}] AI 대량 처리 및 계정 표준화 완료`]
+            }));
+
             // 결과 강제 반영
-            setStagedData([...result]);
+            setStagedData([...standardizedResult]);
             setProcessProgress(null);
 
             // 성공 알림
-            const enhancedCount = result.filter(r => r.accountName).length;
-            alert(`AI 분석 완료! ${enhancedCount}/${result.length}건의 계정과목이 자동 분류되었습니다.`);
+            const enhancedCount = standardizedResult.filter(r => r.accountName).length;
+            alert(`AI 분석 완료! ${enhancedCount}/${standardizedResult.length}건의 계정과목이 표준화되어 자동 분류되었습니다.`);
         } catch (error) {
+
             console.error('[Mass AI] 실패:', error);
             alert(`대량 처리 중 오류가 발생했습니다:\n${error instanceof Error ? error.message : String(error)}`);
         } finally {

@@ -1,0 +1,50 @@
+﻿cargo :    Compiling leptonic
+a-sys v0.4.9
+위치 줄:1 문자:1
++ cargo check --jobs 1 2>&1 |
+ Out-File -FilePath build_err
+_2.txt -Encod ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (   Comp  
+  iling leptonica-sys v0.4   
+ .9:String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+error: failed to run custom b
+uild command for `leptonica-s
+ys v0.4.9`
+
+Caused by:
+  process didn't exit success
+fully: `C:\Projects\Accountin
+gFlow\src-tauri\target_v3_fin
+al\debug\build\leptonica-sys-
+195f2136ffbd3352\build-script
+-build` (exit code: 101)
+  --- stdout
+  cargo:rerun-if-env-changed=
+LEPTONICA_INCLUDE_PATH
+  cargo:rerun-if-env-changed=
+LEPTONICA_LINK_PATHS
+  cargo:rerun-if-env-changed=
+LEPTONICA_LINK_LIBS
+
+  --- stderr
+
+  thread 'main' (20852) panic
+ked at C:\Users\user\.cargo\r
+egistry\src\index.crates.io-1
+949cf8c6b5b557f\leptonica-sys
+-0.4.9\build.rs:17:66:
+  called `Result::unwrap()` o
+n an `Err` value: VcpkgNotFou
+nd("No vcpkg installation fou
+nd. Set the VCPKG_ROOT enviro
+nment variable or run 'vcpkg 
+integrate install'")
+  note: run with `RUST_BACKTR
+ACE=1` environment variable t
+o display a backtrace

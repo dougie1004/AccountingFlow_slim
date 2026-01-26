@@ -33,8 +33,18 @@ pub async fn call_journal_ai(
    - 반드시 표 최하단의 **'합계', '계', 'Grand Total', '납기내 금액'** 등 최종 청구 금액을 'amount'로 추출하라.
 
 4. 계정과목 필터링 룰 (Strict Category Policy):
+   - **반드시 아래 제공된 [Standard Chart of Accounts] 중 하나를 선택하라.** 목록에 없는 계정과목을 임의로 생성하지 마라.
    - **'일반관리비' 라는 계정명을 절대 사용하지 마라.** 대신 실무 정책에 따라 '임차료'로 통합하라.
    - **'하나로마트', '노브랜드', '이마트' 등 마트 거래는 '소모품비'로 분류하라.**
+   - **배달의민족, 쿠팡이츠 등 배달 앱 결제는 '복리후생비'로 분류하라.**
+   - **택시, 버스, 지하철 등 교통비는 '여비교통비'로 분류하라.**
+
+[Standard Chart of Accounts]:
+- Assets: 현금, 보통예금, 외상매출금, 미수금, 상품, 비품, 차량운반구, 부가가치세대급금, 선급금, 소모품
+- Liabilities: 외상매입금, 미지급금, 미지급비용, 부가가치세예수금, 단기차입금, 예수금(급여)
+- Equity: 자본금, 이익잉여금
+- Revenue: 상품매출, 제품매출, 이자수익, 잡이익
+- Expenses: 급여, 퇴직급여, 복리후생비, 임차료, 통신비, 수도광열비, 세금과공과, 감가상각비, 여비교통비, 접대비, 광고선전비, 이자비용, 잡손실, 소모품비, 수선비, 보험료, 지급수수료, 운반비
 
 5. 다각도 분석 프레임워크 (Analytical Framework):
    - [Economic Substance] -> [Double-Entry Connection] -> [Risk Detection]
@@ -48,7 +58,7 @@ pub async fn call_journal_ai(
   "entryType": "Revenue | Expense | Asset | Liability | Equity",
   "description": "거래 요약 (반드시 한국어로 작성)",
   "vendor": "거래처명 (한국어 권장)",
-  "accountName": "최종 계정과목 (예: 소모품비, 임차료, 보통예금)",
+  "accountName": "[Standard Chart of Accounts] 중 선택된 계정명",
   "reasoning": "[CoT] 분석 근거",
   "needsClarification": false,
   "confidence": "High | Medium | Low"
@@ -174,7 +184,19 @@ pub async fn extract_transaction_from_media(bytes: Vec<u8>, mime: &str) -> Resul
    - 계정과목은 개별 내역과 상관없이 '임차료'(관리비의 경우)로 통합하십시오.
    - **'일반관리비' 라는 계정명을 절대 사용하지 마십시오.**
 
-3. 날짜 형식 (Date Format):
+3. 계정과목 필터링 룰 (Strict Category Policy):
+   - **반드시 아래 제공된 [Standard Chart of Accounts] 중 하나를 선택하십시오.** 
+   - '배달의민족', '쿠팡이츠' 등 배달 서비스는 '복리후생비'로 분류하십시오.
+   - '하나로마트', '노브랜드' 등 마트 거래는 '소모품비'로 분류하십시오.
+
+[Standard Chart of Accounts]:
+- Assets: 현금, 보통예금, 외상매출금, 미수금, 상품, 비품, 차량운반구, 부가가치세대급금, 선급금, 소모품
+- Liabilities: 외상매입금, 미지급금, 미지급비용, 부가가치세예수금, 단기차입금, 예수금(급여)
+- Equity: 자본금, 이익잉여금
+- Revenue: 상품매출, 제품매출, 이자수익, 잡이익
+- Expenses: 급여, 퇴직급여, 복리후생비, 임차료, 통신비, 수도광열비, 세금과공과, 감가상각비, 여비교통비, 접대비, 광고선전비, 이자비용, 잡손실, 소모품비, 수선비, 보험료, 지급수수료, 운반비
+
+4. 날짜 형식 (Date Format):
    - 반드시 'YYYY-MM-DD' 형식을 지키십시오. 연도가 없으면 2026년을 사용하십시오.
 
 JSON 응답 형식:
@@ -186,7 +208,7 @@ JSON 응답 형식:
   "description": "한국어로 요약된 거래 내용",
   "vendor": "한국어로 작성된 거래처명",
   "reasoning": "[Vision Analysis] 분석 근거",
-  "accountName": "최종 확정된 계정과목",
+  "accountName": "[Standard Chart of Accounts] 중 선택된 계정명",
   "confidence": "High | Medium | Low"
 }"#;
 

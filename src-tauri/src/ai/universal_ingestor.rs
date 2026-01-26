@@ -78,15 +78,24 @@ pub async fn ingest_universal_file(
             Ok(vec![ai_res])
         }
         "pdf" | "jpg" | "jpeg" | "png" | "image" => {
-            // Universal Media (Vision) -> AI
-            println!("[Universal Ingestor] Sending Media file to Vision AI (Extension: {})", extension);
+            // Tier 1.5: Local OCR (Regex & Layout Template equivalent)
+            println!("[Universal Ingestor] Attempting Local OCR (Tier 1.5) to save API cost...");
+            if let Ok(Some(mut local_res)) = crate::ai::local_ocr_engine::perform_local_ocr(&file_bytes) {
+                local_res.audit_trail.push(source_id.clone());
+                local_res.reasoning.push_str(" | [Tier 1.5] Local OCR Success - API Saved");
+                println!("[Universal Ingestor] Local OCR Success! Skipping Cloud Vision AI.");
+                return Ok(vec![local_res]);
+            }
+
+            // Tier 3: Universal Media (Vision) -> AI (Fallback)
+            println!("[Universal Ingestor] Local OCR failed or insufficient info. Sending to Vision AI (Extension: {})", extension);
             let mut ai_res = crate::ai::ai_service::extract_transaction_from_media(file_bytes, &extension).await?;
             
             // Apply Local Rule Engine (Overrides AI if necessary)
             crate::ai::rule_based_classifier::classify_by_rules(&mut ai_res);
             
             ai_res.audit_trail.push(source_info.clone());
-            ai_res.reasoning.push_str(" | Vision Analysis + Local Rules");
+            ai_res.reasoning.push_str(" | [Tier 3] Vision Analysis + Local Rules");
             println!("[Universal Ingestor] Completed Vision AI analysis with local rule enforcement.");
             Ok(vec![ai_res])
         }

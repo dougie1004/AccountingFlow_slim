@@ -72,9 +72,9 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
 
     // [Category: F&B / Welfare] -> 복리후생비
     // Logic: "Cafe", "Food", "Kitchen", "Burger", "Pizza", "Mart", "Store", "Restaurant"
-    let food_keywords = ["cafe", "coffee", "brew", "kitchen", "food", "burger", "pizza", "sushi", "mart", "store", "restaurant", "pub", "bar", "bakery", "steak", "diner", "식당", "카페", "커피", "푸드", "키친", "갈비", "횟집", "국밥", "버거", "피자", "베이커리"];
+    let food_keywords = ["cafe", "coffee", "brew", "kitchen", "food", "burger", "pizza", "sushi", "mart", "store", "restaurant", "pub", "bar", "bakery", "steak", "diner", "식당", "카페", "커피", "푸드", "키친", "갈비", "횟집", "국밥", "버거", "피자", "베이커리", "배달의민족", "쿠팡이츠", "요기요"];
     if matches_any(&tokens, &food_keywords) {
-        apply_classification(tx, "복리후생비", "Expense", "패턴: 식음료/외식 업종 감지", "Medium");
+        apply_classification(tx, "복리후생비", "Expense", "패턴: 식음료/외식/배달 업종 감지", "Medium");
         return;
     }
 
@@ -125,6 +125,27 @@ pub fn classify_by_rules(tx: &mut ParsedTransaction) {
     let tax_keywords = ["tax", "gov", "city", "council", "fine", "세무", "국세", "지방세", "구청", "시청", "법원", "과태료", "범칙금"];
     if matches_any(&tokens, &tax_keywords) {
         apply_classification(tx, "세금과공과", "Expense", "패턴: 관공서/세금 관련", "High");
+        return;
+    }
+
+    // [Category: Transport / Travel] -> 여비교통비 (V3 Add)
+    let transport_keywords = ["taxi", "bus", "metro", "subway", "train", "railway", "airline", "flight", "uber", "bolt", "grab", "택시", "버스", "지하철", "철도", "기차", "항공", "비행기", "고속버스", "시외버스", "카카오택시", "티머니"];
+    if matches_any(&tokens, &transport_keywords) {
+        apply_classification(tx, "여비교통비", "Expense", "패턴: 대중교통/시외교통 업종 감지", "High");
+        return;
+    }
+
+    // [Category: Repair / Maintenance] -> 수선비 (V3 Add)
+    let repair_keywords = ["repair", "fix", "maintenance", "interior", "plumbing", "service", "수리", "수선", "AS", "인테리어", "보수", "유지"];
+    if matches_any(&tokens, &repair_keywords) {
+        apply_classification(tx, "수선비", "Expense", "패턴: 시설 유지 및 공사/수공구 관련 업종 감지", "Medium");
+        return;
+    }
+
+    // [Category: Entertainment / Gifts] -> 접대비 (V3 Add)
+    let ent_keywords = ["gift", "present", "entertainment", "golf", "bar", "pub", "karaoke", "club", "룸", "접대", "선물", "유흥", "백화점", "골프", "백창", "상품권"];
+    if matches_any(&tokens, &ent_keywords) {
+        apply_classification(tx, "접대비", "Expense", "패턴: 접대/선물/유흥 관련 정황 감지. [CoT] 접대비는 증빙 및 한도 요건이 엄격하므로 주의가 필요합니다.", "Medium");
         return;
     }
 

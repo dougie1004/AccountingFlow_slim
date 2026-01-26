@@ -1,0 +1,586 @@
+﻿cargo :    Compiling serde_with
+_macros v3.16.1
+위치 줄:1 문자:1
++ cargo check 2> build_error_cu
+rrent.txt
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~
+    + CategoryInfo          :  
+   NotSpecified: (   Compilin  
+  g serde_with_macros v3.16.   
+ 1:String) [], RemoteExcept    
+ion
+    + FullyQualifiedErrorId :  
+   NativeCommandError
+ 
+   Compiling url v2.5.7
+   Compiling regex v1.12.2
+    Checking socket2 v0.6.1
+    Checking mio v1.1.1
+    Checking icu_properties_dat
+a v2.1.2
+    Checking fnv v1.0.7
+    Checking futures-core v0.3.
+31
+    Checking subtle v2.6.1
+   Compiling vswhom-sys v0.1.3
+   Compiling windows-sys v0.59.
+0
+    Checking icu_normalizer v2.
+1.1
+    Checking form_urlencoded v1
+.2.2
+    Checking tracing-core v0.1.
+36
+    Checking crossbeam-utils v0
+.8.21
+    Checking windows-threading 
+v0.1.0
+   Compiling vswhom v0.1.0
+   Compiling rustc_version v0.4
+.1
+    Checking zmij v1.0.10
+    Checking powerfmt v0.2.0
+   Compiling option-ext v0.2.0
+    Checking icu_properties v2.
+1.2
+   Compiling getrandom v0.3.4
+    Checking utf8_iter v1.0.4
+   Compiling time-core v0.1.6
+   Compiling num-conv v0.1.0
+    Checking deranged v0.5.5
+    Checking serde_json v1.0.14
+8
+   Compiling dirs-sys v0.5.0
+    Checking windows-future v0.
+2.1
+    Checking tracing v0.1.44
+    Checking windows-numerics v
+0.2.0
+   Compiling time-macros v0.2.2
+4
+    Checking windows-collection
+s v0.2.0
+   Compiling typenum v1.19.0
+    Checking tokio v1.49.0
+   Compiling simd-adler32 v0.3.
+8
+   Compiling heck v0.5.0
+    Checking cpufeatures v0.2.1
+7
+    Checking byteorder v1.5.0
+   Compiling dirs v6.0.0
+   Compiling schemars v0.8.22
+   Compiling urlpattern v0.3.0
+    Checking windows v0.61.3
+   Compiling cargo_toml v0.22.3
+    Checking aho-corasick v1.1.
+4
+   Compiling webview2-com-sys v
+0.38.0
+    Checking bitflags v2.10.0
+    Checking raw-window-handle 
+v0.6.2
+   Compiling generic-array v0.1
+4.7
+    Checking log v0.4.29
+    Checking alloc-no-stdlib v2
+.0.4
+    Checking idna_adapter v1.2.
+1
+    Checking unic-common v0.9.0
+    Checking unic-char-range v0
+.9.0
+   Compiling serde_with v3.16.1
+   Compiling adler2 v2.0.1
+    Checking regex-syntax v0.8.
+8
+    Checking idna v1.1.0
+    Checking unic-ucd-version v
+0.9.0
+    Checking unic-char-property
+ v0.9.0
+   Compiling miniz_oxide v0.8.9
+    Checking alloc-stdlib v0.2.
+2
+    Checking uuid v1.19.0
+   Compiling crc32fast v1.5.0
+   Compiling zstd-sys v2.0.16+z
+std.1.5.7
+    Checking block-buffer v0.10
+.4
+    Checking dpi v0.1.2
+    Checking thiserror v2.0.17
+    Checking typeid v1.0.3
+    Checking winapi-util v0.1.1
+1
+   Compiling cookie v0.18.1
+    Checking pin-utils v0.1.0
+    Checking dunce v1.0.5
+    Checking time v0.3.44
+    Checking winnow v0.7.14
+    Checking siphasher v1.0.1
+    Checking same-file v1.0.6
+    Checking erased-serde v0.4.
+9
+   Compiling flate2 v1.1.5
+    Checking cfb v0.7.3
+    Checking digest v0.10.7
+    Checking phf_shared v0.11.3
+   Compiling crypto-common v0.1
+.7
+    Checking brotli-decompresso
+r v5.0.0
+    Checking unic-ucd-ident v0.
+9.0
+    Checking jsonptr v0.6.3
+   Compiling fdeflate v0.3.7
+    Checking http-body v1.0.1
+    Checking inout v0.1.4
+    Checking thiserror v1.0.69
+   Compiling webview2-com-macro
+s v0.8.0
+    Checking serde_spanned v1.0
+.4
+    Checking toml_datetime v0.7
+.5+spec-1.1.0
+    Checking windows-version v0
+.1.7
+    Checking encoding_rs v0.8.3
+5
+    Checking unicode-segmentati
+on v1.12.0
+    Checking toml_writer v1.0.6
++spec-1.1.0
+    Checking equivalent v1.0.2
+    Checking futures-task v0.3.
+31
+    Checking regex-automata v0.
+4.13
+    Checking futures-sink v0.3.
+31
+    Checking hashbrown v0.16.1
+   Compiling httparse v1.10.1
+    Checking brotli v8.0.2
+    Checking futures-util v0.3.
+31
+   Compiling tauri-utils v2.8.1
+   Compiling png v0.17.16
+    Checking json-patch v3.0.1
+    Checking toml_parser v1.0.6
++spec-1.1.0
+    Checking cipher v0.4.4
+    Checking indexmap v2.12.1
+    Checking infer v0.19.0
+   Compiling winreg v0.55.0
+    Checking serde-untagged v0.
+1.9
+    Checking toml v0.9.10+spec-
+1.1.0
+    Checking phf v0.11.3
+   Compiling embed-resource v3.
+0.6
+    Checking walkdir v2.5.0
+    Checking crossbeam-channel 
+v0.5.15
+   Compiling bzip2-sys v0.1.13+
+1.0.8
+   Compiling tauri-winres v0.3.
+5
+    Checking anyhow v1.0.100
+    Checking windows_x86_64_msv
+c v0.52.6
+   Compiling tauri-runtime v2.9
+.2
+   Compiling native-tls v0.2.14
+    Checking glob v0.3.3
+    Checking tower-service v0.3
+.3
+    Checking tokio-util v0.7.18
+    Checking try-lock v0.2.5
+   Compiling wry v0.53.5
+    Checking atomic-waker v1.1.
+2
+    Checking semver v1.0.27
+   Compiling zstd-safe v5.0.2+z
+std.1.5.2
+    Checking slab v0.4.11
+    Checking want v0.3.1
+   Compiling sha2 v0.10.9
+    Checking windows-targets v0
+.52.6
+   Compiling ico v0.4.0
+    Checking futures-channel v0
+.3.31
+    Checking schannel v0.1.28
+    Checking windows-strings v0
+.5.1
+    Checking windows-result v0.
+4.1
+   Compiling base64 v0.22.1
+    Checking lazy_static v1.5.0
+    Checking h2 v0.4.12
+    Checking base64ct v1.8.3
+   Compiling tauri-runtime-wry 
+v2.9.3
+    Checking windows-registry v
+0.6.1
+    Checking password-hash v0.4
+.2
+    Checking aes v0.8.4
+    Checking keyboard-types v0.
+7.0
+    Checking hmac v0.12.1
+    Checking softbuffer v0.4.8
+    Checking crossbeam-epoch v0
+.9.18
+    Checking sync_wrapper v1.0.
+2
+    Checking universal-hash v0.
+5.1
+   Compiling num-traits v0.2.19
+   Compiling serialize-to-javas
+cript-impl v0.1.2
+    Checking tower-layer v0.3.3
+    Checking opaque-debug v0.3.
+1
+   Compiling rayon-core v1.13.0
+    Checking mime v0.3.17
+    Checking ryu v1.0.22
+    Checking ipnet v2.11.0
+    Checking tower v0.5.2
+    Checking polyval v0.6.2
+    Checking crossbeam-deque v0
+.8.6
+    Checking pbkdf2 v0.11.0
+    Checking muda v0.17.1
+    Checking serialize-to-javas
+cript v0.1.2
+    Checking tokio-native-tls v
+0.3.1
+    Checking http-body-util v0.
+1.3
+    Checking sha1 v0.10.6
+   Compiling serde_repr v0.1.20
+    Checking zeroize v1.8.2
+    Checking iri-string v0.7.10
+    Checking constant_time_eq v
+0.1.5
+    Checking ghash v0.5.1
+    Checking serde_urlencoded v
+0.7.1
+    Checking rustls-pki-types v
+1.13.2
+    Checking codepage v0.1.2
+    Checking quick-xml v0.31.0
+    Checking window-vibrancy v0
+.6.0
+    Checking ctr v0.9.2
+    Checking open v5.3.3
+    Checking aead v0.5.2
+    Checking shared_child v1.1.
+1
+    Checking csv-core v0.1.13
+    Checking os_pipe v1.2.3
+    Checking either v1.15.0
+    Checking aes-gcm v0.10.3
+    Checking chardetng v0.1.17
+    Checking hex v0.4.3
+    Checking csv v1.4.0
+    Checking rayon v1.11.0
+    Checking chrono v0.4.42
+    Checking hyper v1.8.1
+    Checking bzip2 v0.4.4
+    Checking tower-http v0.6.8
+    Checking zstd v0.11.2+zstd.
+1.5.2
+    Checking zip v0.6.6
+    Checking hyper-util v0.1.19
+    Checking calamine v0.24.0
+    Checking hyper-tls v0.6.0
+    Checking reqwest v0.12.28
+   Compiling tauri-build v2.5.3
+   Compiling tauri-plugin v2.5.
+2
+   Compiling tauri-codegen v2.5
+.2
+   Compiling tauri v2.9.5
+   Compiling tauri-plugin-shell
+ v2.3.3
+   Compiling tauri-macros v2.5.
+2
+   Compiling accounting-flow v0
+.1.0 (C:\Projects\AccountingFlo
+w\src-tauri)
+    Checking tao v0.34.5
+    Checking webview2-com v0.38
+.0
+warning: unused doc comment
+  --> src\core\security.rs:7:1
+   |
+ 7 | / /**
+ 8 | |  * [Security Module] Ten
+ant Isolation & KMS (Key Manage
+ment System)
+ 9 | |  * 
+10 | |  * ?뷀꽣?꾨씪?댁쫰湲?蹂댁븞 ?붽뎄?ы빆
+??異⑹”?섍린 ?꾪븳 寃⑸━ 諛???愿由?紐⑤뱢?낅땲
+??
+...  |
+15 | |  * 3. In-Memory Vault: ?
+ㅼ쓽 硫붾え由????덉쟾??寃⑸━ 蹂닿? (?ㅼ젣 ?댁쁺
+ ?쒖뿉??Encrypted File/Hardware H
+SM ?곕룞 沅뚯옣)
+16 | |  */
+   | |___^ rustdoc does not gen
+erate documentation for macro i
+nvocations
+   |
+   = help: to document an item 
+produced by a macro, the macro 
+must produce the documentation 
+as part of its expansion
+   = note: `#[warn(unused_doc_c
+omments)]` (part of `#[warn(unu
+sed)]`) on by default
+
+warning: unused import: `Startu
+pInsights`
+ --> src\accounting\ir_engine.r
+s:3:55
+  |
+3 | use crate::accounting::insi
+ghts::{calculate_insights, Star
+tupInsights};
+  |                            
+                           ^^^^
+^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_import
+s)]` (part of `#[warn(unused)]`
+) on by default
+
+warning: unused import: `Journa
+lEntry`
+ --> src\accounting\parser.rs:1
+:46
+  |
+1 | use crate::core::models::{P
+arsedTransaction, JournalEntry}
+;
+  |                            
+                  ^^^^^^^^^^^^
+
+warning: unused import: `Data`
+ --> src\accounting\parser.rs:5
+:30
+  |
+5 | use calamine::{Reader, Xlsx
+, Data};
+  |                            
+  ^^^^
+
+warning: unused import: `crate:
+:ai::robust_parser::parse_robus
+t_csv`
+ --> src\ai\migration_engine.rs
+:2:5
+  |
+2 | use crate::ai::robust_parse
+r::parse_robust_csv;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Journa
+lEntry`
+ --> src\ai\csv_inference.rs:2:
+46
+  |
+2 | use crate::core::models::{P
+arsedTransaction, JournalEntry}
+;
+  |                            
+                  ^^^^^^^^^^^^
+
+warning: unused variable: `toda
+y`
+  --> src\accounting\forecast_e
+ngine.rs:36:9
+   |
+36 |     let today = chrono::Lo
+cal::now().naive_local();
+   |         ^^^^^ help: if thi
+s is intentional, prefix it wit
+h an underscore: `_today`
+   |
+   = note: `#[warn(unused_varia
+bles)]` (part of `#[warn(unused
+)]`) on by default
+
+warning: unused variable: `net_
+assets`
+   --> src\accounting\report_en
+gine.rs:150:9
+    |
+150 |     let net_assets: f64 =
+ financial_overview.total_reven
+ue - financial_overview.total_e
+xpenses; // Simplified
+    |         ^^^^^^^^^^ help: 
+if this is intentional, prefix 
+it with an underscore: `_net_as
+sets`
+
+warning: value assigned to `cap
+italized_amount` is never read
+  --> src\accounting\advanced_l
+edger.rs:41:38
+   |
+41 |         let mut capitalize
+d_amount = 0.0;
+   |                           
+           ^^^
+   |
+   = help: maybe it is overwrit
+ten before being read?
+   = note: `#[warn(unused_assig
+nments)]` (part of `#[warn(unus
+ed)]`) on by default
+
+warning: value assigned to `hea
+der_map` is never read
+  --> src\accounting\parser.rs:
+74:26
+   |
+74 |     let mut header_map = s
+td::collections::HashMap::new()
+;
+   |                          ^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: maybe it is overwrit
+ten before being read?
+
+warning: unused variable: `key`
+   --> src\accounting\parser.rs
+:140:10
+    |
+140 |     for (key, group) in g
+roups {
+    |          ^^^ help: if thi
+s is intentional, prefix it wit
+h an underscore: `_key`
+
+warning: value assigned to `tax
+` is never read
+   --> src\tax\tax_bridge.rs:20
+7:19
+    |
+207 |     let mut tax = 0.0;
+    |                   ^^^
+    |
+    = help: maybe it is overwri
+tten before being read?
+
+warning: unused variable: `i`
+  --> src\ai\robust_parser.rs:9
+1:10
+   |
+91 |     for (i, fields) in all
+_records.iter().enumerate().ski
+p(start_row) {
+   |          ^ help: if this i
+s intentional, prefix it with a
+n underscore: `_i`
+
+warning: unused variable: `stat
+us`
+   --> src\ai\robust_parser.rs:
+152:28
+    |
+152 |                  let (val
+, status, _) = clean_amount_wit
+h_status(f);
+    |                          
+  ^^^^^^ help: if this is inten
+tional, prefix it with an under
+score: `_status`
+
+warning: variable does not need
+ to be mutable
+  --> src\ai\office_parser.rs:2
+3:13
+   |
+23 |         let mut slide_indi
+ces: Vec<usize> = (1..=50).coll
+ect(); // Max 50 slides check
+   |             ----^^^^^^^^^^
+^^^
+   |             |
+   |             help: remove t
+his `mut`
+   |
+   = note: `#[warn(unused_mut)]
+` (part of `#[warn(unused)]`) o
+n by default
+
+warning: unused variable: `head
+er_tokens`
+  --> src\ai\csv_inference.rs:4
+9:9
+   |
+49 |     let header_tokens: Vec
+<&str> = header_line.split(|c| 
+c == ',' || c == '\t' || c == '
+;').collect();
+   |         ^^^^^^^^^^^^^ help
+: if this is intentional, prefi
+x it with an underscore: `_head
+er_tokens`
+
+warning: field `tenant_id` is n
+ever read
+  --> src\core\quota_manager.rs
+:11:5
+   |
+10 | struct UserQuota {
+   |        --------- field in 
+this struct
+11 |     tenant_id: String,
+   |     ^^^^^^^^^
+   |
+   = note: `UserQuota` has deri
+ved impls for the traits `Debug
+` and `Clone`, but these are in
+tentionally ignored during dead
+ code analysis
+   = note: `#[warn(dead_code)]`
+ (part of `#[warn(unused)]`) on
+ by default
+
+warning: function `clean_amount
+` is never used
+   --> src\ai\robust_parser.rs:
+384:4
+    |
+384 | fn clean_amount(val: &str
+) -> f64 {
+    |    ^^^^^^^^^^^^
+
+warning: function `get_deprecia
+tion_schedule` is never used
+   --> src\commands.rs:189:8
+    |
+189 | pub fn get_depreciation_s
+chedule(asset: Asset) -> crate:
+:core::models::AssetSchedule {
+    |        ^^^^^^^^^^^^^^^^^^
+^^^^^^^
+
+warning: `accounting-flow` (lib
+) generated 19 warnings (run `c
+argo fix --lib -p accounting-fl
+ow` to apply 12 suggestions)
+    Finished `dev` profile [uno
+ptimized + debuginfo] target(s)
+ in 44.00s

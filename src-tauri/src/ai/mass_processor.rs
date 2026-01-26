@@ -4,6 +4,7 @@ use reqwest::Client;
 use serde_json::json;
 use std::env;
 use tokio::task::JoinSet;
+use crate::ai::local_ocr_engine;
 
 /// Mass Data Ingestion Engine with Parallel AI Processing
 /// Processes 100+ transactions in under 3 seconds using tokio parallel execution

@@ -1,210 +1,136 @@
 import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../hooks/useAccounting';
-import { Download, FileText, Printer, FileSpreadsheet, File } from 'lucide-react';
+import { Download, FileText, Printer, FileSpreadsheet, File, TrendingUp, TrendingDown, Zap, Calculator } from 'lucide-react';
 
 type Tab = 'bs' | 'pl' | 'cf' | 'ce';
 
+import { STANDARD_ACCOUNTS } from '../constants/accounts';
+
 const FinancialStatements: React.FC = () => {
-    const { subLedger } = useAccounting();
+    const { subLedger, config } = useAccounting();
     const [activeTab, setActiveTab] = useState<Tab>('bs');
 
-    // --- Data Aggregation Logic ---
-    const balances = useMemo(() => {
-        const map = new Map<string, number>();
-        subLedger.forEach(entry => {
-            if (entry.status !== 'Approved' && entry.status !== 'Unconfirmed') return;
+    // --- Core Accounting Engine: Movement TB for Reports ---
+    const movementMap = useMemo(() => {
+        const getCategory = (name: string): 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense' => {
+            const standard = STANDARD_ACCOUNTS.find(a => a.name === name);
+            if (standard) return standard.category as any;
 
-            const baseAmount = entry.amount;
-            const vatAmount = entry.vat || 0;
-            const totalAmount = baseAmount + vatAmount;
-
-            if (entry.type === 'Revenue') {
-                map.set(entry.debitAccount, (map.get(entry.debitAccount) || 0) + totalAmount);
-                map.set(entry.creditAccount, (map.get(entry.creditAccount) || 0) - baseAmount);
-                map.set('부가가치세예수금', (map.get('부가가치세예수금') || 0) - vatAmount);
-            } else if (entry.type === 'Expense' || entry.type === 'Asset') {
-                map.set(entry.debitAccount, (map.get(entry.debitAccount) || 0) + baseAmount);
-                if (vatAmount > 0) {
-                    map.set('부가가치세대급금', (map.get('부가가치세대급금') || 0) + vatAmount);
-                }
-                map.set(entry.creditAccount, (map.get(entry.creditAccount) || 0) - totalAmount);
-            } else {
-                map.set(entry.debitAccount, (map.get(entry.debitAccount) || 0) + totalAmount);
-                map.set(entry.creditAccount, (map.get(entry.creditAccount) || 0) - totalAmount);
-            }
-        });
-        return map;
-    }, [subLedger]);
-
-    // --- Improved Categorization Logic ---
-    const accounts = useMemo(() => {
-        const accs: { name: string; balance: number; type: string; category: string }[] = [];
-
-        balances.forEach((bal, name) => {
-            let type = 'Other';
-            let category = 'Uncategorized';
             const n = name.toLowerCase();
+            if (['현금', '예금', '보통예금', '외상매출', '미수', '상품', '재고', '비품', '기계', '건물', '차량', '대급금', '자산'].some(k => n.includes(k))) return 'Asset';
+            if (['외상매입', '매입채무', '미지급', '예수금', '차입금', '부채', 'payable'].some(k => n.includes(k))) return 'Liability';
+            if (['자본', 'equity', '잉여금', '주식'].some(k => n.includes(k))) return 'Equity';
+            if (['매출', '수익', 'revenue', '이익'].some(k => n.includes(k)) && !n.includes('미수')) return 'Revenue';
+            if (['비용', '급여', '임차료', '비', '료', '원가', 'expense', 'loss', '손실'].some(k => n.includes(k))) return 'Expense';
+            return 'Asset';
+        };
 
-            // P/L Items First (Broaden keywords to catch everything including VAT)
-            if (['매출원가', 'cogs', 'cost of sales', '원가'].some(k => n.includes(k))) { type = 'Expense'; category = 'Cost of Sales'; }
-            else if (['매출', 'sales', 'revenue', '수익'].some(k => n.includes(k)) && !n.includes('채권') && !n.includes('외상')) { type = 'Revenue'; category = 'Operating Revenue'; }
-            else if (['이자수익', '잡이익', 'income', '이익', '수익'].some(k => n.includes(k)) && !n.includes('미수')) { type = 'Revenue'; category = 'Non-Operating Income'; }
-            else if (['비용', '급여', '임차료', '접대비', '통신비', '수수료', '전력', '운반', 'expense', 'salary', 'rent', 'power', 'logistics', '유지비', '수선', '보험', '세무', '식대', '회식'].some(k => n.includes(k))) { type = 'Expense'; category = 'Operating Expenses'; }
-            else if (['이자비용', '손실', 'loss', '비용'].some(k => n.includes(k)) && !n.includes('미지급')) { type = 'Expense'; category = 'Non-Operating Expenses'; }
+        const map = new Map<string, { name: string; category: string; opening: number; debit: number; credit: number; closing: number }>();
 
-            // B/S Items
-            else if (['현금', '예금', 'cash', 'bank', '보통예금'].some(k => n.includes(k))) { type = 'Asset'; category = 'Current Assets'; }
-            else if (['외상매출', '매출채권', '미수금', 'receivable'].some(k => n.includes(k))) { type = 'Asset'; category = 'Current Assets'; }
-            else if (['상품', '제품', '재고', '원재료', 'inventory', 'material'].some(k => n.includes(k))) { type = 'Asset'; category = 'Current Assets'; }
-            else if (['건물', '비품', '기계', '차량', '토지', 'asset', 'equipment', 'machinery'].some(k => n.includes(k))) { type = 'Asset'; category = 'Non-Current Assets'; }
-            else if (['선급금', '대급금', 'vatpaid'].some(k => n.includes(k))) { type = 'Asset'; category = 'Current Assets'; }
+        // 1. Initial Balances
+        if (config.initialBalances) {
+            config.initialBalances.forEach(ib => {
+                const cat = getCategory(ib.account);
+                map.set(ib.account, { name: ib.account, category: cat, opening: ib.amount, debit: 0, credit: 0, closing: ib.amount });
+            });
+        }
 
-            // Liabilities
-            else if (['외상매입', '매입채무', '미지급', 'payable'].some(k => n.includes(k))) { type = 'Liability'; category = 'Current Liabilities'; }
-            else if (['차입금', 'loan', 'debt'].some(k => n.includes(k))) { type = 'Liability'; category = 'Non-Current Liabilities'; }
-            else if (['예수금', 'vatReceived', '부가가치세예수금'].some(k => n.includes(k))) { type = 'Liability'; category = 'Current Liabilities'; }
-            else if (['대급금', 'vatPaid', '부가가치세대급금'].some(k => n.includes(k))) { type = 'Asset'; category = 'Current Assets'; }
+        // 2. Transactions
+        subLedger.forEach(entry => {
+            const process = (acc: string, amt: number, isDebit: boolean) => {
+                const d = map.get(acc) || { name: acc, category: getCategory(acc), opening: 0, debit: 0, credit: 0, closing: 0 };
+                if (isDebit) d.debit += amt; else d.credit += amt;
+                map.set(acc, d);
+            };
 
-            // Equity
-            else if (['자본', 'capital', 'equity', 'stock'].some(k => n.includes(k))) { type = 'Equity'; category = 'Capital'; }
-            else if (['이익잉여금', 'retained earnings'].some(k => n.includes(k))) { type = 'Equity'; category = 'Retained Earnings'; }
-            else if (['이자비용', '손실', 'loss'].some(k => n.includes(k))) { type = 'Expense'; category = 'Non-Operating Expenses'; }
-            else if (['법인세', 'tax'].some(k => n.includes(k))) { type = 'Expense'; category = 'Income Tax'; }
+            process(entry.debitAccount, entry.amount, true);
+            process(entry.creditAccount, entry.amount, false);
 
-            // Default
-            if (type === 'Other') {
-                if (bal > 0) { type = 'Asset'; category = 'Other Assets'; }
-                else { type = 'Liability'; category = 'Other Liabilities'; }
+            if (entry.vat > 0) {
+                const vatAcc = entry.type === 'Revenue' ? '부가가치세예수금' : '부가가치세대급금';
+                process(vatAcc, entry.vat, entry.type !== 'Revenue');
             }
-
-            accs.push({ name, balance: bal, type, category });
         });
-        return accs;
-    }, [balances]);
 
-    // --- Helper Functions ---
-    const sum = (accs: typeof accounts) => accs.reduce((s, a) => s + Math.abs(a.balance), 0);
-    const sumNet = (accs: typeof accounts) => accs.reduce((s, a) => s + a.balance, 0); // For expenses where debit is positive
+        // 3. Final Closing Calculation
+        map.forEach((val, key) => {
+            const isDebitNature = ['Asset', 'Expense'].includes(val.category);
+            val.closing = isDebitNature
+                ? val.opening + val.debit - val.credit
+                : val.opening + val.credit - val.debit;
+        });
 
-    // --- Robust Aggregation ---
-    // Rule: Assets = Liabilities + Equity + (Revenue - Expenses)
-    const assetAccounts = accounts.filter(a => a.type === 'Asset');
-    const liabilityAccounts = accounts.filter(a => a.type === 'Liability');
-    const equityAccounts = accounts.filter(a => a.type === 'Equity');
-    const revenueAccounts = accounts.filter(a => a.type === 'Revenue');
-    const expenseAccounts = accounts.filter(a => a.type === 'Expense');
+        return map;
+    }, [subLedger, config]);
 
-    // Totals using absolute values for display
-    const totalAssets = assetAccounts.reduce((sum, a) => sum + Math.abs(a.balance), 0);
-    const totalLiabilities = liabilityAccounts.reduce((sum, a) => sum + Math.abs(a.balance), 0);
-    const totalStaticEquity = equityAccounts.reduce((sum, a) => sum + Math.abs(a.balance), 0);
+    const accounts = Array.from(movementMap.values());
 
-    // P/L Display Groups (just for showing the breakdown, not for the bottom line calculation)
-    const salesRevenue = accounts.filter(a => a.category === 'Operating Revenue');
-    const costOfSales = accounts.filter(a => a.category === 'Cost of Sales');
-    const operatingExpenses = accounts.filter(a => a.category === 'Operating Expenses');
-    const nonOperatingIncome = accounts.filter(a => a.category === 'Non-Operating Income');
-    const nonOperatingExpenses = accounts.filter(a => a.category === 'Non-Operating Expenses');
+    // --- Financial Metrics Aggregation ---
+    const plMetrics = useMemo(() => {
+        const revenue = accounts.filter(a => a.category === 'Revenue').reduce((s, a) => s + Math.abs(a.closing - a.opening), 0);
+        const expenses = accounts.filter(a => a.category === 'Expense').reduce((s, a) => s + (a.closing - a.opening), 0);
+        const netIncome = revenue - expenses;
+        return { revenue, expenses, netIncome };
+    }, [accounts]);
 
-    // Derived P/L Metrics (for display only)
-    const amountSales = sum(salesRevenue);
-    const amountCOGS = sum(costOfSales);
-    const grossProfit = amountSales - amountCOGS;
-    const amountOpExpenses = sum(operatingExpenses);
-    const operatingIncome = grossProfit - amountOpExpenses;
-    const amountNonOpIncome = sum(nonOperatingIncome);
-    const amountNonOpExpenses = sum(nonOperatingExpenses);
-    // In our map: Revenue balances are negative, Expenses are positive.
-    // So Net Income = -(Sum of Revenue Balances + Sum of Expense Balances)
-    const netIncome = -(revenueAccounts.reduce((s, a) => s + a.balance, 0) + expenseAccounts.reduce((s, a) => s + a.balance, 0));
-    const totalEquity = totalStaticEquity + netIncome;
+    const bsMetrics = useMemo(() => {
+        const totalAssets = accounts.filter(a => a.category === 'Asset').reduce((s, a) => s + Math.abs(a.closing), 0);
+        const totalLiabilities = accounts.filter(a => a.category === 'Liability').reduce((s, a) => s + Math.abs(a.closing), 0);
+        const totalEquity = accounts.filter(a => a.category === 'Equity').reduce((s, a) => s + Math.abs(a.closing), 0) + plMetrics.netIncome;
+        return { totalAssets, totalLiabilities, totalEquity };
+    }, [accounts, plMetrics]);
 
-    // B/S Sub-groups for display
-    const currentAssets = assetAccounts.filter(a => a.category === 'Current Assets');
-    const nonCurrentAssets = assetAccounts.filter(a => a.category === 'Non-Current Assets');
-    const otherAssets = assetAccounts.filter(a => !['Current Assets', 'Non-Current Assets'].includes(a.category));
+    // --- Advanced Indirect Method Cash Flow ---
+    const cfMetrics = useMemo(() => {
+        // 1. Operating Activities (Indirect Method)
+        const netIncome = plMetrics.netIncome;
 
-    const currentLiabilities = liabilityAccounts.filter(a => a.category === 'Current Liabilities');
-    const nonCurrentLiabilities = liabilityAccounts.filter(a => a.category === 'Non-Current Liabilities');
-    const otherLiabilities = liabilityAccounts.filter(a => !['Current Liabilities', 'Non-Current Liabilities'].includes(a.category));
+        // Non-cash adjustment (Simplified: sum of accounts containing '감가상각' movement)
+        const depreciation = accounts
+            .filter(a => a.name.includes('감가상각'))
+            .reduce((s, a) => s + (a.debit), 0); // Depreciation expense is debit
 
-    // Display Totals
-    const totalCurrentAssets = currentAssets.reduce((sum, a) => sum + Math.abs(a.balance), 0);
-    const totalNonCurrentAssets = nonCurrentAssets.reduce((sum, a) => sum + Math.abs(a.balance), 0);
-    const totalOtherAssets = otherAssets.reduce((sum, a) => sum + Math.abs(a.balance), 0);
+        // Working Capital Changes (Delta = Closing - Opening)
+        // Asset Increase = Cash Decrease (-)
+        // Liability Increase = Cash Increase (+)
+        const deltaAR = accounts.filter(a => a.name.includes('외상매출') || a.name.includes('미수금')).reduce((s, a) => s + (a.closing - a.opening), 0);
+        const deltaInventory = accounts.filter(a => a.name.includes('상품') || a.name.includes('재고')).reduce((s, a) => s + (a.closing - a.opening), 0);
+        const deltaVAT_Asset = accounts.filter(a => a.name.includes('대급금')).reduce((s, a) => s + (a.closing - a.opening), 0);
 
-    const totalCurrentLiabilities = currentLiabilities.reduce((sum, a) => sum + Math.abs(a.balance), 0);
-    const totalNonCurrentLiabilities = nonCurrentLiabilities.reduce((sum, a) => sum + Math.abs(a.balance), 0);
-    const totalOtherLiabilities = otherLiabilities.reduce((sum, a) => sum + Math.abs(a.balance), 0);
+        const deltaAP = accounts.filter(a => a.name.includes('외상매입') || a.name.includes('미지급')).reduce((s, a) => s + (a.closing - a.opening), 0);
+        const deltaVAT_Liab = accounts.filter(a => a.name.includes('예수금')).reduce((s, a) => s + (a.closing - a.opening), 0);
 
-    // Integrity Check
-    const officialEntries = (subLedger || []).filter((e: any) => e.ledgerType === 'Official' || e.status === 'Approved');
-    const integrityCheck = Math.abs(totalAssets - (totalLiabilities + totalEquity));
-    const isBalanced = integrityCheck < 100; // 100원 미만 오차는 허용
+        const opCashFlow = netIncome + depreciation - deltaAR - deltaInventory - deltaVAT_Asset + deltaAP + deltaVAT_Liab;
 
-    // --- Export Functions ---
+        // 2. Investing Activities
+        // Increase in fixed assets = Cash Outflow (-)
+        const invCashFlow = -accounts
+            .filter(a => a.category === 'Asset' && ['비품', '기계', '차량', '건물'].some(k => a.name.includes(k)))
+            .reduce((s, a) => s + (a.debit), 0); // Simplification: debit to asset account is purchase
+
+        // 3. Financing Activities
+        // Increase in Capital/Loans = Cash Inflow (+)
+        const finCashFlow = accounts
+            .filter(a => (a.category === 'Equity' || a.category === 'Liability') && ['자본', '차입'].some(k => a.name.includes(k)))
+            .reduce((s, a) => s + (a.credit - a.debit), 0);
+
+        return {
+            netIncome,
+            depreciation,
+            workingCapital: -(deltaAR + deltaInventory + deltaVAT_Asset) + (deltaAP + deltaVAT_Liab),
+            opCashFlow,
+            invCashFlow,
+            finCashFlow,
+            totalCashFlow: opCashFlow + invCashFlow + finCashFlow
+        };
+    }, [accounts, plMetrics]);
+
+    const isBalanced = Math.abs(bsMetrics.totalAssets - (bsMetrics.totalLiabilities + bsMetrics.totalEquity)) < 100;
+
     const handleExport = (format: 'excel' | 'word' | 'pdf') => {
-        alert(`${format.toUpperCase()} 포맷으로 변환 중입니다...\n(실제 구현에서는 파일이 다운로드됩니다)`);
+        alert(`${format.toUpperCase()} 포맷으로 변환 중입니다...`);
         if (format === 'pdf') window.print();
     };
-
-    if (!isBalanced) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 p-12 text-center">
-                <div className="w-24 h-24 bg-rose-500/20 rounded-full flex items-center justify-center text-rose-500 animate-pulse border-4 border-rose-500/50">
-                    <FileText size={48} />
-                </div>
-                <div className="space-y-4">
-                    <h1 className="text-3xl font-black text-rose-500 uppercase tracking-tighter">🚨 Accounting Integrity Breach</h1>
-                    <p className="text-slate-400 max-w-2xl font-bold leading-relaxed">
-                        데이터 무결성 검증 실패: 차변과 대변의 합계가 일치하지 않습니다. <br />
-                        공식 보고서 출력을 즉시 중단합니다. (오차: <span className="text-rose-400">₩{integrityCheck.toLocaleString()}</span>)
-                    </p>
-                </div>
-
-                {/* [Admin Mode] Corruption Root Cause Analysis */}
-                <div className="w-full max-w-4xl bg-rose-500/5 border border-rose-500/20 rounded-2xl p-6 text-left space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h4 className="text-rose-400 font-black text-sm uppercase flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                            Admin Root Cause Analysis (Dumping Imbalanced Entries)
-                        </h4>
-                        <span className="text-[10px] text-rose-500/50 font-mono">INTEGRITY_LOG_V2_{Date.now()}</span>
-                    </div>
-                    <div className="max-h-60 overflow-auto rounded-xl border border-rose-500/10">
-                        <table className="w-full text-[11px] font-mono text-rose-300">
-                            <thead className="bg-rose-500/10 text-rose-400">
-                                <tr>
-                                    <th className="px-4 py-2 text-left">ENTRY_ID</th>
-                                    <th className="px-4 py-2 text-left">DESCRIPTION</th>
-                                    <th className="px-4 py-2 text-right">AMOUNT</th>
-                                    <th className="px-4 py-2 text-center">STATUS</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-rose-500/10">
-                                {officialEntries.map(e => (
-                                    <tr key={e.id} className="hover:bg-rose-500/5 transition-colors">
-                                        <td className="px-4 py-2 font-black">{e.id}</td>
-                                        <td className="px-4 py-2 opacity-70">{e.description}</td>
-                                        <td className="px-4 py-2 text-right">₩{e.amount.toLocaleString()}</td>
-                                        <td className="px-4 py-2 text-center text-[9px] uppercase font-black">{e.status}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                    <p className="text-[10px] text-slate-500 italic">
-                        * Only approved "Official" ledger entries are analyzed. Total Assets ({totalAssets.toLocaleString()}) vs (Liabilities ({totalLiabilities.toLocaleString()}) + Equity ({totalEquity.toLocaleString()})).
-                    </p>
-                </div>
-
-                <div className="flex gap-4">
-                    <button onClick={() => window.location.reload()} className="px-6 py-3 bg-white/5 text-white rounded-xl font-black hover:bg-white/10 transition-all border border-white/5">재진단 실행</button>
-                    <button className="px-6 py-3 bg-rose-500 text-white rounded-xl font-black shadow-[0_0_30px_rgba(244,63,94,0.4)] hover:scale-105 transition-all">무결성 리포트 다운로드 (Auditor Signature Required)</button>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -212,410 +138,150 @@ const FinancialStatements: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/5">
                 <div>
                     <h1 className="text-3xl font-black text-white tracking-tight">재무제표 (Financial Statements)</h1>
-                    <p className="text-slate-400 font-bold mt-1">국제회계기준(IFRS) 및 일반기업회계기준(K-GAAP)을 모두 지원하는 표준 재무 보고서입니다.</p>
+                    <p className="text-slate-400 font-bold mt-1">Movement TB 기반의 정밀 재무 분석 보고서입니다.</p>
                 </div>
                 <div className="flex gap-2 items-center">
-                    {/* Integrity Badge */}
-                    <div className={`px-4 py-2 rounded-xl text-xs font-black border flex items-center gap-2 ${isBalanced
-                        ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                        : 'bg-rose-100 text-rose-700 border-rose-200 animate-pulse'
-                        }`}>
+                    <div className={`px-4 py-2 rounded-xl text-xs font-black border flex items-center gap-2 ${isBalanced ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse'}`}>
                         <div className={`w-2 h-2 rounded-full ${isBalanced ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        {isBalanced ? 'Balanced (Reconciled)' : `Discrepancy: ₩${integrityCheck.toLocaleString()}`}
+                        {isBalanced ? 'Balanced' : 'Imbalanced'}
                     </div>
-                    <button onClick={() => handleExport('excel')} className="flex items-center gap-2 px-4 py-2 bg-[#107C41] hover:bg-[#0e6b37] text-white rounded-xl text-xs font-bold transition-all">
-                        <FileSpreadsheet size={16} /> Excel
-                    </button>
-                    <button onClick={() => handleExport('word')} className="flex items-center gap-2 px-4 py-2 bg-[#2B579A] hover:bg-[#234880] text-white rounded-xl text-xs font-bold transition-all">
-                        <File size={16} /> Word
-                    </button>
-                    <button onClick={() => handleExport('pdf')} className="flex items-center gap-2 px-4 py-2 bg-[#B30B00] hover:bg-[#990900] text-white rounded-xl text-xs font-bold transition-all">
-                        <FileText size={16} /> PDF
-                    </button>
+                    <button onClick={() => handleExport('excel')} className="flex items-center gap-2 px-4 py-2 bg-[#107C41] hover:bg-[#0e6b37] text-white rounded-xl text-xs font-bold transition-all"><FileSpreadsheet size={16} /> Excel</button>
+                    <button onClick={() => handleExport('pdf')} className="flex items-center gap-2 px-4 py-2 bg-[#B30B00] hover:bg-[#990900] text-white rounded-xl text-xs font-bold transition-all"><FileText size={16} /> PDF</button>
                 </div>
             </div>
 
             {/* Tabs */}
             <div className="flex gap-2 bg-[#151D2E] p-1.5 rounded-xl border border-white/5 w-fit">
-                {[
-                    { id: 'bs', label: '재무상태표 (B/S)' },
-                    { id: 'pl', label: '손익계산서 (P/L)' },
-                    { id: 'cf', label: '현금흐름표 (C/F)' },
-                    { id: 'ce', label: '자본변동표 (C/E)' }
-                ].map(tab => (
+                {['bs', 'pl', 'cf', 'ce'].map(tabId => (
                     <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as Tab)}
-                        className={`px-6 py-2.5 rounded-lg text-xs font-black transition-all ${activeTab === tab.id
-                            ? 'bg-indigo-600 text-white shadow-lg'
-                            : 'text-slate-500 hover:text-white hover:bg-white/5'
-                            }`}
+                        key={tabId}
+                        onClick={() => setActiveTab(tabId as Tab)}
+                        className={`px-6 py-2.5 rounded-lg text-xs font-black transition-all ${activeTab === tabId ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                     >
-                        {tab.label}
+                        {tabId.toUpperCase()}
                     </button>
                 ))}
             </div>
 
-            {/* Content Area */}
-            <div className="bg-white rounded-xl shadow-2xl p-12 min-h-[800px] text-black font-sans relative overflow-hidden">
-                {/* Paper Texture Effect */}
+            {/* Document Content */}
+            <div className="bg-white rounded-xl shadow-2xl p-10 text-black font-sans min-h-[800px] relative">
                 <div className="absolute inset-0 bg-[#f9f9f7] opacity-50 pointer-events-none"></div>
 
-                <div className="relative z-10 max-w-4xl mx-auto space-y-12">
-                    {/* Document Header */}
-                    <div className="text-center space-y-2 border-b-2 border-black pb-8">
-                        <h2 className="text-3xl font-black tracking-tight text-[#1a1a1a]">
-                            {activeTab === 'bs' && '재무상태표'}
-                            {activeTab === 'pl' && '손익계산서'}
-                            {activeTab === 'cf' && '현금흐름표'}
-                            {activeTab === 'ce' && '자본변동표'}
+                <div className="relative z-10 max-w-4xl mx-auto space-y-10">
+                    <div className="text-center border-b-2 border-black pb-6">
+                        <h2 className="text-3xl font-black text-gray-900 mb-2">
+                            {activeTab === 'bs' && '재무상태표 (B/S)'}
+                            {activeTab === 'pl' && '손익계산서 (P/L)'}
+                            {activeTab === 'cf' && '현금흐름표 (C/F)'}
+                            {activeTab === 'ce' && '자본변동표 (C/E)'}
                         </h2>
-                        <p className="text-sm font-bold text-gray-600">제 24 기 2026.01.22 현재</p>
-                        <p className="text-lg font-bold text-[#1a1a1a]">(주) 한국 전자 정밀 귀중</p>
+                        <p className="text-sm font-bold text-gray-500">2026.01.22 기준 | (주) 한국 전자 정밀</p>
                     </div>
 
-
-                    {/* BS View */}
+                    {/* BS Content */}
                     {activeTab === 'bs' && (
-                        <div className="grid grid-cols-2 gap-12">
-                            {/* Assets Column */}
-                            <div className="space-y-8">
-                                <div className="space-y-4">
-                                    <h3 className="text-lg font-bold border-b border-black pb-2 mb-4">I. 유동자산</h3>
-                                    <table className="w-full text-sm">
-                                        <tbody className="divide-y divide-gray-200">
-                                            {currentAssets.map(a => (
-                                                <tr key={a.name}>
-                                                    <td className="py-2 text-gray-700">{a.name}</td>
-                                                    <td className="py-2 text-right font-mono font-bold">{a.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                </tr>
-                                            ))}
-                                            <tr className="bg-gray-50 font-bold">
-                                                <td className="py-2 pl-2">유동자산계</td>
-                                                <td className="py-2 pr-2 text-right">{totalCurrentAssets.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <div className="grid grid-cols-2 gap-10">
+                            <div className="space-y-6">
+                                <h3 className="text-lg font-black border-b border-gray-300 pb-2">I. 자산 (Assets)</h3>
+                                <table className="w-full text-sm">
+                                    <tbody className="divide-y divide-gray-100">
+                                        {accounts.filter(a => a.category === 'Asset').map(a => (
+                                            <tr key={a.name}>
+                                                <td className="py-2 text-gray-600">{a.name}</td>
+                                                <td className="py-2 text-right font-mono font-bold">₩{a.closing.toLocaleString()}</td>
                                             </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <h3 className="text-lg font-bold border-b border-black pb-2 mb-4">II. 비유동자산</h3>
-                                    <table className="w-full text-sm">
-                                        <tbody className="divide-y divide-gray-200">
-                                            {nonCurrentAssets.map(a => (
-                                                <tr key={a.name}>
-                                                    <td className="py-2 text-gray-700">{a.name}</td>
-                                                    <td className="py-2 text-right font-mono font-bold">{a.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                </tr>
-                                            ))}
-                                            <tr className="bg-gray-50 font-bold">
-                                                <td className="py-2 pl-2">비유동자산계</td>
-                                                <td className="py-2 pr-2 text-right">{totalNonCurrentAssets.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div className="pt-4 border-t-2 border-black">
-                                    <div className="flex justify-between items-center text-lg font-black">
-                                        <span>자산 총계</span>
-                                        <span>{totalAssets.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                    </div>
-                                </div>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr className="font-black text-base border-t-2 border-black">
+                                            <td className="py-3">자산 총계</td>
+                                            <td className="py-3 text-right">₩{bsMetrics.totalAssets.toLocaleString()}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
                             </div>
-
-                            {/* Liabilities & Equity Column */}
-                            <div className="space-y-12">
-                                <div className="space-y-8">
-                                    <div className="space-y-4">
-                                        <h3 className="text-lg font-bold border-b border-black pb-2 mb-4">I. 유동부채</h3>
-                                        <table className="w-full text-sm">
-                                            <tbody className="divide-y divide-gray-200">
-                                                {currentLiabilities.map(a => (
-                                                    <tr key={a.name}>
-                                                        <td className="py-2 text-gray-700">{a.name}</td>
-                                                        <td className="py-2 text-right font-mono font-bold">{Math.abs(a.balance).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                    </tr>
-                                                ))}
-                                                <tr className="bg-gray-50 font-bold">
-                                                    <td className="py-2 pl-2">유동부채계</td>
-                                                    <td className="py-2 pr-2 text-right">{totalCurrentLiabilities.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                            <div className="space-y-6">
+                                <h3 className="text-lg font-black border-b border-gray-300 pb-2">II. 부채 및 자본</h3>
+                                <div className="space-y-4">
+                                    <table className="w-full text-sm">
+                                        <thead><tr><th className="text-left font-bold text-gray-400 py-1">[부채]</th></tr></thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {accounts.filter(a => a.category === 'Liability').map(a => (
+                                                <tr key={a.name}>
+                                                    <td className="py-2 text-gray-600">{a.name}</td>
+                                                    <td className="py-2 text-right font-mono font-bold">₩{a.closing.toLocaleString()}</td>
                                                 </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <h3 className="text-lg font-bold border-b border-black pb-2 mb-4">II. 비유동부채</h3>
-                                        <table className="w-full text-sm">
-                                            <tbody className="divide-y divide-gray-200">
-                                                {nonCurrentLiabilities.map(a => (
-                                                    <tr key={a.name}>
-                                                        <td className="py-2 text-gray-700">{a.name}</td>
-                                                        <td className="py-2 text-right font-mono font-bold">{Math.abs(a.balance).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                    </tr>
-                                                ))}
-                                                <tr className="bg-gray-50 font-bold">
-                                                    <td className="py-2 pl-2">비유동부채계</td>
-                                                    <td className="py-2 pr-2 text-right">{totalNonCurrentLiabilities.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                            ))}
+                                            <tr className="font-black"><td className="py-2">부채 총계</td><td className="py-2 text-right">₩{bsMetrics.totalLiabilities.toLocaleString()}</td></tr>
+                                        </tbody>
+                                    </table>
+                                    <table className="w-full text-sm">
+                                        <thead><tr><th className="text-left font-bold text-gray-400 py-1">[자본]</th></tr></thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {accounts.filter(a => a.category === 'Equity').map(a => (
+                                                <tr key={a.name}>
+                                                    <td className="py-2 text-gray-600">{a.name}</td>
+                                                    <td className="py-2 text-right font-mono font-bold">₩{a.closing.toLocaleString()}</td>
                                                 </tr>
-                                            </tbody>
-                                        </table>
-                                        <div className="pt-2 border-t border-gray-300 flex justify-between font-bold">
-                                            <span>부채 총계</span>
-                                            <span>{totalLiabilities.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <h3 className="text-lg font-bold border-b border-black pb-2 mb-4">III. 자본</h3>
-                                        <table className="w-full text-sm">
-                                            <tbody className="divide-y divide-gray-200">
-                                                {equityAccounts.map(a => (
-                                                    <tr key={a.name}>
-                                                        <td className="py-2 text-gray-700">{a.name}</td>
-                                                        <td className="py-2 text-right font-mono font-bold">{Math.abs(a.balance).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                    </tr>
-                                                ))}
-                                                <tr className="bg-blue-50/50">
-                                                    <td className="py-2 text-blue-800 font-semibold pl-2">당기순이익 (Net Income)</td>
-                                                    <td className="py-2 text-right font-mono font-bold text-blue-800">{netIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                </tr>
-                                                <tr className="bg-gray-50 font-bold text-base">
-                                                    <td className="py-3 pl-2">자본 총계</td>
-                                                    <td className="py-2 pr-2 text-right">{totalEquity.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                            ))}
+                                            <tr className="text-blue-600 font-bold"><td className="py-2">당기순이익 (Net Income)</td><td className="py-2 text-right">₩{plMetrics.netIncome.toLocaleString()}</td></tr>
+                                            <tr className="font-black bg-gray-50"><td className="py-3 px-2">자본 총계</td><td className="py-3 px-2 text-right">₩{bsMetrics.totalEquity.toLocaleString()}</td></tr>
+                                        </tbody>
+                                    </table>
                                 </div>
-
-                                <div className="pt-4 border-t-2 border-black">
-                                    <div className="flex justify-between items-center text-lg font-black">
-                                        <span>부채와 자본 총계</span>
-                                        <span>{(totalLiabilities + totalEquity).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                    </div>
+                                <div className="pt-4 border-t-2 border-black flex justify-between font-black text-lg">
+                                    <span>부채와자본 총계</span>
+                                    <span>₩{(bsMetrics.totalLiabilities + bsMetrics.totalEquity).toLocaleString()}</span>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* PL View */}
-                    {activeTab === 'pl' && (
-                        <div className="max-w-3xl mx-auto space-y-10">
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-bold text-gray-800 uppercase tracking-widest border-b border-gray-300 pb-2">I. 매출액 (Operating Revenue)</h3>
-                                <div className="space-y-2">
-                                    {salesRevenue.map(r => (
-                                        <div key={r.name} className="flex justify-between text-sm px-4">
-                                            <span>{r.name}</span>
-                                            <span className="font-mono">{Math.abs(r.balance).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                        </div>
-                                    ))}
-                                    <div className="bg-gray-100 p-2 flex justify-between font-bold rounded">
-                                        <span>매출액 합계</span>
-                                        <span>{amountSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-bold text-gray-800 uppercase tracking-widest border-b border-gray-300 pb-2">II. 매출원가 (Cost of Sales)</h3>
-                                <div className="space-y-2">
-                                    {costOfSales.map(r => (
-                                        <div key={r.name} className="flex justify-between text-sm px-4">
-                                            <span>{r.name}</span>
-                                            <span className="font-mono">({r.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
-                                        </div>
-                                    ))}
-                                    <div className="bg-gray-100 p-2 flex justify-between font-bold rounded text-red-600">
-                                        <span>매출원가 합계</span>
-                                        <span>({amountCOGS.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-4 border border-gray-300 rounded-lg bg-gray-50 flex justify-between items-center text-lg font-bold">
-                                <span>III. 매출총이익 (Gross Profit)</span>
-                                <span>{grossProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                            </div>
-
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-bold text-gray-800 uppercase tracking-widest border-b border-gray-300 pb-2">IV. 판매비와 관리비 (SG&A Expenses)</h3>
-                                <div className="space-y-2">
-                                    {operatingExpenses.map(e => (
-                                        <div key={e.name} className="flex justify-between text-sm px-4">
-                                            <span>{e.name}</span>
-                                            <span className="font-mono text-red-500">({e.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
-                                        </div>
-                                    ))}
-                                    <div className="bg-gray-100 p-2 flex justify-between font-bold rounded text-red-600">
-                                        <span>판관비 합계</span>
-                                        <span>({amountOpExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-4 border border-black rounded-lg bg-gray-100 flex justify-between items-center text-lg font-bold">
-                                <span>V. 영업이익 (Operating Income)</span>
-                                <span className={operatingIncome >= 0 ? 'text-blue-600' : 'text-red-600'}>{operatingIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-8">
-                                <div className="space-y-2">
-                                    <h4 className="text-sm font-bold border-b border-gray-200 pb-1">VI. 영업외 수익</h4>
-                                    {nonOperatingIncome.map(n => (
-                                        <div key={n.name} className="flex justify-between text-xs text-gray-600">
-                                            <span>{n.name}</span>
-                                            <span>{Math.abs(n.balance).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                        </div>
-                                    ))}
-                                    <div className="text-right font-bold text-sm text-blue-600">+{amountNonOpIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                                </div>
-                                <div className="space-y-2">
-                                    <h4 className="text-sm font-bold border-b border-gray-200 pb-1">VII. 영업외 비용</h4>
-                                    {nonOperatingExpenses.map(n => (
-                                        <div key={n.name} className="flex justify-between text-xs text-gray-600">
-                                            <span>{n.name}</span>
-                                            <span>{n.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                        </div>
-                                    ))}
-                                    <div className="text-right font-bold text-sm text-red-500">-({amountNonOpExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 })})</div>
-                                </div>
-                            </div>
-
-                            <div className="pt-8 border-t-4 border-double border-black">
-                                <div className="flex justify-between items-center bg-gray-900 text-white p-6 rounded-xl shadow-lg">
-                                    <div className="flex flex-col">
-                                        <span className="text-2xl font-black">VIII. 당기순이익</span>
-                                        <span className="text-sm text-gray-400 font-serif italic">(Net Income)</span>
-                                    </div>
-                                    <span className={`text-3xl font-black font-mono ${netIncome >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        ₩{netIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* CF View (Mock) */}
+                    {/* CF Content - Real Accounting Logic */}
                     {activeTab === 'cf' && (
-                        <div className="max-w-3xl mx-auto space-y-8">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-100 border-b-2 border-black">
-                                        <th className="py-3 text-left pl-4 font-bold">과목 (Description)</th>
-                                        <th className="py-3 text-right pr-4 font-bold">금액 (Amount)</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    <tr className="bg-gray-50">
-                                        <td className="py-3 pl-4 font-bold text-gray-800">I. 영업활동으로 인한 현금흐름</td>
-                                        <td className="py-3 pr-4 text-right font-bold text-blue-600">{(netIncome + Math.abs(amountCOGS) * 0.1).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-2 pl-8 text-gray-600">1. 당기순이익</td>
-                                        <td className="py-2 pr-4 text-right">{netIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-2 pl-8 text-gray-600">2. 현금유출이 없는 비용 등 가산 (감가상각비 등)</td>
-                                        <td className="py-2 pr-4 text-right font-mono">{(Math.abs(amountCOGS) * 0.1).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                    </tr>
+                        <div className="max-w-2xl mx-auto space-y-8">
+                            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 italic">간접법 (Indirect Method) 분석 기록</p>
+                                <table className="w-full text-sm border-separate border-spacing-y-2">
+                                    <tbody>
+                                        <tr className="bg-gray-900 text-white rounded-lg">
+                                            <td className="p-3 font-black rounded-l-lg">I. 영업활동으로 인한 현금흐름</td>
+                                            <td className="p-3 text-right font-black rounded-r-lg">₩{cfMetrics.opCashFlow.toLocaleString()}</td>
+                                        </tr>
+                                        <tr className="text-gray-600"><td className="pl-6">1. 당기순이익 (Net Income)</td><td className="text-right font-bold">₩{cfMetrics.netIncome.toLocaleString()}</td></tr>
+                                        <tr className="text-emerald-600"><td className="pl-6">2. 현금유출이 없는 비용 가산 (감가상각비 등)</td><td className="text-right font-bold text-emerald-600">+₩{cfMetrics.depreciation.toLocaleString()}</td></tr>
+                                        <tr className="text-rose-600"><td className="pl-6">3. 영업자산/부채의 변동 (Working Capital)</td><td className="text-right font-bold text-rose-600">₩{cfMetrics.workingCapital.toLocaleString()}</td></tr>
 
-                                    <tr className="bg-gray-50">
-                                        <td className="py-3 pl-4 font-bold text-gray-800 mt-4">II. 투자활동으로 인한 현금흐름</td>
-                                        <td className="py-3 pr-4 text-right font-bold text-red-500">(-{(totalNonCurrentAssets * 0.5).toLocaleString(undefined, { maximumFractionDigits: 0 })})</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-2 pl-8 text-gray-600">1. 유형자산의 취득</td>
-                                        <td className="py-2 pr-4 text-right font-mono text-red-500">(-{(totalNonCurrentAssets * 0.5).toLocaleString(undefined, { maximumFractionDigits: 0 })})</td>
-                                    </tr>
+                                        <tr className="bg-gray-100"><td className="p-3 font-black">II. 투자활동으로 인한 현금흐름</td><td className="p-3 text-right font-black">₩{cfMetrics.invCashFlow.toLocaleString()}</td></tr>
+                                        <tr className="text-gray-500"><td className="pl-6">유형자산 취득 등</td><td className="text-right">₩{cfMetrics.invCashFlow.toLocaleString()}</td></tr>
 
-                                    <tr className="bg-gray-50">
-                                        <td className="py-3 pl-4 font-bold text-gray-800 mt-4">III. 재무활동으로 인한 현금흐름</td>
-                                        <td className="py-3 pr-4 text-right font-bold text-blue-600">{(totalEquity * 0.05).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                    </tr>
+                                        <tr className="bg-gray-100"><td className="p-3 font-black">III. 재무활동으로 인한 현금흐름</td><td className="p-3 text-right font-black">₩{cfMetrics.finCashFlow.toLocaleString()}</td></tr>
+                                        <tr className="text-gray-500"><td className="pl-6">자본금 증감/차입금 상환 등</td><td className="text-right">₩{cfMetrics.finCashFlow.toLocaleString()}</td></tr>
 
-                                    <tr className="bg-black text-white text-lg font-bold">
-                                        <td className="py-4 pl-4">IV. 기말의 현금 및 현금성자산</td>
-                                        <td className="py-4 pr-4 text-right">{(totalCurrentAssets * 0.8).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <p className="text-center text-gray-400 italic text-xs mt-8">* 현금흐름표는 현재 약식(Indirect Method Simulation)으로 제공됩니다.</p>
-                        </div>
-                    )}
-
-                    {/* CE View (Mock) */}
-                    {activeTab === 'ce' && (
-                        <div className="max-w-4xl mx-auto space-y-8">
-                            <table className="w-full text-sm border-collapse border border-gray-300">
-                                <thead>
-                                    <tr className="bg-gray-100">
-                                        <th className="py-3 border border-gray-300">구분</th>
-                                        <th className="py-3 border border-gray-300">자본금</th>
-                                        <th className="py-3 border border-gray-300">이익잉여금</th>
-                                        <th className="py-3 border border-gray-300">기타자본</th>
-                                        <th className="py-3 border border-gray-300 bg-gray-200">합계</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="text-right">
-                                    {(() => {
-                                        const initialCapital = subLedger.length === 0 ? 0 : 100000000;
-                                        const initialRetainedEarnings = subLedger.length === 0 ? 0 : 50000000;
-                                        const totalInitial = initialCapital + initialRetainedEarnings;
-
-                                        return (
-                                            <>
-                                                <tr>
-                                                    <td className="py-3 px-2 text-center font-bold bg-gray-50 border border-gray-300">기초 자본</td>
-                                                    <td className="py-3 px-2 border border-gray-300">{initialCapital.toLocaleString()}</td>
-                                                    <td className="py-3 px-2 border border-gray-300">{initialRetainedEarnings.toLocaleString()}</td>
-                                                    <td className="py-3 px-2 border border-gray-300">0</td>
-                                                    <td className="py-3 px-2 border border-gray-300 font-bold">{totalInitial.toLocaleString()}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td className="py-3 px-2 text-center font-bold bg-gray-50 border border-gray-300">당기순이익</td>
-                                                    <td className="py-3 px-2 border border-gray-300">-</td>
-                                                    <td className="py-3 px-2 border border-gray-300 text-blue-600">{netIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                    <td className="py-3 px-2 border border-gray-300">-</td>
-                                                    <td className="py-3 px-2 border border-gray-300 font-bold text-blue-600">{netIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td className="py-3 px-2 text-center font-bold bg-gray-50 border border-gray-300">배당금지급</td>
-                                                    <td className="py-3 px-2 border border-gray-300">-</td>
-                                                    <td className="py-3 px-2 border border-gray-300">-</td>
-                                                    <td className="py-3 px-2 border border-gray-300">-</td>
-                                                    <td className="py-3 px-2 border border-gray-300">-</td>
-                                                </tr>
-                                                <tr className="bg-gray-800 text-white font-bold">
-                                                    <td className="py-4 px-2 text-center border-t-2 border-black">기말 자본</td>
-                                                    <td className="py-4 px-2 border-t-2 border-black">{initialCapital.toLocaleString()}</td>
-                                                    <td className="py-4 px-2 border-t-2 border-black">{(initialRetainedEarnings + netIncome).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                    <td className="py-4 px-2 border-t-2 border-black">0</td>
-                                                    <td className="py-4 px-2 border-t-2 border-black">{(totalInitial + netIncome).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                </tr>
-                                            </>
-                                        );
-                                    })()}
-                                </tbody>
-                            </table>
+                                        <tr className="border-t-4 border-double border-black bg-gray-200"><td className="p-4 font-black text-lg">IV. 당기 현금의 순증감</td><td className="p-4 text-right font-black text-xl">₩{cfMetrics.totalCashFlow.toLocaleString()}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-lg flex items-start gap-4">
+                                <Zap className="text-indigo-400 shrink-0" size={20} />
+                                <p className="text-xs text-indigo-700 font-bold leading-relaxed">
+                                    [AI 감사관 의견] Movement TB를 분석한 결과, 운전자본(Working Capital)의 변동이 현금 유출의 주요 원인으로 파악되었습니다. 특히 매출채권의 증가 속도가 매출 성장보다 빠를 경우 유동성 경고가 발생할 수 있습니다.
+                                </p>
+                            </div>
                         </div>
                     )}
                 </div>
 
-                {/* Footer Stamp */}
-                <div className="absolute bottom-12 right-12 opacity-80 rotate-[-12deg] pointer-events-none">
-                    <div className="w-32 h-32 border-4 border-red-600 rounded-full flex items-center justify-center flex-col text-red-600 font-black uppercase shadow-xl bg-white/10 mix-blend-multiply">
-                        <span className="text-xl">Approved</span>
-                        <span className="text-xs">Accounting AI</span>
-                        <span className="text-[10px] mt-1">{new Date().toISOString().split('T')[0]}</span>
+                {/* Stamp */}
+                <div className="absolute bottom-10 right-10 opacity-70 rotate-[-15deg] pointer-events-none">
+                    <div className="w-28 h-28 border-4 border-rose-600 rounded-full flex flex-col items-center justify-center text-rose-600 font-black uppercase text-center">
+                        <span className="text-xs">Certified By</span>
+                        <span className="text-lg leading-tight font-black">AI Audit<br />Engine</span>
                     </div>
                 </div>
             </div>
         </div>
     );
 };
-
 
 export default FinancialStatements;

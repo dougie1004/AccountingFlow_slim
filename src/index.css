@@ -116,3 +116,88 @@ body {
   contain: layout style size;
   /* Optimization */
 }
+
+/* PRINT STYLES - Clean A4 Report */
+@media print {
+  @page {
+    margin: 10mm;
+    size: auto;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background-color: white !important;
+  }
+
+  /* Hide Application UI */
+  aside,
+  /* Sidebar */
+  nav,
+  /* Navigation */
+  button,
+  /* Actions */
+  input,
+  /* Filters */
+  select,
+  /* Dropdowns */
+  .fixed,
+  /* Modals/Overlays */
+  [role="dialog"],
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset Main Layout Container */
+  body,
+  #root,
+  main,
+  .min-h-screen {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    background: white !important;
+  }
+
+  /* Report Content Formatting */
+  * {
+    color: black !important;
+    /* Force black text */
+    text-shadow: none !important;
+  }
+
+  .bg-white {
+    background: white !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  th,
+  td {
+    border: 1px solid #ddd !important;
+    /* Force borders for tables */
+    padding: 8px !important;
+  }
+
+  /* Specific: Financial Statements Header */
+  h1,
+  h2 {
+    text-align: center !important;
+    margin-bottom: 20px !important;
+  }
+}

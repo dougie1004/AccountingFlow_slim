@@ -1,0 +1,49 @@
+﻿src/components/journal/ComplianceSidebar.tsx(137,65): error TS2339: Property 'reviewLogs' does not exist on type 'ComplianceReview'.
+src/components/journal/ComplianceSidebar.tsx(137,82): error TS7006: Parameter 'log' implicitly has an 'any' type.
+src/components/journal/ComplianceSidebar.tsx(137,87): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/components/journal/DemoDataModal.tsx(3,10): error TS2305: Module '"../../utils/mockDataGenerator"' has no exported member 'getRawMockData'.
+src/components/journal/JournalTable.tsx(11,13): error TS2339: Property 'attachEvidence' does not exist on type 'AccountingContextType'.
+src/components/journal/JournalTable.tsx(30,31): error TS2339: Property 'transactionId' does not exist on type 'JournalEntry'.
+src/components/journal/JournalTable.tsx(122,59): error TS2339: Property 'attachmentUrl' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/components/journal/JournalTable.tsx(124,79): error TS2339: Property 'attachmentUrl' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/components/journal/JournalTable.tsx(128,86): error TS2339: Property 'attachmentUrl' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/components/journal/JournalTable.tsx(129,52): error TS2339: Property 'attachmentUrl' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/components/journal/ManualEntryModal.tsx(49,13): error TS2353: Object literal may only specify known properties, and 'version' does not exist in type 'JournalEntry'.
+src/components/journal/PaymentRequestModal.tsx(78,57): error TS2339: Property 'bankName' does not exist on type 'ParsedTransaction'.
+src/components/journal/PaymentRequestModal.tsx(80,110): error TS2339: Property 'bankAccount' does not exist on type 'ParsedTransaction'.
+src/components/onboarding/SetupWizard.tsx(19,9): error TS2353: Object literal may only specify known properties, and 'depreciationMethod' does not exist in type 'TaxPolicy | (() => TaxPolicy)'.
+src/components/onboarding/SetupWizard.tsx(126,55): error TS2339: Property 'depreciationMethod' does not exist on type 'TaxPolicy'.
+src/components/onboarding/SetupWizard.tsx(127,79): error TS2353: Object literal may only specify known properties, and 'depreciationMethod' does not exist in type 'SetStateAction<TaxPolicy>'.
+src/components/onboarding/SetupWizard.tsx(141,55): error TS2339: Property 'entertainmentLimitBase' does not exist on type 'TaxPolicy'.
+src/components/onboarding/SetupWizard.tsx(142,79): error TS2353: Object literal may only specify known properties, and 'entertainmentLimitBase' does not exist in type 'SetStateAction<TaxPolicy>'.
+src/components/tax/CIT_Form.tsx(14,15): error TS2339: Property 'taxCode' does not exist on type 'JournalEntry'.
+src/components/tax/CIT_Form.tsx(15,15): error TS2339: Property 'taxCode' does not exist on type 'JournalEntry'.
+src/components/tax/CIT_Form.tsx(16,15): error TS2339: Property 'taxCode' does not exist on type 'JournalEntry'.
+src/components/tax/CIT_Form.tsx(21,15): error TS2339: Property 'taxCode' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(13,24): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(14,38): error TS2339: Property 'suggestedVat' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(17,24): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(48,133): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(60,132): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(76,62): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(99,120): error TS2339: Property 'suggestedVat' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(104,60): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/lib/tauri-bridge.ts(5,5): error TS2305: Module '"../types"' has no exported member 'AuditIssue'.
+src/lib/tauri-bridge.ts(6,5): error TS2305: Module '"../types"' has no exported member 'AuditProject'.
+src/lib/tauri-bridge.ts(7,5): error TS2305: Module '"../types"' has no exported member 'SystemEvent'.
+src/lib/tauri-bridge.ts(8,5): error TS2305: Module '"../types"' has no exported member 'DashboardSummary'.
+src/lib/tauri-bridge.ts(9,5): error TS2305: Module '"../types"' has no exported member 'AuditUniverseEntity'.
+src/lib/tauri-bridge.ts(10,5): error TS2305: Module '"../types"' has no exported member 'AuditPlan'.
+src/pages/DataImport.tsx(11,26): error TS2307: Cannot find module '../context/AuditContext' or its corresponding type declarations.
+src/pages/DataMigration.tsx(58,64): error TS2339: Property 'detectedType' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(58,103): error TS2339: Property 'confidence' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(59,53): error TS2339: Property 'summaryText' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(97,42): error TS2339: Property 'detectedType' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(97,97): error TS2339: Property 'numEmployees' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(98,115): error TS2339: Property 'numEmployees' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(102,89): error TS2339: Property 'detectedType' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(511,114): error TS2339: Property 'detectedType' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(518,111): error TS2339: Property 'summaryText' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(521,63): error TS2339: Property 'numEmployees' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(524,126): error TS2339: Property 'numEmployees' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/Journal.tsx(103,41): error TS2322: Type '"Payroll"' is not assignable to type 'EntryType | null | undefined'.

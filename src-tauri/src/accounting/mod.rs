@@ -1,11 +1,3 @@
 ﻿pub mod batch_processor;
 pub mod assets;
-pub mod inventory_bridge;
-pub mod simulation_engine;
 pub mod batch_export;
-pub mod forecast_engine;
-pub mod report_engine;
-pub mod insights;
-pub mod advanced_ledger;
-pub mod ir_engine;
-pub mod parser;

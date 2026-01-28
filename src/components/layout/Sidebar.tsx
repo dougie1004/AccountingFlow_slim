@@ -5,21 +5,17 @@ import {
     Users,
     Settings,
     LogOut,
-    TrendingUp,
-    ListFilter,
     Menu,
     X,
-    Calculator,
-    Package,
-    ShoppingCart,
     Landmark,
     ShieldCheck,
     Database,
     RotateCcw,
     FileText,
-    Zap,
-    PieChart,
-    TrendingDown
+    Wallet,
+    Building2,
+    CheckCircle2,
+    RefreshCw
 } from 'lucide-react';
 import { useContext } from 'react';
 import { AccountingContext } from '../../context/AccountingContext';
@@ -54,40 +50,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
         {
             title: '경영 및 분석 (Analysis)',
             items: [
-                { id: 'dashboard', label: '대시보드', description: '현금 흐름, 주요 KPI 등 회사의 재무 상태를 파악합니다.', icon: LayoutDashboard },
-                { id: 'reports', label: '경영 분석 리포트', description: 'IR용 및 경영진 대상 심층 분석 리포트를 생성합니다.', icon: TrendingUp },
+                { id: 'dashboard', label: '대시보드', description: '주요 KPI 등 회사의 재무 상태를 파악합니다.', icon: LayoutDashboard },
+                { id: 'daily-cash', label: '자금일보 (Cash Report)', description: '일일 시재 및 자금 수지 현황을 보고합니다.', icon: Wallet },
+                { id: 'financial-statements', label: '재무제표 (Financial Statements)', description: 'B/S, P/L, C/F 등 주요 재무제표를 조회합니다.', icon: FileText },
+                { id: 'tax-report', label: '부가세 및 자금 리스크 (VAT & Risk)', description: '세무 신고 및 감사 관련 자료를 관리합니다.', icon: ShieldCheck },
             ]
         },
         {
             title: '회계 원장 (Accounting)',
             items: [
-                { id: 'ledger', label: '거래 전표 관리', description: 'AI가 추출한 모든 거래 데이터를 조회하고 관리합니다.', icon: BookOpen },
-                { id: 'ledger-view', label: '총계정원장 (G/L)', description: '표준 회계 기준에 따른 계정별 원장을 조회합니다.', icon: FileText },
-                { id: 'approval-desk', label: '전표 승인 데스크', description: 'AI 분류 전표의 신뢰도를 검증하고 최종 승인합니다.', icon: ShieldCheck, badge: true },
-                { id: 'financial-statements', label: '재무제표 (B/S, P/L)', description: '대차대조표, 손익계산서 등 표준 재무제표를 조회합니다.', icon: PieChart },
-                { id: 'lease-ledger', label: '리스 회계 관리', description: 'K-IFRS 1116 리스 자산/부채 및 상환 스케줄을 관리합니다.', icon: TrendingDown },
-                { id: 'advanced-ledger', label: '특수 회계 관리', description: 'R&D 자산화, 외화 평가 등 고난도 처리를 수행합니다.', icon: Zap },
+                { id: 'ledger', label: '거래 전표 관리', description: 'AI가 추출한 거래 데이터를 관리합니다.', icon: BookOpen },
+                { id: 'ledger-view', label: '총계정원장 (G/L)', description: '계정별 원장을 조회합니다.', icon: FileText },
+                { id: 'approval-desk', label: '전표 승인 데스크', description: 'AI 분류 전표를 최종 승인합니다.', icon: ShieldCheck, badge: true },
             ]
         },
         {
             title: '운영 및 자산 (Operations)',
             items: [
-                { id: 'scm', label: '공급망(SCM) 관리', description: '매입/매출 발주 및 물류 프로세스를 관리합니다.', icon: ShoppingCart },
-                { id: 'inventory', label: '재고 자산 관리', description: '품목별 재고 현황 및 가치를 실시간으로 평가합니다.', icon: Package },
-                { id: 'assets', label: '고정자산 관리', description: '유/무형 자산의 취득 및 감가상각을 관리합니다.', icon: Landmark },
-                { id: 'partners', label: '거래처 네트워크', description: '주요 거래처와의 거래 관계 및 승인 상태를 관리합니다.', icon: Users },
-            ]
-        },
-        {
-            title: '세무 및 규제 (Tax)',
-            items: [
-                { id: 'tax-adjustments', label: '세무 조정 엔진', description: '법인세 추정, 부가세 맵핑 등 전문 세무 기능을 수행합니다.', icon: Calculator },
+                { id: 'assets', label: '고정자산 관리', description: '유/무형 자산 및 감가상각을 관리합니다.', icon: Landmark },
+                { id: 'vendor-ledger', label: '거래처 원장 (Vendor Ledger)', description: '거래처별 상세 거래 내역을 조회합니다.', icon: Users },
+                { id: 'partners', label: '거래처 정보', description: '주요 거래처 정보를 관리합니다.', icon: Users },
             ]
         }
     ];
 
     const SidebarContent = () => {
-        const { ledger, resetData } = useContext(AccountingContext)!;
+        const { ledger } = useContext(AccountingContext)!;
         const { theme, setTheme, resolvedTheme } = useTheme();
         const unconfirmedCount = ledger.filter(e => e.status === 'Unconfirmed' || e.status === 'Pending Review').length;
 
@@ -97,7 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                 <div className="h-[73px] flex items-center justify-between px-6 border-b border-white/5 shrink-0">
                     <div className="flex flex-col">
                         <span className="text-white font-black text-sm tracking-tight">AccountingFlow</span>
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-500/80">Professional Controller</span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-500/80">Slim Controller</span>
                     </div>
                     <button onClick={() => setIsOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
                         <X size={24} />
@@ -143,10 +131,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                     ))}
                 </nav>
 
-                {/* Bottom Section: System & Onboarding */}
+                {/* Bottom Section */}
                 <div className="p-4 border-t border-white/5 bg-slate-950/50 backdrop-blur-sm shrink-0 space-y-1">
-                    <h3 className="px-4 text-[9px] font-black text-slate-700 uppercase tracking-[0.15em] mb-2">System Setup</h3>
-
                     <button
                         onClick={() => {
                             setTab('migration');
@@ -158,7 +144,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                         <span className="font-bold text-[13px] tracking-wide">데이터 연동 및 이관</span>
                     </button>
 
-                    {/* Theme Toggle Button */}
                     <button
                         onClick={() => {
                             const nextTheme = theme === 'auto' ? 'light' : theme === 'light' ? 'dark' : 'auto';
@@ -180,12 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                                 {theme === 'auto' ? '자동 테마' : theme === 'light' ? '라이트' : '다크'}
                             </span>
                         </div>
-                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-wider">
-                            {theme.toUpperCase()}
-                        </span>
                     </button>
-
-                    <div className="my-2 border-t border-white/5" />
 
                     <button
                         onClick={() => {
@@ -198,20 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                         <span className="font-bold text-[13px] tracking-wide">시스템 설정</span>
                     </button>
 
-                    <div className="my-2 border-t border-white/5" />
 
-                    <button
-                        onClick={() => {
-                            if (window.confirm('현재 장부의 모든 데이터를 초기화하시겠습니까? (이 작업은 되돌릴 수 없습니다)')) {
-                                resetData();
-                                setTab('dashboard');
-                            }
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-orange-500/10 hover:text-orange-400 transition-all duration-300 group"
-                    >
-                        <RotateCcw size={18} className="text-slate-600 group-hover:text-orange-400 shrink-0" />
-                        <span className="font-bold text-[13px] tracking-wide truncate">장부 데이터 초기화</span>
-                    </button>
 
                     <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-red-500/10 hover:text-red-400 transition-all duration-300 group">
                         <LogOut size={18} className="text-slate-600 group-hover:text-red-400 shrink-0" />
@@ -224,7 +191,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
 
     return (
         <>
-            {/* Mobile Toggle Button (Visible only on lg:hidden) */}
             <div className="lg:hidden fixed top-4 left-4 z-[50]">
                 <button
                     onClick={() => setIsOpen(true)}
@@ -234,12 +200,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                 </button>
             </div>
 
-            {/* Desktop Sidebar (Static space occupier) */}
             <aside className="hidden lg:block w-[320px] h-screen shrink-0 sticky top-0">
                 <SidebarContent />
             </aside>
 
-            {/* Mobile/Tablet Drawer (Animated) */}
             <AnimatePresence>
                 {isOpen && (
                     <>

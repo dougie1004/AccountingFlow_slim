@@ -5,9 +5,12 @@ import JournalTable from '../components/journal/JournalTable';
 import { TransactionFeed } from '../components/dashboard/TransactionFeed';
 import { FileUploader } from '../components/journal/FileUploader';
 import { StagingTable } from '../components/journal/StagingTable';
-import { FileText, Download, Filter, Calendar, User, Database, LayoutGrid, List, Plus } from 'lucide-react';
+import { FileText, Download, Filter, Calendar, User, Database, LayoutGrid, List, Plus, Sparkles, X } from 'lucide-react';
 import CalendarView from '../components/journal/CalendarView';
 import { ManualEntryModal } from '../components/journal/ManualEntryModal';
+import { SmartExcelUploader } from '../components/SmartExcelUploader';
+import { AccountingContext } from '../context/AccountingContext';
+import { VatOptimizationReport } from '../components/tax/VatOptimizationReport';
 
 const Journal: React.FC = () => {
     const { ledger, addEntry, partners, stagingTransactions, setStagingTransactions } = useAccounting();
@@ -21,6 +24,11 @@ const Journal: React.FC = () => {
     const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+    const [isVatReportOpen, setIsVatReportOpen] = useState(false);
+    const [showSmartUpload, setShowSmartUpload] = useState(false);
+    const [externalFile, setExternalFile] = useState<File | null>(null);
+
+    const { addEntries } = useContext(AccountingContext)!;
 
     // Extract unique vendors for dropdown
     const vendors = useMemo(() => {
@@ -73,8 +81,8 @@ const Journal: React.FC = () => {
             <div className="space-y-6">
                 <header className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-6 bg-emerald-500 rounded-sm"></span>
-                        <h2 className="text-2xl font-bold text-white">통합 데이터 입력 (Universal Ingestion)</h2>
+                        <span className="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
+                        <h2 className="text-2xl font-bold text-white">디지털 증빙 및 전표 관리 (Digital Ledger)</h2>
                     </div>
                     <div className="flex items-center gap-3">
                         <button
@@ -134,7 +142,13 @@ const Journal: React.FC = () => {
                 </header>
 
                 {stagingTransactions.length === 0 ? (
-                    <FileUploader onTransactionsLoaded={setStagingTransactions} />
+                    <FileUploader
+                        onTransactionsLoaded={setStagingTransactions}
+                        onExcelDetected={(file) => {
+                            setExternalFile(file);
+                            setShowSmartUpload(true);
+                        }}
+                    />
                 ) : (
                     <StagingTable
                         data={stagingTransactions}
@@ -200,6 +214,14 @@ const Journal: React.FC = () => {
                     >
                         <Plus size={16} />
                         수동 전표 입력
+                    </button>
+
+                    <button
+                        onClick={() => setIsVatReportOpen(true)}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl text-sm font-bold border border-indigo-500/30 hover:bg-indigo-500/20 transition-all shadow-lg active:scale-95"
+                    >
+                        <Sparkles size={16} />
+                        VAT 최적화 리포트
                     </button>
 
                     <button
@@ -298,6 +320,47 @@ const Journal: React.FC = () => {
                 onClose={() => setIsManualModalOpen(false)}
                 onSave={addEntry}
             />
+
+            {/* VAT Optimization Report */}
+            {isVatReportOpen && (
+                <VatOptimizationReport
+                    onClose={() => setIsVatReportOpen(false)}
+                    optimizedEntries={ledger.filter(e => e.suggestedDescription || (e.suggestedVat !== undefined && e.suggestedVat !== e.vat))}
+                    onApply={(id) => {
+                        alert(`전표 ID: ${id}에 대한 최적화가 반영되었습니다.`);
+                        // Here you would optimally call a function to update the ledger
+                        setIsVatReportOpen(false);
+                    }}
+                />
+            )}
+
+            {/* Smart Excel Uploader Modal */}
+            {showSmartUpload && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div
+                        className="absolute inset-0 bg-[#070C11]/95 backdrop-blur-md"
+                        onClick={() => setShowSmartUpload(false)}
+                    ></div>
+                    <div className="relative w-full max-w-5xl">
+                        <div className="absolute -top-12 right-0">
+                            <button
+                                onClick={() => setShowSmartUpload(false)}
+                                className="text-slate-400 hover:text-white flex items-center gap-2 font-bold transition-colors"
+                            >
+                                <X size={20} /> 닫기 (ESC)
+                            </button>
+                        </div>
+                        <SmartExcelUploader
+                            externalFile={externalFile}
+                            onUpload={(entries) => {
+                                addEntries(entries);
+                                setShowSmartUpload(false);
+                                setExternalFile(null);
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Check, Calculator, Calendar, User, FileText, ArrowRightLeft } from 'lucide-react';
+import { X, Check, Calculator, Calendar, User, FileText, ArrowRightLeft, Clock } from 'lucide-react';
 import { JournalEntry, EntryType } from '../../types';
 import { ALL_ACCOUNTS } from '../../constants/accounts';
 
@@ -46,7 +46,8 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
             vat: formData.vat || 0,
             type: formData.type || 'Expense',
             status: 'Approved',
-            version: 1,
+            dueDate: formData.dueDate,
+            isSettled: !formData.dueDate, // If due date is set, assume it's credit (not settled)
         };
         onSave(newEntry);
 
@@ -151,6 +152,18 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
                         />
                     </div>
 
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
+                            <Clock size={12} /> 지급/회수 예정일 (Due Date)
+                        </label>
+                        <input
+                            type="date"
+                            className="w-full px-6 py-4 bg-[#0B1221] border border-white/5 rounded-2xl font-black text-slate-400 outline-none shadow-inner"
+                            value={formData.dueDate || ''}
+                            onChange={e => setFormData({ ...formData, dueDate: e.target.value })}
+                        />
+                    </div>
+
                     {/* Debit / Credit Section */}
                     <div className="grid grid-cols-2 gap-6 relative">
                         {/* Divider */}
@@ -230,8 +243,8 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
                         </div>
 
                         <div className={`px-6 py-4 rounded-2xl border flex items-center justify-between shadow-lg ${debitAmount === creditAmount
-                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
                             }`}>
                             <span className="text-xs font-black uppercase tracking-wider">대차차액 (Balance)</span>
                             <span className="font-mono font-black text-lg">

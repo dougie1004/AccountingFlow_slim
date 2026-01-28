@@ -13,3 +13,19 @@
 1. **Purchase Cost**: 발주 기반 취득 원가 누계
 2. **Current Asset Value**: 현재 실재고 장부 가액
 3. **COGS Mapping**: 판매 시 실시간 매출원가 변환 로직 적용
+
+## Accounting Engine Invariants (Non-Negotiable Rules)
+
+The core engine enforces absolute invariants to guarantee accounting integrity.
+These rules MUST NEVER be bypassed in UI or State layers.
+
+- Amount < 0 : ❌ Rejected
+- VAT < 0 : ❌ Rejected
+- Self-dealing (Debit == Credit) : ❌ Rejected
+
+### Exception Policy
+Adjustment entries (e.g. correcting entries, reversals, refunds) are NOT handled
+as raw Journal Entries. They must be explicitly classified and processed through
+a dedicated Adjustment Pipeline before reaching the core engine.
+
+The core engine remains invariant-only by design.

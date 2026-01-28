@@ -1,431 +1,178 @@
-import { JournalEntry, EntryType, SimulationResult, Asset, Order, InventoryItem, Partner, TaxAdjustment } from '../types';
+import { JournalEntry } from '../types';
 
-// Unified System-Wide Mock Data Generator
-// This generates a consistent "Enterprise Dataset" that populates all modules.
+export const generateComprehensiveMockData = (): JournalEntry[] => {
+    const entries: JournalEntry[] = [];
+    const today = new Date();
+    let slipCounter = 1;
 
-export const generateSystemWideMockData = (): SimulationResult => {
-    const now = new Date();
-    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-    const formatDate = (date: Date) => date.toISOString().split('T')[0];
-
-    const ensureIntegrity = (entry: any): JournalEntry => ({
-        ...entry,
-        ledgerType: entry.status === 'Approved' ? 'Official' : 'Candidate',
-        auditTrail: entry.auditTrail || [`System: Initialized as ${entry.status}`],
-        postedBy: entry.status === 'Approved' ? 'SYSTEM_ADMIN' : undefined,
-        postedAt: entry.status === 'Approved' ? new Date().toISOString() : undefined,
-    });
-
-    const ledger: JournalEntry[] = [];
-    const assets: Asset[] = [];
-    const orders: Order[] = [];
-    const inventory: InventoryItem[] = [];
-    const partners: Partner[] = [];
-    const adjustments: TaxAdjustment[] = [];
-
-    // --- 1. Partners ---
-    const rawPartners: Partial<Partner>[] = [
-        { id: 'PART-001', name: 'Antigravity VC', partnerType: 'Vendor', partnerCode: 'VC-001', status: 'Approved' },
-        { id: 'PART-002', name: 'Hanwha Precision', partnerType: 'Vendor', partnerCode: 'MACH-01', status: 'Approved' },
-        { id: 'PART-003', name: 'NVIDIA Corp', partnerType: 'Vendor', partnerCode: 'GPU-01', status: 'Approved' },
-        { id: 'PART-004', name: 'Naver Cloud Platform', partnerType: 'Customer', partnerCode: 'CUST-01', status: 'Approved' },
-        { id: 'PART-005', name: 'Samsung SDS', partnerType: 'Customer', partnerCode: 'CUST-02', status: 'Approved' },
-        { id: 'PART-006', name: 'AWS Korea', partnerType: 'Vendor', partnerCode: 'CLD-01', status: 'Approved' },
-        { id: 'PART-007', name: 'Forex', partnerType: 'Vendor', partnerCode: 'FX-01', status: 'Approved' },
-        { id: 'PART-008', name: 'New Startup Partner', partnerType: 'Vendor', status: 'Pending' }, // For Governance
-    ];
-    rawPartners.forEach(p => partners.push({
-        id: p.id || crypto.randomUUID(),
-        name: p.name || '',
-        partnerType: p.partnerType || 'Vendor',
-        partnerCode: p.partnerCode,
-        status: p.status as any || 'Pending',
-        tags: ['Simulation', p.partnerType === 'Customer' ? 'Enterprise' : 'Infrastructure']
-    }));
-
-    // --- 2. Fixed Assets ---
-    const fixedAssetData = [
-        { name: 'SMT Assembly Line Alpha', cost: 450000000, date: '2025-11-05', account: '기계장치' },
-        { name: 'Precision Optical Inspection (AOI)', cost: 120000000, date: '2025-11-08', account: '기계장치' },
-        { name: 'R&D High-Perf Server Farm', cost: 250000000, date: '2025-11-20', account: '비품' },
-    ];
-
-    fixedAssetData.forEach((fa, idx) => {
-        const id = `ASSET-${FaToId(fa.name)}`;
-        assets.push({
-            id,
-            name: fa.name,
-            acquisitionDate: fa.date,
-            cost: fa.cost,
-            depreciationMethod: 'STRAIGHT_LINE',
-            usefulLife: 5,
-            residualValue: 0,
-            accumulatedDepreciation: Math.floor(fa.cost / 60) * 2, // 2 months dep
-            currentValue: fa.cost - (Math.floor(fa.cost / 60) * 2),
-            quantity: 1
-        });
-
-        // Add to Ledger (Acquisition)
-        ledger.push(ensureIntegrity({
-            id: `LEG-FA-${idx}`,
-            date: fa.date,
-            description: `고정자산 취득 - ${fa.name}`,
-            vendor: 'Hanwha Precision',
-            debitAccount: fa.account,
-            creditAccount: '미지급금',
-            amount: fa.cost,
-            vat: fa.cost * 0.1,
-            type: 'Asset',
-            status: 'Approved'
-        }));
-
-        // Add to Ledger (Accumulated Depreciation - Simulation for reconciliation)
-        const accDep = Math.floor(fa.cost / 60) * 2;
-        ledger.push(ensureIntegrity({
-            id: `LEG-FA-DEP-${idx}`,
-            date: formatDate(now),
-            description: `감가상각비 계상 - ${fa.name} (누계액 반영)`,
-            vendor: '재무회계팀 (AI 자동결산)',
-            debitAccount: '감가상각비',
-            creditAccount: fa.account === '기계장치' ? '감가상각누계액(기)' : '감가상각누계액(비)',
-            amount: accDep,
-            vat: 0,
-            type: 'Expense',
-            status: 'Approved'
-        }));
-    });
-
-    // --- 2.5. Lease Accounting (K-IFRS 1116) ---
-    // 1. Approved Lease Asset (Right-of-Use Asset)
-    // Office Lease (Gangnam HQ) - 5 Year Contract
-    const leaseAssetAmount = 240000000; // PV of Lease Payments
-    ledger.push(ensureIntegrity({
-        id: 'LEASE-ROU-01',
-        date: '2025-01-01',
-        description: '본사 사무실 임차 (강남 테헤란로) - 사용권자산 인식',
-        vendor: '위워크 코리아',
-        debitAccount: '사용권자산 (건물)',
-        creditAccount: '리스부채 (유동)', // Initial recognition usually purely specific, but simplified here
-        amount: leaseAssetAmount,
-        vat: 0,
-        type: 'Asset',
-        status: 'Approved',
-        entryType: 'Lease'
-    }));
-
-    // 2. Corresponding Lease Liability (Full)
-    ledger.push(ensureIntegrity({
-        id: 'LEASE-LIAB-01',
-        date: '2025-01-01',
-        description: '본사 사무실 임차 (강남 테헤란로) - 리스부채 인식',
-        vendor: '위워크 코리아',
-        debitAccount: '사용권자산 (건물)', // Logic uses filter on debit/credit. For liability entry, usually Credit has Liability.
-        creditAccount: '리스부채 (비유동)',
-        amount: leaseAssetAmount - 50000000, // Long term portion
-        vat: 0,
-        type: 'Liability',
-        status: 'Approved',
-        entryType: 'Lease'
-    }));
-
-    // 3. Unconfirmed Lease Payment (To test detection)
-    ledger.push({
-        id: 'LEASE-PAY-PENDING-01',
-        date: formatDate(now),
-        description: '1월분 리스료 납부 (제네시스 장기렌트)',
-        vendor: '현대캐피탈',
-        debitAccount: '지급임차료', // User initially categorized as Expense
-        creditAccount: '보통예금',
-        amount: 850000,
-        vat: 85000,
-        type: 'Expense',
-        status: 'Unconfirmed' // Should trigger alert in Lease Ledger
-    });
-
-    // --- 3. Inventory & SCM ---
-    const inventoryItems = [
-        { id: 'INV-GPU-H100', name: 'NVIDIA H100 GPU', sku: 'GPU-H100-80G', category: 'Raw Materials', cost: 45000000 },
-        { id: 'INV-SRV-KE100', name: 'Hyperscale Server KE-100', sku: 'SRV-KE100-ENT', category: 'Finished Goods', cost: 180000000 },
-    ];
-
-    inventoryItems.forEach(item => {
-        inventory.push({
-            id: item.id,
-            name: item.name,
-            sku: item.sku,
-            category: item.category,
-            valuationMethod: 'FIFO',
-            batches: [
-                { id: `BATCH-${item.sku}-01`, acquisitionDate: '2025-11-10', quantity: 50, unitCost: item.cost }
-            ],
-            lastNrv: item.cost * 1.05
-        });
-    });
-
-    // Purchase Order
-    orders.push({
-        id: 'PO-2025-001',
-        date: '2025-11-15',
-        partnerId: 'PART-003', // NVIDIA
-        typeField: 'PURCHASE',
-        status: 'FULFILLED',
-        totalAmount: 450000000,
-        vat: 45000000,
-        items: [{ sku: 'GPU-H100-80G', quantity: 10, unitPrice: 45000000, amount: 450000000 }]
-    });
-
-    // Sales Order
-    orders.push({
-        id: 'SO-2025-001',
-        date: '2025-12-05',
-        partnerId: 'PART-004', // Naver
-        typeField: 'SALES',
-        status: 'CONFIRMED',
-        totalAmount: 1250000000,
-        vat: 125000000,
-        items: [{ sku: 'SRV-KE100-ENT', quantity: 5, unitPrice: 250000000, amount: 1250000000 }]
-    });
-
-    // --- 4. Core Financial Transactions ---
-    // Seed Capital
-    ledger.push({
-        id: 'LEG-CAP-01',
-        date: formatDate(threeMonthsAgo),
-        description: '[Series A] 신규 투자금 납입 (Antigravity VC)',
-        vendor: 'Antigravity VC',
-        debitAccount: '보통예금',
-        creditAccount: '자본금',
-        amount: 2000000000,
-        vat: 0,
-        type: 'Equity',
-        status: 'Approved'
-    });
-
-    // Product Sales (Revenue)
-    ledger.push(ensureIntegrity({
-        id: 'LEG-REV-01',
-        date: formatDate(new Date(now.getFullYear(), now.getMonth() - 1, 15)),
-        description: 'Enterprise AI Cloud Subscription - Q4 License (SaaS)',
-        vendor: 'Naver Cloud Platform',
-        debitAccount: '외상매출금',
-        creditAccount: '제품매출',
-        amount: 850000000,
-        vat: 85000000,
-        type: 'Revenue',
-        status: 'Approved'
-    }));
-
-    ledger.push({
-        id: 'LEG-REV-02',
-        date: formatDate(now),
-        description: 'AI 솔루션 커스터마이징 및 기술 컨설팅 용역비',
-        vendor: 'Samsung SDS',
-        debitAccount: '보통예금',
-        creditAccount: '서비스매출',
-        amount: 320000000,
-        vat: 32000000,
-        type: 'Revenue',
-        status: 'Approved'
-    });
-
-    // R&D Payrolls
-    for (let i = 0; i < 3; i++) {
-        const d = new Date(threeMonthsAgo.getFullYear(), threeMonthsAgo.getMonth() + i, 25);
-        ledger.push({
-            id: `LEG-RD-${i}`,
-            date: formatDate(d),
-            description: `[R&D] 연구소 핵심 인력 급여 및 개발비용 - ${d.getMonth() + 1}월`,
-            vendor: '임직원 급여',
-            debitAccount: '급여',
-            creditAccount: '보통예금',
-            amount: 150000000,
-            vat: 0,
-            type: 'Payroll',
-            status: 'Approved'
-        });
-    }
-
-    // Operating Expenses (Governance Samples)
-    ledger.push({
-        id: 'LEG-UNCONF-01',
-        date: formatDate(now),
-        description: '사무실 소모품 매입 (워크스테이션 부품)',
-        vendor: '쿠팡비즈',
-        debitAccount: '소모품비',
-        creditAccount: '미지급금',
-        amount: 4500000,
-        vat: 450000,
-        type: 'Expense',
-        status: 'Unconfirmed' // For Approval view
-    });
-
-    ledger.push({
-        id: 'LEG-UNCONF-02',
-        date: formatDate(now),
-        description: '연구실 가변 전력 증설 공사비',
-        vendor: '한국전력공사',
-        debitAccount: '지급임차료',
-        creditAccount: '미지급금',
-        amount: 12000000,
-        vat: 1200000,
-        type: 'Expense',
-        status: 'Pending Review' // For Governance
-    });
-
-    // --- VAT Optimization Trigger Samples ---
-    // 1. Maximization: Late-night meal categorized as 0 VAT
-    ledger.push({
-        id: 'VAT-DEMO-01',
-        date: formatDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)),
-        description: '야근 식대 (개발팀)',
-        vendor: '맛있는갈비',
-        debitAccount: '복리후생비',
-        creditAccount: '미지급금',
-        amount: 85000,
-        vat: 0, // AI will suggest 8500
-        type: 'Expense',
-        status: 'Unconfirmed'
-    });
-
-    // 2. Maximization: SaaS Service with domestic agent
-    ledger.push({
-        id: 'VAT-DEMO-02',
-        date: formatDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2)),
-        description: 'Cloud Infrastructure Usage (AWS)',
-        vendor: 'AWS Korea',
-        debitAccount: '지급수수료',
-        creditAccount: '미지급금',
-        amount: 450000,
-        vat: 0, // AI will suggest 45000
-        type: 'Expense',
-        status: 'Unconfirmed'
-    });
-
-    // 3. Risk Mitigation: Non-deductible vehicle gas
-    ledger.push({
-        id: 'VAT-DEMO-03',
-        date: formatDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3)),
-        description: '주유비 (차량: 12가 3456 - 제네시스)',
-        vendor: 'SK에너지',
-        debitAccount: '차량유지비',
-        creditAccount: '미지급금',
-        amount: 650000,
-        vat: 65000, // AI will suggest 0 (Risk: Non-deductible sedan)
-        type: 'Expense',
-        status: 'Unconfirmed'
-    });
-
-    // 4. Risk Mitigation: Tax-exempt purchase
-    ledger.push({
-        id: 'VAT-DEMO-04',
-        date: formatDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 4)),
-        description: '거래처 축하 화환 (면세 제품)',
-        vendor: '대박플라워',
-        debitAccount: '접대비',
-        creditAccount: '미지급금',
-        amount: 150000,
-        vat: 15000, // AI will suggest 0 (Risk: Tax-exempt)
-        type: 'Expense',
-        status: 'Unconfirmed'
-    });
-
-    // Strategic Items
-    ledger.push({
-        id: 'LEG-SBC-01',
-        date: formatDate(now),
-        description: 'Stock Option Grant Compensation Expense (Q4 Accrual)',
-        vendor: 'Employee Stock Pool',
-        debitAccount: '주식보상비용',
-        creditAccount: '자본조정',
-        amount: 85000000,
-        vat: 0,
-        type: 'Expense',
-        status: 'Approved'
-    });
-
-    ledger.push({
-        id: 'LEG-FX-01',
-        date: formatDate(now),
-        description: 'USD/KRW Translation Gain/Loss',
-        vendor: 'Forex',
-        debitAccount: '화폐성외화자산',
-        creditAccount: '외화환산이익',
-        amount: 120000000,
-        vat: 0,
-        type: 'Revenue',
-        status: 'Approved'
-    });
-
-    // --- 5. Tax Adjustments ---
-    adjustments.push(
-        { category: '접대비 한도초과', bookAmount: 25000000, taxAmount: 12000000, difference: 13000000, adjustmentType: '익금산입', disposal: '기타사회유출' },
-        { category: '감가상각비 부인액', bookAmount: 45000000, taxAmount: 40000000, difference: 5000000, adjustmentType: '익금산입', disposal: '유보(발생)' },
-        { category: '연구인력개발비 세액공제', bookAmount: 0, taxAmount: 112500000, difference: 112500000, adjustmentType: '세액공제', disposal: '기타' }
-    );
-
-    return {
-        ledger,
-        assets,
-        orders,
-        inventory,
-        partners,
-        adjustments,
-        validationResults: [
-            { status: 'Success', message: 'Core Ledger Integrity Verified' },
-            { status: 'Warning', message: 'VAT Filing Deadline Approaching (Q4)' }
-        ],
-        companyConfig: {
-            tenantId: 'ENT-DEMO-001',
-            isReadOnly: false,
-            entityMetadata: {
-                companyName: '(주)안티그래비티 테크놀로지',
-                regId: '123-45-67890',
-                repName: '홍길동',
-                corpType: 'SME',
-                fiscalYearEnd: '12-31',
-                isStartupTaxBenefit: true,
-                hasRDDept: true,
-                hasRDLab: true
-            },
-            taxPolicy: {
-                depreciationMethod: 'StraightLine',
-                entertainmentLimitBase: 12000000,
-                vatFilingCycle: 'Quarterly',
-                aiGovernanceThreshold: 5000000
-            }
-        }
+    // Helper to generate date strings "YYYY-MM-DD"
+    const getDateStr = (dayOffset: number) => {
+        const d = new Date(today);
+        d.setDate(today.getDate() + dayOffset);
+        return d.toISOString().split('T')[0];
     };
+
+    const getSlipId = (d: string) => `JE-${d.replace(/-/g, '')}-${String(slipCounter++).padStart(3, '0')}`;
+
+    // Helper to add entry
+    const add = (
+        dateOffset: number,
+        desc: string,
+        debit: string,
+        credit: string,
+        amount: number,
+        type: string,
+        vendor: string,
+        options?: { vat?: number; dueDateOffset?: number; isSettled?: boolean; settledDateOffset?: number, costCenter?: string }
+    ) => {
+        const dateStr = getDateStr(dateOffset);
+        const vat = options?.vat || 0;
+        const slipNumber = getSlipId(dateStr);
+        const costCenter = options?.costCenter || 'HQ';
+
+        entries.push({
+            id: crypto.randomUUID(),
+            slipNumber,
+            date: dateStr,
+            description: desc,
+            costCenter,
+            debitAccount: debit,
+            creditAccount: credit,
+            amount: amount,
+            vat: vat,
+            type: type,
+            vendor: vendor,
+            status: 'Approved',
+            dueDate: options?.dueDateOffset ? getDateStr(options.dueDateOffset) : undefined,
+            isSettled: options?.isSettled ?? true,
+            settledDate: options?.settledDateOffset ? getDateStr(options.settledDateOffset) : undefined,
+            auditTrail: ['User Generated', 'Confirmed']
+        });
+    };
+
+    // --- 1. 자금 조달 (Basic Funding) ---
+    add(-60, '자본금 납입', '보통예금 (Bank)', '자본금 (Capital)', 50000000, 'Equity', '주주 납입', { costCenter: 'Finance' });
+
+    // --- 2. 기본 자산 취득 (Basic Assets) ---
+    add(-40, '업무용 고성능 노트북', '비품 (Equipment)', '보통예금 (Bank)', 3500000, 'Asset', 'Samsung Electronics', { vat: 350000, costCenter: 'R&D Center' });
+    add(-38, '디자인용 태블릿', '비품 (Equipment)', '미지급금 (Accounts Payable)', 1200000, 'Asset', 'Apple Korea', { vat: 120000, costCenter: 'Design Team' });
+
+    // --- 3. 매출 (Sales & AR) - Fact based ---
+    // Cash Sales
+    add(-25, '웹사이트 개발 착수금', '보통예금 (Bank)', '매출 (Revenue)', 12000000, 'Revenue', 'ABC Corp', { vat: 1200000, costCenter: 'Sales Dept' });
+
+    // AR (Unsettled)
+    add(-10, '유지보수 용역비 청구', '외상매출금 (Accounts Receivable)', '매출 (Revenue)', 3000000, 'Revenue', 'XYZ Inc', { vat: 300000, dueDateOffset: 10, isSettled: false, costCenter: 'Sales Dept' });
+
+    // --- 4. 매입 및 비용 (Multidimensional Cost Centers) ---
+    // Rent -> HQ
+    add(-20, '사무실 임차료 (2월)', '지급임차료 (Rent Expense)', '보통예금 (Bank)', 2000000, 'Expense', 'Building Owner', { vat: 0, costCenter: 'HQ' });
+
+    // Entertainment -> Sales (Mainly)
+    add(-15, '고객사 접대 회식', '접대비 (Entertainment)', '미지급금 (Accounts Payable)', 450000, 'Expense', 'Hanwoo House', { vat: 45000, costCenter: 'Sales Dept' });
+
+    // Welfare -> R&D (Overtime meals)
+    add(-12, '야근 식대 (연구소)', '복리후생비 (Welfare)', '미지급금 (Accounts Payable)', 180000, 'Expense', 'Burger King', { vat: 0, costCenter: 'R&D Center' });
+
+    // Supplies -> Admin
+    add(-10, '사무용품 구입 (A4, Toner)', '소모품비 (Supplies)', '미지급금 (Accounts Payable)', 120000, 'Expense', 'Office Depot', { vat: 12000, costCenter: 'HQ' });
+
+    // Ads -> Marketing
+    add(-5, '구글 온라인 광고비', '광고선전비 (Ads)', '미지급금 (Accounts Payable)', 1500000, 'Expense', 'Google Ads', { vat: 0, costCenter: 'Marketing' });
+
+    // --- 5. 급여 (Payroll) - Split by Department ---
+    const payrollDate = getDateStr(-5);
+
+    // 5-1. Sales Dept Payroll
+    const slip1 = getSlipId(payrollDate);
+    entries.push(...generatePayrollEntries(payrollDate, 5000000, '2월 급여 (Sales)', slip1, 'Sales Dept'));
+
+    // 5-2. R&D Dept Payroll
+    const slip2 = getSlipId(payrollDate); // different slip
+    entries.push(...generatePayrollEntries(payrollDate, 7000000, '2월 급여 (R&D)', slip2, 'R&D Center'));
+
+    // 5-3. HQ Payroll
+    const slip3 = getSlipId(payrollDate);
+    entries.push(...generatePayrollEntries(payrollDate, 4000000, '2월 급여 (HQ)', slip3, 'HQ'));
+
+    // --- 6. Today's Transactions (Live Demo) ---
+    // Inflow: Project Payment
+    add(0, '프로젝트 중도금 입금 (Alpha)', '보통예금 (Bank)', '매출 (Revenue)', 8800000, 'Revenue', 'Alpha Tech', { vat: 880000, costCenter: 'Sales Dept' });
+
+    // Outflow: Infrastructure
+    add(0, 'AWS 클라우드 인프라 비용', '지급수수료 (Fees)', '보통예금 (Bank)', 1250000, 'Expense', 'Amazon Web Services', { vat: 125000, costCenter: 'R&D Center' });
+
+    // Outflow: Urgent Supply (Cash)
+    add(0, '긴급 시제품 자재 구입', '원재료비 (Materials)', '보통예금 (Bank)', 450000, 'Expense', 'Local Market', { vat: 45000, costCenter: 'R&D Center' });
+
+    return entries;
 };
 
-function FaToId(name: string) {
-    return name.split(' ').map(s => s[0]).join('').toUpperCase();
-}
+// Payroll Generator (Split Approach for 1:1 Ledger Structure)
+const generatePayrollEntries = (
+    date: string,
+    totalSalary: number,
+    desc: string,
+    slipNumber: string,
+    costCenter: string
+): JournalEntry[] => {
+    const entries: JournalEntry[] = [];
+    const baseId = crypto.randomUUID();
 
-// Aliases for legacy compatibility
-export const generateMockBatch = () => generateSystemWideMockData().ledger;
-export const generateShowcaseData = () => generateSystemWideMockData().ledger;
-export const simulateAIParsing = (entry: any): JournalEntry => {
-    return {
-        id: crypto.randomUUID(),
-        date: entry.date || new Date().toISOString().split('T')[0],
-        description: entry.description || '',
-        vendor: entry.vendor || 'Unknown',
-        debitAccount: entry.debitAccount || '소모품비',
-        creditAccount: entry.creditAccount || '보통예금',
-        amount: entry.amount || 0,
-        vat: entry.vat || 0,
-        type: entry.type || 'Expense',
-        status: 'Unconfirmed',
-        version: 1
-    };
+    // Rates (Approx. 2024 Korea)
+    const pension = Math.floor(totalSalary * 0.045);
+    const health = Math.floor(totalSalary * 0.03545);
+    const employment = Math.floor(totalSalary * 0.009);
+    const incomeTax = Math.floor(totalSalary * 0.03); // Simplified impact
+    const localTax = Math.floor(incomeTax * 0.1);
+
+    const totalDeductions = pension + health + employment + incomeTax + localTax;
+    const netPay = totalSalary - totalDeductions;
+
+    // Helper to create entry (Splitting Debit Side to match Credits)
+    const create = (idSuffix: string, amt: number, crAcc: string) => ({
+        id: `${baseId}-${idSuffix}`,
+        slipNumber, // Grouping Key
+        date,
+        description: desc,
+        costCenter, // Dynamic Cost Center
+        debitAccount: '급여 (Salaries)', // Expense Account matches everywhere
+        creditAccount: crAcc,            // Liability or Asset (Bank)
+        amount: amt,
+        vat: 0,
+        type: 'Payroll',
+        vendor: 'Employees',
+        status: 'Approved',
+        isSettled: true,
+        auditTrail: ['System Generated (Payroll Engine)']
+    });
+
+    // 1. National Pension (국민연금)
+    entries.push(create('pension', pension, '예수금(국민연금)'));
+    // 2. Health Insurance (건강보험)
+    entries.push(create('health', health, '예수금(건강보험)'));
+    // 3. Employment Insurance (고용보험)
+    entries.push(create('emp', employment, '예수금(고용보험)'));
+    // 4. Income Tax (소득세)
+    entries.push(create('income', incomeTax, '예수금(원천세)'));
+    // 5. Local Tax (지방소득세)
+    entries.push(create('local', localTax, '예수금(지방소득세)'));
+    // 6. Net Pay (실수령액 이체)
+    entries.push(create('net', netPay, '보통예금 (Bank)'));
+
+    return entries;
 };
+
+export const generateMockBatch = (count: number): JournalEntry[] => {
+    return generateComprehensiveMockData().slice(0, count);
+};
+
 export const getRawMockData = () => {
     return {
         bankData: [
-            { date: '2026-01-01', desc: '고용보험 산출내역서 - 김철수', in: 0, out: 28000, type: '보험료' },
-            { date: '2026-03-15', desc: '고용보험 산출내역서 - 이영희', in: 0, out: 33600, type: '보험료' },
-            { date: '2026-01-10', desc: '고용보험 산출내역서 - 박지민', in: 0, out: 0, type: '보험료' },
-            { date: '2025-12-01', desc: '고용보험 산출내역서 - 최두식', in: 0, out: 22400, type: '보험료' },
+            { date: '2024-03-01', desc: 'AWS Cloud Services', in: 0, out: 154000, type: 'Expense' },
+            { date: '2024-03-02', desc: 'Client Payment', in: 3300000, out: 0, type: 'Revenue' },
+            { date: '2024-03-05', desc: 'Office Supplies', in: 0, out: 45000, type: 'Expense' },
         ]
     };
 };

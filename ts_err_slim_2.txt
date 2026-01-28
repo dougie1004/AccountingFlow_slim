@@ -1,0 +1,276 @@
+﻿src/components/assets/DepreciationScheduleModal.tsx(4,17): error TS2305: Module '"../../types"' has no exported member 'AssetSchedule'.
+src/components/assets/DepreciationScheduleModal.tsx(56,44): error TS2339: Property 'depreciationMethod' does not exist on type 'Asset'.
+src/components/assets/DepreciationScheduleModal.tsx(115,66): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/components/assets/DepreciationScheduleModal.tsx(115,72): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/components/dashboard/CEOQuickBar.tsx(3,10): error TS2305: Module '"../../types"' has no exported member 'FinancialSummary'.
+src/components/dashboard/TransactionFeed.tsx(72,18): error TS2678: Type '"Payroll"' is not comparable to type 'EntryType | null | undefined'.
+src/components/dashboard/TransactionFeed.tsx(83,136): error TS2339: Property 'reviewLogs' does not exist on type 'ComplianceReview'.
+src/components/dashboard/TransactionFeed.tsx(97,13): error TS2353: Object literal may only specify known properties, and 'complianceContext' does not exist in type 'JournalEntry'.
+src/components/dashboard/TransactionFeed.tsx(111,50): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'Partner'.
+src/components/dashboard/TransactionFeed.tsx(216,53): error TS2339: Property 'isConsultation' does not exist on type 'ParsedTransaction'.
+src/components/dashboard/TransactionFeed.tsx(338,60): error TS2551: Property 'clarificationOptions' does not exist on type 'ParsedTransaction'. Did you mean 'clarificationPrompt'?
+src/components/dashboard/TransactionFeed.tsx(340,67): error TS2551: Property 'clarificationOptions' does not exist on type 'ParsedTransaction'. Did you mean 'clarificationPrompt'?
+src/components/dashboard/TransactionFeed.tsx(340,93): error TS7006: Parameter 'opt' implicitly has an 'any' type.
+src/components/dashboard/TransactionFeed.tsx(340,98): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/components/dashboard/TransactionFeed.tsx(387,69): error TS2339: Property 'reviewLogs' does not exist on type 'ComplianceReview'.
+src/components/dashboard/TransactionFeed.tsx(387,86): error TS7006: Parameter 'log' implicitly has an 'any' type.
+src/components/dashboard/TransactionFeed.tsx(387,91): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/components/EvidenceViewer.tsx(19,31): error TS2339: Property 'attachmentUrl' does not exist on type 'JournalEntry'.
+src/components/EvidenceViewer.tsx(20,27): error TS2339: Property 'ocrData' does not exist on type 'JournalEntry'.
+src/components/EvidenceViewer.tsx(20,54): error TS2339: Property 'ocrData' does not exist on type 'JournalEntry'.
+src/components/EvidenceViewer.tsx(27,27): error TS2339: Property 'confidence' does not exist on type 'JournalEntry'.
+src/components/journal/ComplianceSidebar.tsx(137,65): error TS2339: Property 'reviewLogs' does not exist on type 'ComplianceReview'.
+src/components/journal/ComplianceSidebar.tsx(137,82): error TS7006: Parameter 'log' implicitly has an 'any' type.
+src/components/journal/ComplianceSidebar.tsx(137,87): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/components/journal/JournalTable.tsx(30,31): error TS2339: Property 'transactionId' does not exist on type 'JournalEntry'.
+src/components/journal/JournalTable.tsx(122,59): error TS2339: Property 'attachmentUrl' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/components/journal/JournalTable.tsx(124,79): error TS2339: Property 'attachmentUrl' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/components/journal/JournalTable.tsx(128,86): error TS2339: Property 'attachmentUrl' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/components/journal/JournalTable.tsx(129,52): error TS2339: Property 'attachmentUrl' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/components/journal/ManualEntryModal.tsx(49,13): error TS2353: Object literal may only specify known properties, and 'version' does not exist in type 'JournalEntry'.
+src/components/journal/PaymentRequestModal.tsx(78,57): error TS2339: Property 'bankName' does not exist on type 'ParsedTransaction'.
+src/components/journal/PaymentRequestModal.tsx(80,110): error TS2339: Property 'bankAccount' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(51,21): error TS2339: Property 'transactionId' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(52,33): error TS2339: Property 'transactionId' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(52,60): error TS2339: Property 'transactionId' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(53,28): error TS2339: Property 'transactionId' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(69,23): error TS2339: Property 'position' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(70,28): error TS2339: Property 'position' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(110,19): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(110,38): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(111,23): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(111,42): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(112,27): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(112,47): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(112,71): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(112,101): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(114,27): error TS2339: Property 'position' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(114,53): error TS2339: Property 'position' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(115,27): error TS2339: Property 'position' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(115,53): error TS2339: Property 'position' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(118,26): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(325,64): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(325,102): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(325,124): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(326,65): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(327,63): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(327,138): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(327,160): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(336,178): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(352,62): error TS2339: Property 'transactionId' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(357,62): error TS2339: Property 'position' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(358,120): error TS2339: Property 'position' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(359,70): error TS2339: Property 'position' does not exist on type '{ originalIndex: number; date?: string | null | undefined; id?: string | undefined; amount: number; vat: number; entryType?: EntryType | null | undefined; description: string; ... 11 more ...; parseStatus?: ParseStatus | undefined; }'.
+src/components/journal/StagingTable.tsx(521,66): error TS2551: Property 'clarificationOptions' does not exist on type 'ParsedTransaction'. Did you mean 'clarificationPrompt'?
+src/components/journal/StagingTable.tsx(521,92): error TS7006: Parameter 'opt' implicitly has an 'any' type.
+src/components/journal/StagingTable.tsx(681,110): error TS2339: Property 'transactionId' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(720,86): error TS2339: Property 'leaseInterestRate' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(721,78): error TS2339: Property 'leaseInterestRate' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(732,82): error TS2339: Property 'leaseAssetType' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(735,155): error TS2339: Property 'leaseAssetType' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(742,82): error TS2339: Property 'leaseAssetType' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(745,155): error TS2339: Property 'leaseAssetType' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(751,136): error TS2339: Property 'leaseAssetType' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(762,88): error TS2339: Property 'leaseTerm' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(765,82): error TS2339: Property 'leaseTerm' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(774,113): error TS2339: Property 'leaseInterestRate' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(774,177): error TS2339: Property 'leaseInterestRate' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(775,87): error TS2339: Property 'leaseInterestRate' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(775,152): error TS2339: Property 'leaseInterestRate' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(781,101): error TS2339: Property 'leaseInterestRate' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(784,82): error TS2339: Property 'leaseInterestRate' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(795,74): error TS2339: Property 'leaseTerm' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(796,74): error TS2339: Property 'leaseInterestRate' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(828,61): error TS2339: Property 'transactionId' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(833,70): error TS2339: Property 'leaseTerm' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(834,70): error TS2339: Property 'leaseInterestRate' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(869,61): error TS2353: Object literal may only specify known properties, and 'transactionId' does not exist in type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(877,61): error TS2353: Object literal may only specify known properties, and 'transactionId' does not exist in type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(901,30): error TS2367: This comparison appears to be unintentional because the types 'EntryType | null | undefined' and '"Payroll"' have no overlap.
+src/components/journal/StagingTable.tsx(905,88): error TS2367: This comparison appears to be unintentional because the types 'EntryType | null | undefined' and '"Payroll"' have no overlap.
+src/components/journal/StagingTable.tsx(949,101): error TS2339: Property 'quantity' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(949,137): error TS2339: Property 'quantity' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(949,182): error TS2339: Property 'quantity' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(963,69): error TS2339: Property 'quantity' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(964,74): error TS2339: Property 'unitPrice' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(991,70): error TS2339: Property 'quantity' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(991,106): error TS2339: Property 'quantity' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(1139,48): error TS2339: Property 'position' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(1142,55): error TS2339: Property 'position' does not exist on type 'ParsedTransaction'.
+src/components/journal/StagingTable.tsx(1145,52): error TS2367: This comparison appears to be unintentional because the types 'EntryType | null | undefined' and '"Payroll"' have no overlap.
+src/components/onboarding/SetupWizard.tsx(19,9): error TS2353: Object literal may only specify known properties, and 'depreciationMethod' does not exist in type 'TaxPolicy | (() => TaxPolicy)'.
+src/components/onboarding/SetupWizard.tsx(126,55): error TS2339: Property 'depreciationMethod' does not exist on type 'TaxPolicy'.
+src/components/onboarding/SetupWizard.tsx(127,79): error TS2353: Object literal may only specify known properties, and 'depreciationMethod' does not exist in type 'SetStateAction<TaxPolicy>'.
+src/components/onboarding/SetupWizard.tsx(141,55): error TS2339: Property 'entertainmentLimitBase' does not exist on type 'TaxPolicy'.
+src/components/onboarding/SetupWizard.tsx(142,79): error TS2353: Object literal may only specify known properties, and 'entertainmentLimitBase' does not exist in type 'SetStateAction<TaxPolicy>'.
+src/components/tax/CIT_Form.tsx(14,15): error TS2339: Property 'taxCode' does not exist on type 'JournalEntry'.
+src/components/tax/CIT_Form.tsx(15,15): error TS2339: Property 'taxCode' does not exist on type 'JournalEntry'.
+src/components/tax/CIT_Form.tsx(16,15): error TS2339: Property 'taxCode' does not exist on type 'JournalEntry'.
+src/components/tax/CIT_Form.tsx(21,15): error TS2339: Property 'taxCode' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(13,24): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(14,38): error TS2339: Property 'suggestedVat' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(17,24): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(48,133): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(60,132): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(76,62): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(99,120): error TS2339: Property 'suggestedVat' does not exist on type 'JournalEntry'.
+src/components/tax/VatOptimizationReport.tsx(104,60): error TS2339: Property 'suggestedDescription' does not exist on type 'JournalEntry'.
+src/context/AccountingContext.tsx(2,33): error TS2305: Module '"../types"' has no exported member 'SimulationResult'.
+src/context/AccountingContext.tsx(2,72): error TS2305: Module '"../types"' has no exported member 'InventoryItem'.
+src/context/AccountingContext.tsx(2,87): error TS2305: Module '"../types"' has no exported member 'Order'.
+src/context/AccountingContext.tsx(2,94): error TS2305: Module '"../types"' has no exported member 'FinancialSummary'.
+src/context/AccountingContext.tsx(54,13): error TS2353: Object literal may only specify known properties, and 'depreciationMethod' does not exist in type 'TaxPolicy'.
+src/context/AccountingContext.tsx(78,27): error TS2339: Property 'ledgerType' does not exist on type 'JournalEntry'.
+src/context/AccountingContext.tsx(88,45): error TS2339: Property 'id' does not exist on type 'Partner'.
+src/context/AccountingContext.tsx(126,87): error TS2339: Property 'version' does not exist on type 'JournalEntry'.
+src/context/AccountingContext.tsx(181,95): error TS2339: Property 'version' does not exist on type 'JournalEntry'.
+src/context/AccountingContext.tsx(235,119): error TS2339: Property 'suggestedVat' does not exist on type 'JournalEntry'.
+src/context/AccountingContext.tsx(248,34): error TS2339: Property 'suggestedVat' does not exist on type 'JournalEntry'.
+src/context/AccountingContext.tsx(251,28): error TS2339: Property 'suggestedVat' does not exist on type 'JournalEntry'.
+src/context/AccountingContext.tsx(261,56): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/context/AccountingContext.tsx(271,49): error TS2339: Property 'id' does not exist on type 'Partner'.
+src/context/AccountingContext.tsx(271,64): error TS2339: Property 'id' does not exist on type 'Partner'.
+src/context/AccountingContext.tsx(277,49): error TS2339: Property 'id' does not exist on type 'Partner'.
+src/context/AccountingContext.tsx(277,64): error TS2339: Property 'id' does not exist on type 'Partner'.
+src/context/AuditContext.tsx(3,10): error TS2305: Module '"../types"' has no exported member 'AuditIssue'.
+src/context/AuditContext.tsx(3,22): error TS2305: Module '"../types"' has no exported member 'AuditProject'.
+src/data/documents.ts(2,10): error TS2305: Module '"../types"' has no exported member 'MockDocument'.
+src/data/mockData.ts(2,10): error TS2305: Module '"../types"' has no exported member 'AuditArea'.
+src/data/mockData.ts(2,21): error TS2305: Module '"../types"' has no exported member 'Scenario'.
+src/data/mockData.ts(2,31): error TS2305: Module '"../types"' has no exported member 'ViolationDetail'.
+src/data/mockData.ts(2,48): error TS2724: '"../types"' has no exported member named 'CorpCardTransaction'. Did you mean 'ParsedTransaction'?
+src/data/mockData.ts(2,69): error TS2305: Module '"../types"' has no exported member 'ForecastDataPoint'.
+src/data/mockUploadData.ts(2,10): error TS2305: Module '"../types"' has no exported member 'MockUploadFile'.
+src/lib/tauri-bridge.ts(5,5): error TS2305: Module '"../types"' has no exported member 'AuditIssue'.
+src/lib/tauri-bridge.ts(6,5): error TS2305: Module '"../types"' has no exported member 'AuditProject'.
+src/lib/tauri-bridge.ts(7,5): error TS2305: Module '"../types"' has no exported member 'SystemEvent'.
+src/lib/tauri-bridge.ts(8,5): error TS2305: Module '"../types"' has no exported member 'DashboardSummary'.
+src/lib/tauri-bridge.ts(9,5): error TS2305: Module '"../types"' has no exported member 'AuditUniverseEntity'.
+src/lib/tauri-bridge.ts(10,5): error TS2305: Module '"../types"' has no exported member 'AuditPlan'.
+src/pages/ApprovalDesk.tsx(27,24): error TS2339: Property 'parseStatus' does not exist on type 'JournalEntry'.
+src/pages/ApprovalDesk.tsx(27,84): error TS2339: Property 'complianceContext' does not exist on type 'JournalEntry'.
+src/pages/ApprovalDesk.tsx(45,37): error TS2339: Property 'parseStatus' does not exist on type 'JournalEntry'.
+src/pages/ApprovalDesk.tsx(45,95): error TS2339: Property 'complianceContext' does not exist on type 'JournalEntry'.
+src/pages/ApprovalDesk.tsx(64,27): error TS2339: Property 'transactionId' does not exist on type 'JournalEntry'.
+src/pages/ApprovalDesk.tsx(157,38): error TS2339: Property 'taxBaseAmount' does not exist on type 'ParsedTransaction'.
+src/pages/ApprovalDesk.tsx(161,40): error TS2339: Property 'rawDataSnapshot' does not exist on type 'ParsedTransaction'.
+src/pages/ApprovalDesk.tsx(163,51): error TS2339: Property 'parseErrorMsg' does not exist on type 'ParsedTransaction'.
+src/pages/ApprovalDesk.tsx(164,83): error TS2339: Property 'parseErrorMsg' does not exist on type 'ParsedTransaction'.
+src/pages/ApprovalDesk.tsx(167,27): error TS2339: Property 'rawDataSnapshot' does not exist on type 'ParsedTransaction'.
+src/pages/ApprovalDesk.tsx(167,62): error TS2339: Property 'rawDataSnapshot' does not exist on type 'ParsedTransaction'.
+src/pages/ApprovalDesk.tsx(286,57): error TS2339: Property 'parseStatus' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(286,123): error TS2339: Property 'complianceContext' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(359,56): error TS2339: Property 'taxBaseAmount' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(361,85): error TS2339: Property 'taxBaseAmount' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(422,66): error TS2339: Property 'complianceContext' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(423,69): error TS2339: Property 'complianceContext' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(442,52): error TS2339: Property 'suggestedVat' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(451,113): error TS2339: Property 'suggestedDescription' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(459,114): error TS2339: Property 'suggestedVat' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(470,100): error TS2353: Object literal may only specify known properties, and 'suggestedVat' does not exist in type 'Partial<JournalEntry>'.
+src/pages/ApprovalDesk.tsx(479,52): error TS2339: Property 'clarificationPrompt' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(485,123): error TS2339: Property 'clarificationPrompt' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(508,102): error TS2339: Property 'insuranceRates' does not exist on type 'TaxPolicy'.
+src/pages/ApprovalDesk.tsx(508,165): error TS2339: Property 'insuranceRates' does not exist on type 'TaxPolicy'.
+src/pages/ApprovalDesk.tsx(508,230): error TS2339: Property 'insuranceRates' does not exist on type 'TaxPolicy'.
+src/pages/ApprovalDesk.tsx(511,89): error TS2339: Property 'insuranceRates' does not exist on type 'TaxPolicy'.
+src/pages/ApprovalDesk.tsx(547,116): error TS2353: Object literal may only specify known properties, and 'transactionId' does not exist in type 'JournalEntry'.
+src/pages/ApprovalDesk.tsx(552,116): error TS2353: Object literal may only specify known properties, and 'transactionId' does not exist in type 'JournalEntry'.
+src/pages/ApprovalDesk.tsx(557,116): error TS2353: Object literal may only specify known properties, and 'transactionId' does not exist in type 'JournalEntry'.
+src/pages/ApprovalDesk.tsx(562,116): error TS2353: Object literal may only specify known properties, and 'transactionId' does not exist in type 'JournalEntry'.
+src/pages/ApprovalDesk.tsx(567,116): error TS2353: Object literal may only specify known properties, and 'transactionId' does not exist in type 'JournalEntry'.
+src/pages/ApprovalDesk.tsx(572,116): error TS2353: Object literal may only specify known properties, and 'transactionId' does not exist in type 'JournalEntry'.
+src/pages/ApprovalDesk.tsx(646,65): error TS2339: Property 'parseStatus' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/ApprovalDesk.tsx(646,131): error TS2339: Property 'complianceContext' does not exist on type '{ debits: { acc: string; amount: number; }[]; credits: { acc: string; amount: number; }[]; displayAmount: number; subIds: string[]; isComposite: boolean; id: string; date: string; description: string; vendor?: string | undefined; ... 6 more ...; auditTrail?: string[] | undefined; }'.
+src/pages/Assets.tsx(16,66): error TS2339: Property 'currentValue' does not exist on type 'Asset'.
+src/pages/Assets.tsx(50,98): error TS2339: Property 'depreciationMethod' does not exist on type 'Asset'.
+src/pages/Assets.tsx(50,193): error TS2339: Property 'currentValue' does not exist on type 'Asset'.
+src/pages/Assets.tsx(168,111): error TS2339: Property 'currentValue' does not exist on type 'Asset'.
+src/pages/AuditTask.tsx(10,10): error TS2305: Module '"../types"' has no exported member 'AuditProject'.
+src/pages/AuditTask.tsx(10,24): error TS2305: Module '"../types"' has no exported member 'AuditPlan'.
+src/pages/Dashboard.tsx(268,63): error TS2339: Property 'hasRDDept' does not exist on type 'EntityMetadata'.
+src/pages/Dashboard.tsx(269,62): error TS2339: Property 'hasRDLab' does not exist on type 'EntityMetadata'.
+src/pages/DataMigration.tsx(58,64): error TS2339: Property 'detectedType' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(58,103): error TS2339: Property 'confidence' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(59,53): error TS2339: Property 'summaryText' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(97,42): error TS2339: Property 'detectedType' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(97,97): error TS2339: Property 'numEmployees' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(98,115): error TS2339: Property 'numEmployees' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(102,89): error TS2339: Property 'detectedType' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(511,114): error TS2339: Property 'detectedType' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(518,111): error TS2339: Property 'summaryText' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(521,63): error TS2339: Property 'numEmployees' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/DataMigration.tsx(524,126): error TS2339: Property 'numEmployees' does not exist on type '{ totalAmount: number; count: number; }'.
+src/pages/Journal.tsx(103,41): error TS2322: Type '"Payroll"' is not assignable to type 'EntryType | null | undefined'.
+src/pages/LeaseLedger.tsx(192,37): error TS2339: Property 'defaultLeaseRate' does not exist on type 'TaxPolicy'.
+src/pages/LeaseLedger.tsx(198,79): error TS2339: Property 'defaultLeaseRate' does not exist on type 'TaxPolicy'.
+src/pages/LeaseLedger.tsx(206,25): error TS2353: Object literal may only specify known properties, and 'defaultLeaseRate' does not exist in type 'TaxPolicy'.
+src/pages/LeaseLedger.tsx(207,63): error TS2339: Property 'depreciationMethod' does not exist on type 'TaxPolicy'.
+src/pages/LeaseLedger.tsx(208,67): error TS2339: Property 'entertainmentLimitBase' does not exist on type 'TaxPolicy'.
+src/pages/LeaseLedger.tsx(210,66): error TS2339: Property 'aiGovernanceThreshold' does not exist on type 'TaxPolicy'.
+src/pages/LeaseLedger.tsx(267,95): error TS2339: Property 'defaultLeaseRate' does not exist on type 'TaxPolicy'.
+src/pages/LeaseLedger.tsx(366,68): error TS2339: Property 'defaultLeaseRate' does not exist on type 'TaxPolicy'.
+src/pages/LedgerView.tsx(59,36): error TS2339: Property 'ocrData' does not exist on type 'JournalEntry'.
+src/pages/LedgerView.tsx(70,36): error TS2339: Property 'ocrData' does not exist on type 'JournalEntry'.
+src/pages/LedgerView.tsx(82,40): error TS2339: Property 'ocrData' does not exist on type 'JournalEntry'.
+src/pages/LedgerView.tsx(95,36): error TS2339: Property 'ocrData' does not exist on type 'JournalEntry'.
+src/pages/LedgerView.tsx(107,40): error TS2339: Property 'ocrData' does not exist on type 'JournalEntry'.
+src/pages/LedgerView.tsx(119,36): error TS2339: Property 'ocrData' does not exist on type 'JournalEntry'.
+src/pages/LedgerView.tsx(131,36): error TS2339: Property 'ocrData' does not exist on type 'JournalEntry'.
+src/pages/LedgerView.tsx(141,36): error TS2339: Property 'ocrData' does not exist on type 'JournalEntry'.
+src/pages/LedgerView.tsx(364,63): error TS2339: Property 'partnerCode' does not exist on type 'Partner'.
+src/pages/LedgerView.tsx(365,149): error TS2339: Property 'partnerCode' does not exist on type 'Partner'.
+src/pages/Partners.tsx(28,65): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(29,35): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(49,43): error TS2339: Property 'id' does not exist on type 'Partner'.
+src/pages/Partners.tsx(97,45): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(99,53): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(114,93): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(124,49): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(135,49): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(158,54): error TS2339: Property 'id' does not exist on type 'Partner'.
+src/pages/Partners.tsx(166,143): error TS2339: Property 'representative' does not exist on type 'Partner'.
+src/pages/Partners.tsx(181,152): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(185,62): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(193,54): error TS2339: Property 'partnerCode' does not exist on type 'Partner'.
+src/pages/Partners.tsx(193,78): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(221,54): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(224,54): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(254,64): error TS2339: Property 'representative' does not exist on type 'Partner'.
+src/pages/Partners.tsx(255,99): error TS2353: Object literal may only specify known properties, and 'representative' does not exist in type 'Partner | ((prevState: Partner | null) => Partner | null)'.
+src/pages/Partners.tsx(260,46): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Partners.tsx(282,50): error TS2339: Property 'status' does not exist on type 'Partner'.
+src/pages/Reports.tsx(22,10): error TS2305: Module '"../types"' has no exported member 'ManagementReport'.
+src/pages/Reports.tsx(289,82): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/pages/Reports.tsx(289,89): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pages/Reports.tsx(335,64): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/pages/Reports.tsx(335,70): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pages/Reports.tsx(351,66): error TS7006: Parameter 'rec' implicitly has an 'any' type.
+src/pages/Reports.tsx(351,71): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pages/Settings.tsx(255,58): error TS2339: Property 'insuranceRates' does not exist on type 'TaxPolicy'.
+src/pages/Settings.tsx(255,117): error TS2339: Property 'insuranceRates' does not exist on type 'TaxPolicy'.
+src/pages/Settings.tsx(260,45): error TS2353: Object literal may only specify known properties, and 'insuranceRates' does not exist in type 'TaxPolicy'.
+src/pages/Settings.tsx(260,84): error TS2339: Property 'insuranceRates' does not exist on type 'TaxPolicy'.
+src/pages/TaxAdjustments.tsx(7,10): error TS2305: Module '"../types"' has no exported member 'ValidationResult'.
+src/pages/TaxAdjustments.tsx(7,28): error TS2305: Module '"../types"' has no exported member 'TaxEstimation'.
+src/pages/TaxAdjustments.tsx(24,37): error TS2339: Property 'suggestedVat' does not exist on type 'JournalEntry'.
+src/utils/mockDataGenerator.ts(1,35): error TS2305: Module '"../types"' has no exported member 'SimulationResult'.
+src/utils/mockDataGenerator.ts(1,60): error TS2305: Module '"../types"' has no exported member 'Order'.
+src/utils/mockDataGenerator.ts(1,67): error TS2305: Module '"../types"' has no exported member 'InventoryItem'.
+src/utils/mockDataGenerator.ts(1,91): error TS2305: Module '"../types"' has no exported member 'TaxAdjustment'.
+src/utils/mockDataGenerator.ts(28,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(29,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(30,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(31,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(32,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(33,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(34,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(35,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(38,9): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Partner'.
+src/utils/mockDataGenerator.ts(38,15): error TS2339: Property 'id' does not exist on type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(40,24): error TS2339: Property 'partnerType' does not exist on type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(41,24): error TS2339: Property 'partnerCode' does not exist on type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(42,19): error TS2339: Property 'status' does not exist on type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(43,32): error TS2339: Property 'partnerType' does not exist on type 'Partial<Partner>'.
+src/utils/mockDataGenerator.ts(60,13): error TS2353: Object literal may only specify known properties, and 'depreciationMethod' does not exist in type 'Asset'.
+src/utils/mockDataGenerator.ts(419,9): error TS2353: Object literal may only specify known properties, and 'version' does not exist in type 'JournalEntry'.

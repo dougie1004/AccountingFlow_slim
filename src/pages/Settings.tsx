@@ -1,273 +1,232 @@
 import React, { useState } from 'react';
-import { Database, Beaker, CheckCircle, AlertCircle, Lock, Calendar, Plus, Trash2, Save, Calculator } from 'lucide-react';
+import { Database, Calculator, Plus, Trash2, Lock, List } from 'lucide-react';
 import { useAccounting } from '../hooks/useAccounting';
-import { generateSystemWideMockData } from '../utils/mockDataGenerator';
-import { SetupWizard } from '../components/onboarding/SetupWizard';
-import { EntityMetadata, TaxPolicy } from '../types';
-
-const RateInput: React.FC<{
-    label: string,
-    value: number,
-    tip: string,
-    onChange: (val: number) => void
-}> = ({ label, value, tip, onChange }) => {
-    const formatForDisplay = (v: number) => {
-        return parseFloat((v * 100).toFixed(4)).toString();
-    };
-
-    const [localText, setLocalText] = React.useState(formatForDisplay(value));
-
-    React.useEffect(() => {
-        const displayVal = formatForDisplay(value);
-        if (parseFloat(localText) !== parseFloat(displayVal)) {
-            setLocalText(displayVal);
-        }
-    }, [value]);
-
-    return (
-        <div className="bg-[#151D2E] p-5 rounded-2xl border border-white/5 hover:border-indigo-500/40 transition-all flex flex-col gap-3 shadow-lg">
-            <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider truncate">{label}</label>
-                <div className="flex items-center gap-1.5 opacity-60">
-                    <span className="text-[8px] font-bold text-slate-400 uppercase">STD:</span>
-                    <span className="text-[9px] text-indigo-400 font-black">{tip.replace('기정 ', '').replace('업종별 차이', 'Varies')}</span>
-                </div>
-            </div>
-
-            <div className="relative">
-                <input
-                    type="text"
-                    inputMode="decimal"
-                    value={localText}
-                    onChange={(e) => {
-                        const val = e.target.value;
-                        setLocalText(val);
-                        const num = parseFloat(val);
-                        if (!isNaN(num)) {
-                            onChange(num / 100);
-                        }
-                    }}
-                    className="w-full bg-[#0B1221] border border-white/10 rounded-xl h-10 px-3 text-base font-black text-white focus:ring-2 focus:ring-indigo-500/40 outline-none transition-all pr-8"
-                    placeholder="0.0"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 font-black opacity-30 text-[10px]">%</span>
-            </div>
-        </div>
-    );
-};
-
-import { ACCOUNT_NAMES, STANDARD_ACCOUNTS } from '../constants/accounts';
+import { STANDARD_ACCOUNTS } from '../constants/accounts';
 
 const Settings: React.FC = () => {
-    const { ledger, loadSimulation, config, updateConfig } = useAccounting();
-    const [closingDate, setClosingDate] = useState('');
-    const [isReadOnly, setIsReadOnly] = useState(false);
-    const [showWizard, setShowWizard] = useState(false);
-
-    // Initial Balance Local State
+    const { ledger, config, updateConfig, clearAllData, loadDemoData, customAccounts, addCustomAccount, removeCustomAccount } = useAccounting();
     const [newAccount, setNewAccount] = useState('');
     const [newAmount, setNewAmount] = useState('');
-
-    const handleLoadTestData = () => {
-        const results = generateSystemWideMockData();
-        loadSimulation(results);
-        alert('종합 테스트 데이터(전분야)가 생성되었습니다.');
-    };
+    const [newCustomAccount, setNewCustomAccount] = useState('');
 
     const handleAddInitialBalance = () => {
         if (!newAccount || !newAmount) return;
         const amount = parseFloat(newAmount.replace(/,/g, ''));
         if (isNaN(amount)) return;
 
-        // 중복 체크 및 업데이트
         const currentBalances = config.initialBalances || [];
-        const existingIdx = currentBalances.findIndex(b => b.account === newAccount);
-
-        if (existingIdx >= 0) {
-            const next = [...currentBalances];
-            next[existingIdx] = { ...next[existingIdx], amount };
-            updateConfig({ initialBalances: next });
-        } else {
-            updateConfig({
-                initialBalances: [...currentBalances, { account: newAccount, amount }]
-            });
-        }
+        updateConfig({
+            initialBalances: [...currentBalances.filter(b => b.account !== newAccount), { account: newAccount, amount }]
+        });
 
         setNewAccount('');
         setNewAmount('');
     };
 
     const handleRemoveInitialBalance = (index: number) => {
-        const currentBalances = config.initialBalances || [];
-        const next = [...currentBalances];
+        const next = [...(config.initialBalances || [])];
         next.splice(index, 1);
         updateConfig({ initialBalances: next });
     };
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-            {/* Datalist for Accounts */}
             <datalist id="standard-accounts">
-                {STANDARD_ACCOUNTS.map(acc => (
-                    <option key={acc.name} value={acc.name}>{acc.category}</option>
-                ))}
+                {STANDARD_ACCOUNTS.map(acc => <option key={acc.name} value={acc.name}>{acc.category}</option>)}
             </datalist>
 
+            <div>
+                <h1 className="text-3xl font-black text-white tracking-tight">설정 (Settings)</h1>
+                <p className="mt-2 text-slate-400 font-bold text-lg">시스템 데이터 및 기초 설정을 관리합니다.</p>
+            </div>
 
-            <div className="flex items-end justify-between">
-                <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="p-1.5 bg-indigo-500/10 rounded-lg">
-                            <Database className="w-5 h-5 text-indigo-400" />
-                        </div>
-                        <h2 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">시스템 환경 제어</h2>
-                    </div>
-                    <h1 className="text-3xl font-black text-white tracking-tight">설정 및 기초 제원 (Settings)</h1>
-                    <p className="mt-2 text-slate-400 font-bold text-lg">기초 잔액, 요율, 보안 설정을 통합 관리합니다.</p>
+            {/* 1. Data Control Center */}
+            <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 shadow-2xl space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-indigo-500/10 rounded-2xl"><Database className="w-6 h-6 text-indigo-400" /></div>
+                    <h3 className="text-xl font-black text-white">데이터 제어 센터 (Data Control)</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                        onClick={() => {
+                            if (window.confirm('기존 데이터를 모두 삭제하고 데모 데이터(부서별 급여, 비용 등)를 로드하시겠습니까?')) {
+                                loadDemoData();
+                            }
+                        }}
+                        className="p-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all text-left group"
+                    >
+                        <div className="text-emerald-400 font-black text-lg mb-2 group-hover:translate-x-1 transition-transform">🚀 데모 데이터 로드 (Load Demo)</div>
+                        <p className="text-slate-400 text-xs">전표, 부서, 기초 잔액을 포함한 풀 세트 테스트 데이터를 생성합니다. (기존 데이터 삭제됨)</p>
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            if (window.confirm('정말로 모든 데이터를 영구 삭제하고 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+                                clearAllData();
+                            }
+                        }}
+                        className="p-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 transition-all text-left group"
+                    >
+                        <div className="text-rose-400 font-black text-lg mb-2 group-hover:translate-x-1 transition-transform">🗑️ 전체 데이터 삭제 (Delete All Data)</div>
+                        <p className="text-slate-400 text-xs">모든 전표와 설정을 삭제하고 빈 상태로 만듭니다.</p>
+                    </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {/* Initial Balance Logic Integration */}
-                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 shadow-2xl col-span-1 md:col-span-2 lg:col-span-2 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 bg-indigo-500/10 rounded-2xl">
-                                <Calculator className="w-6 h-6 text-indigo-400" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-black text-white tracking-tight">기초 잔액 설정 (Initial Balances)</h3>
-                                <p className="text-sm text-slate-500 font-bold">시산표 및 재무제표의 '기초(Opening)' 데이터 원천입니다.</p>
-                            </div>
+            {/* 1.2 Custom Chart of Accounts */}
+            <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 shadow-2xl space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-fuchsia-500/10 rounded-2xl"><List className="w-6 h-6 text-fuchsia-400" /></div>
+                    <h3 className="text-xl font-black text-white">계정과목 관리 (Chart of Accounts)</h3>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                        <p className="text-slate-400 text-xs text-justify">
+                            표준 계정과목 외에 우리 회사만의 커스텀 계정과목을 추가할 수 있습니다.
+                            <br />예: '접대비(영업1팀)', 'AWS 서버비', '네이버 광고비' 등
+                        </p>
+                        <div className="flex gap-2">
+                            <input
+                                placeholder="새 계정과목명 입력..."
+                                value={newCustomAccount}
+                                onChange={(e) => setNewCustomAccount(e.target.value)}
+                                className="flex-1 bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white text-sm"
+                            />
+                            <button
+                                onClick={() => {
+                                    if (newCustomAccount.trim()) {
+                                        addCustomAccount(newCustomAccount.trim());
+                                        setNewCustomAccount('');
+                                    }
+                                }}
+                                className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-5 rounded-xl font-bold text-sm"
+                            >
+                                <Plus size={18} />
+                            </button>
                         </div>
-                        <span className="text-[10px] font-black text-indigo-500/50 bg-indigo-500/5 px-2 py-1 rounded">MOUNT TB CORE v2</span>
                     </div>
 
-                    <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                        {(!config.initialBalances || config.initialBalances.length === 0) ? (
-                            <div className="py-10 text-center border-2 border-dashed border-white/5 rounded-2xl">
-                                <p className="text-slate-600 font-bold">등록된 기초 잔액이 없습니다.</p>
-                            </div>
+                    <div className="bg-[#0B1221] rounded-xl border border-white/5 p-4 h-[200px] overflow-y-auto">
+                        <h4 className="text-xs font-black text-slate-500 uppercase mb-3 sticky top-0 bg-[#0B1221] pb-2 border-b border-white/5">
+                            Custom Accounts ({customAccounts.length})
+                        </h4>
+                        {customAccounts.length === 0 ? (
+                            <p className="text-slate-600 text-xs italic text-center py-10">등록된 커스텀 계정이 없습니다.</p>
                         ) : (
-                            <div className="grid grid-cols-1 gap-2">
-                                {config.initialBalances.map((ib, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-4 bg-[#0B1221] rounded-xl border border-white/5 group transition-all hover:border-indigo-500/30">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-black text-white">{ib.account}</span>
-                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Beginning Balance Account</span>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-base font-black text-indigo-400 font-mono">₩{ib.amount.toLocaleString()}</span>
-                                            <button
-                                                onClick={() => handleRemoveInitialBalance(idx)}
-                                                className="p-2 text-slate-600 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
+                            <div className="space-y-2">
+                                {customAccounts.map(acc => (
+                                    <div key={acc} className="flex items-center justify-between group">
+                                        <span className="text-sm font-bold text-fuchsia-300">📌 {acc}</span>
+                                        <button onClick={() => removeCustomAccount(acc)} className="text-slate-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Trash2 size={14} />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
                         )}
                     </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-white/5">
-                        <input
-                            type="text"
-                            list="standard-accounts"
-                            placeholder="계정과목 선택 또는 입력"
-                            value={newAccount}
-                            onChange={(e) => setNewAccount(e.target.value)}
-                            className="flex-1 bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500/40 outline-none"
-                        />
-                        <input
-                            type="text"
-                            placeholder="기초금액 (₩)"
-                            value={newAmount}
-                            onChange={(e) => setNewAmount(e.target.value)}
-                            className="w-full sm:w-48 bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500/40 outline-none font-mono"
-                        />
-                        <button
-                            onClick={handleAddInitialBalance}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95"
-                        >
-                            <Plus size={18} /> 추가
-                        </button>
-                    </div>
-                </div>
-
-                <div className="bg-[#151D2E] p-8 rounded-3xl border border-white/5 shadow-2xl space-y-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-amber-500/10 rounded-2xl">
-                            <Beaker className="w-6 h-6 text-amber-400" />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-white">데이터 제어</h3>
-                            <p className="text-sm text-slate-500">테스트 데이터 및 설정 마법사</p>
-                        </div>
-                    </div>
-                    <div className="space-y-3">
-                        <button onClick={() => setShowWizard(true)} className="w-full py-4 bg-white/5 border border-white/10 text-white rounded-xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2">🚀 설정 마법사</button>
-                        <button onClick={handleLoadTestData} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg">🛠️ 종합 Mock 데이터</button>
-                    </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-                {/* Status and Security Info */}
-                <div className="bg-[#151D2E] p-8 rounded-3xl border border-white/5 shadow-2xl space-y-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-emerald-500/10 rounded-2xl">
-                            <CheckCircle className="w-6 h-6 text-emerald-400" />
-                        </div>
-                        <h3 className="text-lg font-bold text-white">무결성 상태</h3>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-[#0B1221] rounded-2xl border border-white/5">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">총 전표 수</p>
-                            <p className="text-2xl font-black text-white">{ledger.length}</p>
-                        </div>
-                        <div className="p-4 bg-[#0B1221] rounded-2xl border border-white/5">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">상태</p>
-                            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span className="text-sm font-bold text-emerald-400">ACTIVE</span></div>
-                        </div>
-                    </div>
+            {/* 1.5. Accounting Period Closing */}
+            <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 shadow-2xl space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-amber-500/10 rounded-2xl"><Lock className="w-6 h-6 text-amber-400" /></div>
+                    <h3 className="text-xl font-black text-white">마감 관리 (Accounting Period Closing)</h3>
                 </div>
 
-                <div className="bg-[#151D2E] p-10 rounded-[2.5rem] border border-white/5 shadow-2xl space-y-8 lg:col-span-2 group/section transition-all hover:border-indigo-500/20">
-                    <div className="flex items-center gap-5">
-                        <div className="p-4 bg-indigo-500/10 rounded-2xl">
-                            <Database className="w-7 h-7 text-indigo-400" />
-                        </div>
-                        <h2 className="text-2xl font-black text-white tracking-tight">임금/보험 요율 실시간 반영</h2>
+                <div className="flex flex-col md:flex-row gap-6 items-center bg-[#0B1221] p-6 rounded-2xl border border-white/5">
+                    <div className="flex-1">
+                        <p className="text-slate-400 text-xs font-bold mb-2 uppercase tracking-wider">Current Status</p>
+                        {config.closingDate ? (
+                            <div className="space-y-1">
+                                <p className="text-amber-400 font-black text-xl flex items-center gap-2">
+                                    <Lock size={20} /> Locked up to {config.closingDate}
+                                </p>
+                                <p className="text-slate-500 text-xs">해당 날짜 포함 이전 데이터 수정 불가</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                <p className="text-emerald-400 font-black text-xl flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div> Open (No Restrictions)
+                                </p>
+                                <p className="text-slate-500 text-xs">모든 기간의 데이터 수정 가능</p>
+                            </div>
+                        )}
                     </div>
-
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                        {[
-                            { label: '국민연금 (개인)', key: 'nationalPension', tip: '4.5%' },
-                            { label: '건강보험 (개인)', key: 'healthInsurance', tip: '3.545%' },
-                            { label: '장기요양 (건강내)', key: 'longTermCare', tip: '12.95%' },
-                        ].map((item) => (
-                            <RateInput
-                                key={item.key}
-                                label={item.label}
-                                tip={item.tip}
-                                value={config.taxPolicy?.insuranceRates?.[item.key as keyof typeof config.taxPolicy.insuranceRates] || 0}
-                                onChange={(newVal) => {
-                                    updateConfig({
-                                        taxPolicy: {
-                                            ...config.taxPolicy!,
-                                            insuranceRates: { ...config.taxPolicy!.insuranceRates!, [item.key]: newVal }
-                                        }
-                                    });
+                    <div className="flex items-center gap-3">
+                        <input
+                            type="date"
+                            className="bg-[#151D2E] text-white px-4 py-3 rounded-xl border border-white/10 outline-none focus:border-indigo-500 font-bold cursor-pointer hover:border-white/20 transition-colors"
+                            onChange={(e) => {
+                                if (e.target.value && window.confirm(`${e.target.value} 까지 장부를 마감하시겠습니까?`)) {
+                                    updateConfig({ closingDate: e.target.value });
+                                }
+                            }}
+                            value={config.closingDate || ''}
+                        />
+                        {config.closingDate && (
+                            <button
+                                onClick={() => {
+                                    if (window.confirm('장부 마감을 해제하시겠습니까?')) {
+                                        updateConfig({ closingDate: undefined });
+                                    }
                                 }}
-                            />
-                        ))}
+                                className="px-6 py-3 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl font-bold transition-colors whitespace-nowrap"
+                            >
+                                마감 해제
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {showWizard && <SetupWizard onComplete={() => setShowWizard(false)} />}
+            {/* 2. Initial Balances */}
+            <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 shadow-2xl space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-slate-700/50 rounded-2xl"><Calculator className="w-6 h-6 text-slate-400" /></div>
+                    <h3 className="text-xl font-black text-white">기초 잔액 수동 설정 (Manual Opening Balance)</h3>
+                </div>
+                <p className="text-slate-500 text-xs font-bold">⚠️ 주의: 데모 데이터 로드 시 자동으로 설정되며, 수동 변경 시 데이터 불일치가 발생할 수 있습니다.</p>
+
+                <div className="space-y-4 max-h-[300px] overflow-y-auto">
+                    {(!config.initialBalances || config.initialBalances.length === 0) ? (
+                        <div className="py-10 text-center border-2 border-dashed border-white/5 rounded-2xl text-slate-600">등록된 기초 잔액이 없습니다.</div>
+                    ) : (
+                        config.initialBalances.map((ib, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-4 bg-[#0B1221] rounded-xl border border-white/5">
+                                <span className="text-sm font-black text-white">{ib.account}</span>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-base font-black text-indigo-400 font-mono">₩{ib.amount.toLocaleString()}</span>
+                                    <button onClick={() => handleRemoveInitialBalance(idx)} className="text-slate-600 hover:text-rose-500"><Trash2 size={16} /></button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-white/5">
+                    <input list="standard-accounts" placeholder="계정과목" value={newAccount} onChange={(e) => setNewAccount(e.target.value)} className="flex-1 bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white" />
+                    <input placeholder="금액" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} className="w-48 bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white font-mono" />
+                    <button onClick={handleAddInitialBalance} className="bg-slate-700 text-white px-6 py-3 rounded-xl font-bold">추가</button>
+                </div>
+            </div>
+
+            {/* 3. System Info */}
+            <div className="bg-[#151D2E] p-8 rounded-3xl border border-white/5 shadow-2xl">
+                <h3 className="text-lg font-bold text-white mb-4">시스템 정보</h3>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-[#0B1221] rounded-2xl">
+                        <p className="text-[10px] font-black text-slate-500 uppercase">전표 수</p>
+                        <p className="text-2xl font-black text-white">{ledger.length}</p>
+                    </div>
+                    <div className="p-4 bg-[#0B1221] rounded-2xl">
+                        <p className="text-[10px] font-black text-slate-500 uppercase">보안 상태</p>
+                        <p className="text-sm font-bold text-emerald-400">AES-256 SECURED</p>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

@@ -38,3 +38,7 @@ export const formatKoreanCLevel = (value: number): string => {
     }
     return `₩${value.toLocaleString()}`;
 };
+
+export const formatCurrency = (value: number): string => {
+    return '₩' + value.toLocaleString();
+};

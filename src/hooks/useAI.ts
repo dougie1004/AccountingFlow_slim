@@ -5,7 +5,7 @@ import { Partner, AnalysisResponse } from '../types';
 // Check if running in Tauri environment (Desktop App)
 const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
 
-const GEMINI_API_KEY = (import.meta as any).env.VITE_GEMINI_API_KEY || "AIzaSyAqlg9WMKHWQTBCp6Bj3DbxMjED06LqEyE";
+const GEMINI_API_KEY = (import.meta as any).env.VITE_GEMINI_API_KEY;
 
 // Helper to compress images on the client side before sending to proxy
 const compressImageForWeb = async (bytes: number[], mime: string): Promise<{ bytes: number[], mime: string }> => {

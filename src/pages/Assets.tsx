@@ -1,205 +1,275 @@
-import React, { useContext } from 'react';
-import { Landmark, Plus, RefreshCw, TrendingDown, ArrowUpRight, BarChart3, ShieldCheck, Download } from 'lucide-react';
-import { Asset } from '../types';
-import { invoke } from '@tauri-apps/api/core';
+import React, { useContext, useState } from 'react';
+import { Landmark, Plus, RefreshCw, X } from 'lucide-react';
+import { Asset, JournalEntry } from '../types';
 import { AccountingContext } from '../context/AccountingContext';
-import { DepreciationScheduleModal } from '../components/assets/DepreciationScheduleModal';
-import { Calendar } from 'lucide-react';
+
+// Standard Declining Balance Rates (Korean Tax Law ref for key years)
+const DEPRECIATION_RATES: Record<number, number> = {
+    3: 0.638,
+    4: 0.528,
+    5: 0.451,
+    8: 0.313,
+    10: 0.259,
+    20: 0.140, // Approx
+    40: 0.073  // Approx
+};
 
 export const Assets: React.FC = () => {
-    const { assets: contextAssets } = useContext(AccountingContext)!;
-    const [selectedAsset, setSelectedAsset] = React.useState<Asset | null>(null);
-
-    const assets = contextAssets;
+    const { assets, addAsset, updateAsset, addEntries, ledger } = useContext(AccountingContext)!;
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [newAsset, setNewAsset] = useState<Partial<Asset>>({
+        name: '',
+        acquisitionDate: new Date().toISOString().split('T')[0],
+        depreciationMethod: 'StraightLine',
+        cost: 0,
+        usefulLife: 5,
+        residualValue: 0
+    });
 
     const totalCost = assets.reduce((acc, curr) => acc + curr.cost, 0);
-    const totalCurrent = assets.reduce((acc, curr) => acc + curr.currentValue, 0);
+    const totalCurrent = assets.reduce((acc, curr) => acc + (curr.cost - curr.accumulatedDepreciation), 0);
 
-    const handleRunDepreciation = async () => {
-        try {
-            await invoke('run_depreciation', { assets, date: new Date().toISOString().split('T')[0] });
-            alert('상각 처리가 완료되었습니다. 전표가 자동 생성되었습니다.');
-        } catch (e) {
-            console.error(e);
-        }
-    }
+    const handleAddAsset = () => {
+        if (!newAsset.name || !newAsset.cost) return;
 
-    const handleExportCSV = async () => {
-        let csvContent = "Asset ID,Asset Name,Acquisition Date,Method,Useful Life,Cost,Accumulated Dep,Book Value,Tax Limit,Disallowed\n";
+        const asset: Asset = {
+            id: crypto.randomUUID(),
+            name: newAsset.name!,
+            depreciationMethod: newAsset.depreciationMethod as 'StraightLine' | 'DecliningBalance',
+            acquisitionDate: newAsset.acquisitionDate!,
+            cost: Number(newAsset.cost),
+            usefulLife: Number(newAsset.usefulLife),
+            residualValue: Number(newAsset.residualValue),
+            accumulatedDepreciation: 0
+        };
 
-        for (const asset of assets) {
-            try {
-                const schedule = await invoke<any>('get_asset_schedule', { assetId: asset.id }); // Note: Need to verify if this command exists or if we should call get_depreciation_schedule which uses Asset struct
-                // Actually, backend usually takes Asset object for calculation, or ID if stored. 
-                // Let's assume we invoke the 'generate_depreciation_schedule' logic via a command or locally if we had the logic. 
-                // Since I can't easily call asset specific schedule without a command that takes 'Asset', checking commands.rs...
-                // commands.rs doesn't seem to have 'get_single_asset_schedule'. 
-                // However, I can mock it or use the data I have. 
-                // Wait, 'generate_tax_pro_pack' does this on backend. 
-                // Let's use client side logic for CSV generation using the data we have, 
-                // but for schedule details we need the backend calculation.
-                // Let's rely on valid backend command 'run_depreciation' which generates journal entries, but that's for posting.
-                // Let's look at DepreciationScheduleModal to see how it fetches data.
-            } catch (e) {
-                console.error(e);
-            }
-        }
-        // Fallback: Just export the Asset Registry list which is valuable enough as "Fixed Asset Ledger"
-        csvContent = "No.,Asset ID,Asset Name,Acquisition Date,Method,Useful Life,Cost,Accumulated Depreciation,Book Value\n";
-        assets.forEach((asset, idx) => {
-            csvContent += `${idx + 1},${asset.id},${asset.name},${asset.acquisitionDate},${asset.depreciationMethod},${asset.usefulLife},${asset.cost},${asset.accumulatedDepreciation},${asset.currentValue}\n`;
+        addAsset(asset);
+        setNewAsset({
+            name: '', acquisitionDate: new Date().toISOString().split('T')[0],
+            depreciationMethod: 'StraightLine',
+            cost: 0, usefulLife: 5, residualValue: 0, accumulatedDepreciation: 0
         });
+        setIsModalOpen(false);
+    };
 
-        const fileName = `fixed_asset_ledger_${new Date().toISOString().split('T')[0]}.csv`;
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
+    const handleRunDepreciation = () => {
+        const today = new Date();
+        const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+        const lastDayStr = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+
+        const alreadyRun = ledger.some(e => e.description.includes(`[${currentMonth}] 감가상각`));
+        if (alreadyRun) {
+            if (!window.confirm(`⚠️ ${currentMonth}월 감가상각 키워드가 이미 발견되었습니다.\n그래도 다시 실행하시겠습니까? (이중 계상 주의)`)) return;
+        } else {
+            if (!window.confirm(`${currentMonth}월 감가상각을 실행하시겠습니까?\n대상 자산: ${assets.length}건`)) return;
+        }
+
+        const entries: JournalEntry[] = [];
+        let totalDepreciation = 0;
+
+        try {
+            assets.forEach(asset => {
+                const bookValue = asset.cost - asset.accumulatedDepreciation;
+                if (bookValue <= asset.residualValue) return;
+
+                let monthlyDep = 0;
+
+                if (asset.depreciationMethod === 'DecliningBalance') {
+                    // 정률법 (Declining Balance)
+                    // 미상각잔액 * 정률 / 12
+                    const rate = DEPRECIATION_RATES[asset.usefulLife] || 0.451; // Default to 5yr rate if undefined
+                    const annualDep = bookValue * rate;
+                    monthlyDep = Math.floor(annualDep / 12);
+                } else {
+                    // 정액법 (Straight Line)
+                    // (취득가 - 잔존가) / 내용연수 / 12
+                    const annualDep = (asset.cost - asset.residualValue) / asset.usefulLife;
+                    monthlyDep = Math.floor(annualDep / 12);
+                }
+
+                if (monthlyDep <= 0) return;
+                const amount = Math.min(monthlyDep, bookValue - asset.residualValue);
+
+                entries.push({
+                    id: crypto.randomUUID(),
+                    date: lastDayStr,
+                    debitAccount: '감가상각비',
+                    creditAccount: '감가상각누계액',
+                    amount: amount,
+                    description: `[${currentMonth}] 감가상각비 (${asset.name})`,
+                    status: 'Unconfirmed',
+                    type: 'Expense',
+                    vat: 0
+                });
+
+                updateAsset(asset.id, { accumulatedDepreciation: asset.accumulatedDepreciation + amount });
+                totalDepreciation += amount;
+            });
+
+            if (entries.length > 0) {
+                addEntries(entries);
+                alert(`✅ 총 ${entries.length}건, ₩${totalDepreciation.toLocaleString()}의 상각 처리 완료.\n[전표 승인 데스크]에서 최종 승인해주세요.`);
+            } else {
+                alert('상각 대상 자산이 없거나 이미 상각이 완료되었습니다.');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('상각 처리 중 오류가 발생했습니다.');
+        }
     };
 
     return (
-        <div className="space-y-8 pb-20 bg-[#0B1221] min-h-screen p-6">
-            {/* Header */}
+        <div className="space-y-8 pb-20 bg-[#0B1221] min-h-screen p-6 animate-in fade-in">
             <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                     <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
                         <Landmark className="text-indigo-500" size={32} />
-                        고정자산 관리
+                        고정자산 관리 (Assets)
                     </h1>
-                    <p className="text-slate-400 text-lg mt-2">고정자산 등록 및 감가상각 전표 자동 처리 시스템</p>
+                    <p className="text-slate-400 text-lg mt-2">유형/무형 자산 대장 및 감가상각 관리</p>
                 </div>
                 <div className="flex gap-3">
                     <button
-                        onClick={handleExportCSV}
-                        className="flex items-center gap-2 px-6 py-3 bg-[#151D2E] text-white rounded-2xl font-black border border-white/10 hover:bg-white/5 transition-all shadow-xl active:scale-95"
+                        onClick={handleRunDepreciation}
+                        className="flex items-center gap-2 px-6 py-3 bg-[#151D2E] text-slate-300 rounded-2xl font-black border border-white/10 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all"
                     >
-                        <Download size={18} />
-                        대장 엑셀 저장
+                        <RefreshCw size={18} /> 월 결산 (상각 실행)
                     </button>
                     <button
-                        onClick={handleRunDepreciation}
-                        className="flex items-center gap-2 px-6 py-3 bg-[#151D2E] text-indigo-400 rounded-2xl font-black border border-indigo-500/20 hover:bg-indigo-500/10 transition-all shadow-xl shadow-indigo-500/5 active:scale-95"
+                        onClick={() => setIsModalOpen(true)}
+                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-500/20"
                     >
-                        <RefreshCw size={18} />
-                        감가상각 결산 실행
-                    </button>
-                    <button className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/30 active:scale-95">
-                        <Plus size={18} />
-                        신규 자산 등록
+                        <Plus size={18} /> 신규 자산 등록
                     </button>
                 </div>
             </header>
 
-            {/* Dashboards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-[#151D2E] border border-white/5 p-8 rounded-[2rem] shadow-2xl relative group overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
-                        <BarChart3 size={80} />
-                    </div>
-                    <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">총 취득 원가</p>
-                    <h3 className="text-3xl font-black text-white tracking-tight">
-                        ₩{(totalCost / 1000000).toFixed(1)}M
-                    </h3>
-                    <div className="mt-4 flex items-center gap-2 text-indigo-400 text-xs font-bold">
-                        <ArrowUpRight size={14} />
-                        전분기 대비 15% 증가
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5">
+                    <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">총 취득 원가 (Total Cost)</p>
+                    <h3 className="text-3xl font-black text-white">₩{totalCost.toLocaleString()}</h3>
                 </div>
-
-                <div className="bg-[#151D2E] border border-white/5 p-8 rounded-[2rem] shadow-2xl relative group overflow-hidden">
-                    <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">현재 장부 가액 (Net BV)</p>
-                    <h3 className="text-3xl font-black text-emerald-400 tracking-tight">
-                        ₩{(totalCurrent / 1000000).toFixed(1)}M
-                    </h3>
-                    <p className="mt-4 text-slate-500 text-xs font-medium">실시간 감가상각 반영 완료</p>
+                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5">
+                    <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">현재 장부 가액 (Book Value)</p>
+                    <h3 className="text-3xl font-black text-emerald-400">₩{totalCurrent.toLocaleString()}</h3>
                 </div>
-
-                <div className="bg-[#151D2E] border border-white/5 p-8 rounded-[2rem] shadow-2xl relative group overflow-hidden">
-                    <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">월 예상 상각비</p>
-                    <h3 className="text-3xl font-black text-rose-400 tracking-tight">
-                        ₩{assets.length > 0 ? (totalCost / 60 / 1000000).toFixed(1) + 'M' : '0.0M'}
-                    </h3>
-                    <div className="mt-4 flex items-center gap-2 text-rose-400 text-xs font-bold">
-                        <TrendingDown size={14} />
-                        영업이익 반영율 -4.2%
-                    </div>
+                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5">
+                    <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">총 상각 누계 (Accum. Dep)</p>
+                    <h3 className="text-3xl font-black text-rose-400">₩{(totalCost - totalCurrent).toLocaleString()}</h3>
                 </div>
             </div>
 
-            {/* Assets Table */}
-            <div className="bg-[#151D2E]/50 border border-white/5 rounded-[2.5rem] overflow-hidden backdrop-blur-xl">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="border-b border-white/5 bg-[#151D2E]">
-                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-center w-16">No.</th>
-                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest">자산 정보</th>
-                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">취득 원가</th>
-                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">상각 누계액</th>
-                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">현재 장부 가액</th>
-                                <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-center">내용 연수</th>
+            <div className="bg-[#151D2E]/50 border border-white/5 rounded-[2.5rem] overflow-hidden">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="border-b border-white/5 bg-[#151D2E]">
+                            <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest">자산 정보</th>
+                            <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest">상각 방법</th>
+                            <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">내용연수/잔존</th>
+                            <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">취득 원가</th>
+                            <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">상각 누계액</th>
+                            <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">장부 가액</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                        {assets.map((asset) => (
+                            <tr key={asset.id} className="hover:bg-white/[0.02] transition-all group">
+                                <td className="px-8 py-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-[#0B1221] flex items-center justify-center text-indigo-400">
+                                            <Landmark size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-white font-bold">{asset.name}</p>
+                                            <p className="text-slate-500 text-[10px] uppercase font-black">{asset.acquisitionDate} 취득</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="px-8 py-6">
+                                    <span className={`px-2 py-1 rounded-lg text-xs font-black border ${asset.depreciationMethod === 'DecliningBalance' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-slate-700/20 text-slate-400 border-white/5'}`}>
+                                        {asset.depreciationMethod === 'DecliningBalance' ? '정률법' : '정액법'}
+                                    </span>
+                                </td>
+                                <td className="px-8 py-6 text-right text-slate-400 font-mono text-sm">
+                                    {asset.usefulLife}년
+                                    <span className="text-slate-600 ml-1">/ {asset.residualValue.toLocaleString()}</span>
+                                </td>
+                                <td className="px-8 py-6 text-right text-slate-400 font-bold font-mono">₩{asset.cost.toLocaleString()}</td>
+                                <td className="px-8 py-6 text-right text-rose-500/70 font-bold font-mono">₩{asset.accumulatedDepreciation.toLocaleString()}</td>
+                                <td className="px-8 py-6 text-right text-emerald-400 font-black font-mono">₩{(asset.cost - asset.accumulatedDepreciation).toLocaleString()}</td>
                             </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {assets.map((asset, idx) => (
-                                <tr key={asset.id} className="hover:bg-white/[0.02] transition-all group">
-                                    <td className="px-8 py-6 text-center text-slate-600 font-mono text-xs">{idx + 1}</td>
-                                    <td className="px-8 py-6">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-[#0B1221] flex items-center justify-center text-indigo-400">
-                                                <Landmark size={20} />
-                                            </div>
-                                            <div>
-                                                <p className="text-white font-bold">{asset.name}</p>
-                                                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{asset.id} • {asset.acquisitionDate} 취득</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6 text-right">
-                                        <p className="text-slate-400 font-bold text-sm">₩{asset.cost.toLocaleString()}</p>
-                                    </td>
-                                    <td className="px-8 py-6 text-right">
-                                        <p className="text-rose-500/70 font-bold text-sm">₩{asset.accumulatedDepreciation.toLocaleString()}</p>
-                                    </td>
-                                    <td className="px-8 py-6 text-right">
-                                        <p className="text-emerald-400 font-black text-lg">₩{Math.round(asset.currentValue).toLocaleString()}</p>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <div className="flex items-center justify-center gap-3">
-                                            <span className="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-[10px] font-black">{asset.usefulLife} Years</span>
-                                            <button
-                                                onClick={() => setSelectedAsset(asset)}
-                                                className="p-2 hover:bg-indigo-500/10 text-slate-500 hover:text-indigo-400 rounded-lg transition-colors group-hover:bg-indigo-500/5"
-                                                title="감가상각 스케줄 보기"
-                                            >
-                                                <Calendar size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                        ))}
+                        {assets.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="py-20 text-center text-slate-500">등록된 자산이 없습니다.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
 
-            {/* Security Notification */}
-            <div className="flex items-center gap-4 bg-indigo-500/5 border border-indigo-500/10 p-6 rounded-[2rem]">
-                <ShieldCheck className="text-indigo-400" size={32} />
-                <div>
-                    <h4 className="text-white font-bold text-sm">감사 추적 활성화</h4>
-                    <p className="text-slate-500 text-xs font-medium">모든 자산 가치 변동 및 상각비 계상 히스토리는 국세청 감사를 대비하여 위변조 불가능한 감사 로그로 자동 보관됩니다.</p>
-                </div>
-            </div>
+            {isModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#151D2E] w-full max-w-lg rounded-3xl border border-white/10 p-8 shadow-2xl relative">
+                        <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 text-slate-400 hover:text-white"><X size={24} /></button>
 
-            {selectedAsset && (
-                <DepreciationScheduleModal
-                    asset={selectedAsset}
-                    onClose={() => setSelectedAsset(null)}
-                />
+                        <h2 className="text-2xl font-black text-white mb-6">신규 자산 등록</h2>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-black text-slate-500 uppercase mb-1">자산명</label>
+                                <input className="w-full bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-indigo-500" autoFocus
+                                    value={newAsset.name} onChange={e => setNewAsset({ ...newAsset, name: e.target.value })} placeholder="예: Macbook Pro M3 16inch" />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-black text-slate-500 uppercase mb-1">상각 방법</label>
+                                    <select className="w-full bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-indigo-500"
+                                        value={newAsset.depreciationMethod} onChange={e => setNewAsset({ ...newAsset, depreciationMethod: e.target.value as any })}>
+                                        <option value="StraightLine">정액법 (Straight-Line)</option>
+                                        <option value="DecliningBalance">정률법 (Declining Balance)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-500 uppercase mb-1">취득일</label>
+                                    <input type="date" className="w-full bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-indigo-500"
+                                        value={newAsset.acquisitionDate} onChange={e => setNewAsset({ ...newAsset, acquisitionDate: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-black text-slate-500 uppercase mb-1">내용연수 (년)</label>
+                                    <select className="w-full bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-indigo-500"
+                                        value={newAsset.usefulLife} onChange={e => setNewAsset({ ...newAsset, usefulLife: Number(e.target.value) })}>
+                                        <option value={3}>3년 (IT장비, 공구)</option>
+                                        <option value={5}>5년 (차량, 비품)</option>
+                                        <option value={10}>10년 (기계장치)</option>
+                                        <option value={20}>20년 (건물)</option>
+                                        <option value={40}>40년 (구조물)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-500 uppercase mb-1">취득원가</label>
+                                    <input type="number" className="w-full bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-indigo-500"
+                                        value={newAsset.cost || ''} onChange={e => setNewAsset({ ...newAsset, cost: Number(e.target.value) })} placeholder="0" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-black text-slate-500 uppercase mb-1">잔존가치 (비망가액)</label>
+                                <input type="number" className="w-full bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-indigo-500"
+                                    value={newAsset.residualValue || ''} onChange={e => setNewAsset({ ...newAsset, residualValue: Number(e.target.value) })} placeholder="통상 1000원 또는 0" />
+                            </div>
+                        </div>
+
+                        <div className="mt-8 flex gap-3">
+                            <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 rounded-xl font-bold text-slate-400 hover:bg-white/5 transition-colors">취소</button>
+                            <button onClick={handleAddAsset} className="flex-1 py-4 bg-indigo-600 rounded-xl font-black text-white hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20">등록하기</button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

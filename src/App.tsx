@@ -5,20 +5,17 @@ import BrandHeader from './components/layout/BrandHeader';
 import Journal from './pages/Journal';
 import LedgerView from './pages/LedgerView';
 import Partners from './pages/Partners';
-import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-import { TaxAdjustments } from './pages/TaxAdjustments';
 import ApprovalDesk from './pages/ApprovalDesk';
 import { DataMigration } from './pages/DataMigration';
-import { SCM } from './pages/SCM';
 import { Assets } from './pages/Assets';
-import { Inventory } from './pages/Inventory';
-import { AdvancedLedger } from './pages/AdvancedLedger';
 import FinancialStatements from './pages/FinancialStatements';
-import { LeaseLedger } from './pages/LeaseLedger';
+import DailyCashReport from './pages/DailyCashReport';
+import VendorLedger from './pages/VendorLedger';
+import TaxReport from './pages/TaxReport';
 
 import { AccountingProvider } from './context/AccountingContext';
-import { ConfigProvider, useConfig } from './context/ConfigContext';
+import { ConfigProvider } from './context/ConfigContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { createContext, useContext } from 'react';
 
@@ -31,7 +28,6 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const useApp = () => {
     const context = useContext(AppContext);
-    // Fallback for orphaned components that might be outside of provider
     return context || { activeProject: null, setActiveProject: () => { } };
 };
 
@@ -48,21 +44,18 @@ const AppContent = () => {
                 <div className="flex-1 overflow-y-auto scroll-smooth custom-scrollbar pt-16 lg:pt-0">
                     <div className="w-full max-w-full p-4 md:p-6 lg:p-8">
                         {activeTab === 'dashboard' && <Dashboard setTab={setActiveTab} />}
+                        {activeTab === 'tax-report' && <TaxReport />}
+                        {activeTab === 'financial-statements' && <FinancialStatements />}
+                        {activeTab === 'daily-cash' && <DailyCashReport />}
                         <div style={{ display: activeTab === 'ledger' ? 'block' : 'none' }}>
                             <Journal />
                         </div>
                         <div style={{ display: activeTab === 'ledger-view' ? 'block' : 'none' }}>
                             <LedgerView />
                         </div>
-                        {activeTab === 'scm' && <SCM setTab={setActiveTab} />}
-                        {activeTab === 'inventory' && <Inventory />}
                         {activeTab === 'assets' && <Assets />}
                         {activeTab === 'partners' && <Partners />}
-                        {activeTab === 'reports' && <Reports />}
-                        {activeTab === 'tax-adjustments' && <TaxAdjustments />}
-                        {activeTab === 'financial-statements' && <FinancialStatements />}
-                        {activeTab === 'lease-ledger' && <LeaseLedger />}
-                        {activeTab === 'advanced-ledger' && <AdvancedLedger />}
+                        {activeTab === 'vendor-ledger' && <VendorLedger />}
                         {activeTab === 'approval-desk' && <ApprovalDesk />}
                         {activeTab === 'migration' && <DataMigration setTab={setActiveTab} />}
                         {activeTab === 'settings' && <Settings />}

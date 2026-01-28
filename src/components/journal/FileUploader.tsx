@@ -8,9 +8,10 @@ import { DataMapper } from './DataMapper';
 
 interface FileUploaderProps {
     onTransactionsLoaded: (transactions: ParsedTransaction[]) => void;
+    onExcelDetected?: (file: File) => void;
 }
 
-export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded }) => {
+export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded, onExcelDetected }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -34,22 +35,10 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
                 const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
                 const isStructured = ['.csv', '.xlsx', '.xls', '.tsv'].includes(ext);
 
-                if (isStructured) {
-                    try {
-                        const headers = await invoke<string[]>('get_file_headers', {
-                            fileBytes: Array.from(bytes),
-                            fileName: file.name
-                        });
-                        const initialMapping = await invoke<Record<string, string>>('suggest_file_mapping', { headers });
-
-                        // For structured files, we currently only support one at a time via mapper
-                        setPendingFile({ bytes: Array.from(bytes), name: file.name, headers, initialMapping });
-                        setMapperOpen(true);
-                        setIsUploading(false); // Stop generic spinner, wait for mapper
-                        return;
-                    } catch (err) {
-                        console.warn("Structured parsing failed, falling back to AI:", err);
-                    }
+                if (isStructured && onExcelDetected) {
+                    onExcelDetected(file);
+                    setIsUploading(false);
+                    return;
                 }
 
                 // AI Processing (Unstructured or Fallback)
@@ -222,10 +211,10 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
 
                 <div>
                     <h3 className="text-xl font-black text-white tracking-tight">
-                        {isDragging ? '파일을 여기에 놓으세요!' : '통합 데이터 입력 엔진 (Universal Ingestion)'}
+                        {isDragging ? '파일을 여기에 놓으세요!' : '스마트 증빙 및 데이터 거래 업로드'}
                     </h3>
-                    <p className="text-slate-400 font-bold mt-1">
-                        {isDragging ? '드래그 앤 드롭으로 파일 업로드' : 'CSV, Excel, 영수증 사진, PDF 등 모든 형식을 AI가 자동으로 분석합니다.'}
+                    <p className="text-slate-400 font-bold mt-1 text-sm">
+                        {isDragging ? '드래그 앤 드롭으로 파일 업로드' : '카드 엑셀, 통장 내역, 영수증 사진, PDF 등 어떤 형식이든 분석합니다.'}
                     </p>
                 </div>
 

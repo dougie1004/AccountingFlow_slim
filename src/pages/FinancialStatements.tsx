@@ -18,6 +18,38 @@ const FinancialStatements: React.FC = () => {
     const [startDate, setStartDate] = useState<string>(`${today.getFullYear()}-01-01`);
     const [endDate, setEndDate] = useState<string>(today.toISOString().split('T')[0]);
 
+    const setPeriod = (type: 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'thisYear' | 'all') => {
+        const now = new Date();
+        let start = new Date(now.getFullYear(), now.getMonth(), 1);
+        let end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+        if (type === 'lastMonth') {
+            start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            end = new Date(now.getFullYear(), now.getMonth(), 0);
+        } else if (type === 'thisQuarter') {
+            const quarter = Math.floor(now.getMonth() / 3);
+            start = new Date(now.getFullYear(), quarter * 3, 1);
+            end = new Date(now.getFullYear(), (quarter + 1) * 3, 0);
+        } else if (type === 'thisYear') {
+            start = new Date(now.getFullYear(), 0, 1);
+            end = new Date(now.getFullYear(), 11, 31);
+        } else if (type === 'all') {
+            start = new Date(2020, 0, 1);
+            end = new Date(2029, 11, 31);
+        }
+
+        setStartDate(start.toISOString().split('T')[0]);
+        setEndDate(end.toISOString().split('T')[0]);
+    };
+
+    const shiftMonth = (dir: number) => {
+        const current = new Date(startDate);
+        const start = new Date(current.getFullYear(), current.getMonth() + dir, 1);
+        const end = new Date(current.getFullYear(), current.getMonth() + dir + 1, 0);
+        setStartDate(start.toISOString().split('T')[0]);
+        setEndDate(end.toISOString().split('T')[0]);
+    };
+
     const costCenters = useMemo(() => ['All', ...Array.from(new Set(subLedger.map(e => e.costCenter || 'HQ'))).sort()], [subLedger]);
 
     // --- Core Accounting Engine: Movement TB for Reports ---
@@ -27,37 +59,56 @@ const FinancialStatements: React.FC = () => {
         // Helper
         const process = (acc: string, amt: number, isDebit: boolean, target: 'opening' | 'movement') => {
             const cat = getAccountCategory(acc);
+            const isDebitNature = ['Asset', 'Expense'].includes(cat);
 
-            // [Modified] PL Accounts (Revenue/Expense) do not carry over opening balances in a Period Report.
-            // They represent performance strictly within the selected date range.
+            // [Advanced Logic] PL Accounts (Revenue/Expense) from "before" the period
+            // are automatically closed into Retained Earnings (이익잉여금) to maintain B/S balance.
             if (target === 'opening' && ['Revenue', 'Expense'].includes(cat)) {
+                // If it's a Debit (Expense), it decreases Equity (Credit Nature).
+                // If it's a Credit (Revenue), it increases Equity.
+                process('이익잉여금 (Retained Earnings)', amt, isDebit, 'opening');
                 return;
             }
 
             const d = map.get(acc) || { name: acc, category: cat, opening: 0, debit: 0, credit: 0, closing: 0 };
 
             if (target === 'opening') {
-                // Accumulate Pre-period balance into Opening
-                if (isDebit) d.opening += amt; else d.opening -= amt;
+                if (isDebitNature) {
+                    if (isDebit) d.opening += amt; else d.opening -= amt;
+                } else {
+                    if (isDebit) d.opening -= amt; else d.opening += amt;
+                }
             } else {
-                // Current Period Movement
                 if (isDebit) d.debit += amt; else d.credit += amt;
             }
             map.set(acc, d);
         };
 
-        // 1. Initial Balances (Always Opening)
+        // 0. Identify accounts that have transaction history
+        // If an account has transactions in the subLedger, we ignore the static 'initialBalance' config
+        // to prevent double counting (e.g. user uploaded 2025 data AND set 2026 opening balance).
+        const accountsWithTransactions = new Set<string>();
+        subLedger.forEach(e => {
+            accountsWithTransactions.add(e.debitAccount);
+            accountsWithTransactions.add(e.creditAccount);
+            if (e.vat) {
+                if (e.type === 'Revenue') accountsWithTransactions.add('부가가치세예수금');
+                else if (e.type === 'Expense' || e.type === 'Asset') accountsWithTransactions.add('부가가치세대급금');
+            }
+        });
+
+        // 1. Initial Balances (Conditional)
         if (config.initialBalances) {
             if (selectedCostCenter === 'All' || selectedCostCenter === 'HQ') {
                 config.initialBalances.forEach(ib => {
+                    // SMART LOGIC: If ledger has history, trust ledger over static initial balance.
+                    if (accountsWithTransactions.has(ib.account)) return;
+
                     const cat = getAccountCategory(ib.account);
                     const d = map.get(ib.account) || { name: ib.account, category: cat, opening: 0, debit: 0, credit: 0, closing: 0 };
-                    // Simplified: Assume Initial Balances are positive for their nature
-                    // For precise accounting, we should know Dr/Cr. Assuming Dr for Asset/Exp, Cr for Liab/Eq/Rev.
+
                     const isDebitNature = ['Asset', 'Expense'].includes(cat);
-                    if (isDebitNature) d.opening += ib.amount; else d.opening += ib.amount; // Just add magnitude for now or follow standard?
-                    // Let's assume IB is strictly 'Balance' amount.
-                    d.opening = ib.amount;
+                    if (isDebitNature) d.opening += ib.amount; else d.opening -= ib.amount;
                     map.set(ib.account, d);
                 });
             }
@@ -128,11 +179,15 @@ const FinancialStatements: React.FC = () => {
     const drillDownTransactions = useMemo(() => {
         if (!selectedAccount) return [];
         return subLedger.filter(e => {
+            if (e.date < startDate) return false; // Filter out pre-period transactions (they are in Opening Balance)
+            if (e.date > endDate) return false; // Filter out future transactions
+
             if (selectedCostCenter !== 'All' && (e.costCenter || 'HQ') !== selectedCostCenter) return false;
+
             return e.debitAccount === selectedAccount || e.creditAccount === selectedAccount || (e.vat && (e.type === 'Revenue' ? '부가가치세예수금' : (e.type === 'Expense' || e.type === 'Asset') ? '부가가치세대급금' : (e.type === 'Payroll' ? '예수금(원천세)' : null)) === selectedAccount);
         })
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    }, [subLedger, selectedAccount, selectedCostCenter]);
+    }, [subLedger, selectedAccount, selectedCostCenter, startDate, endDate, activeTab]);
 
     // ... (rest of metrics logic)
 
@@ -191,9 +246,9 @@ const FinancialStatements: React.FC = () => {
     }, [accounts]);
 
     const bsMetrics = useMemo(() => {
-        const totalAssets = accounts.filter(a => a.category === 'Asset').reduce((s, a) => s + Math.abs(a.closing), 0);
-        const totalLiabilities = accounts.filter(a => a.category === 'Liability').reduce((s, a) => s + Math.abs(a.closing), 0);
-        const totalEquity = accounts.filter(a => a.category === 'Equity').reduce((s, a) => s + Math.abs(a.closing), 0) + plMetrics.netIncome;
+        const totalAssets = accounts.filter(a => a.category === 'Asset').reduce((s, a) => s + a.closing, 0);
+        const totalLiabilities = accounts.filter(a => a.category === 'Liability').reduce((s, a) => s + a.closing, 0);
+        const totalEquity = accounts.filter(a => a.category === 'Equity').reduce((s, a) => s + a.closing, 0) + plMetrics.netIncome;
         return { totalAssets, totalLiabilities, totalEquity };
     }, [accounts, plMetrics]);
 
@@ -260,38 +315,63 @@ const FinancialStatements: React.FC = () => {
                         {isBalanced ? 'Balanced' : 'Imbalanced'}
                     </div>
 
-                    {/* Date Range Picker */}
-                    <div className="flex items-center gap-2 bg-[#0B1221] px-3 py-1.5 rounded-xl border border-white/10">
-                        <span className="text-[10px] font-black text-slate-500 uppercase">Period</span>
-                        <input
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            className="bg-transparent text-white text-xs font-bold outline-none font-mono cursor-pointer"
-                        />
-                        <span className="text-slate-500 text-xs">~</span>
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className="bg-transparent text-white text-xs font-bold outline-none font-mono cursor-pointer"
-                        />
-                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* Quick Presets */}
+                        <div className="flex bg-[#0B1221] p-1 rounded-xl border border-white/10 mr-2">
+                            {[
+                                { label: '이번달', val: 'thisMonth' },
+                                { label: '지난달', val: 'lastMonth' },
+                                { label: '분기', val: 'thisQuarter' },
+                                { label: '올해', val: 'thisYear' },
+                                { label: '전체', val: 'all' }
+                            ].map(p => (
+                                <button
+                                    key={p.val}
+                                    onClick={() => setPeriod(p.val as any)}
+                                    className="px-3 py-1 text-[10px] font-black text-slate-500 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+                                >
+                                    {p.label}
+                                </button>
+                            ))}
+                        </div>
 
-                    {/* Cost Center Filter */}
-                    <div className="flex items-center gap-2 bg-[#0B1221] px-3 py-1.5 rounded-xl border border-white/10">
-                        <span className="text-[10px] font-black text-slate-500 uppercase">Cost Center</span>
-                        <select
-                            value={selectedCostCenter}
-                            onChange={(e) => setSelectedCostCenter(e.target.value)}
-                            className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer"
-                        >
-                            {costCenters.map(cc => <option key={cc} value={cc}>{cc}</option>)}
-                        </select>
-                    </div>
+                        {/* Date Range Picker */}
+                        <div className="flex items-center gap-1 bg-[#0B1221] px-1 py-1 rounded-xl border border-white/10">
+                            <button onClick={() => shiftMonth(-1)} className="p-1 px-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-lg transition-all text-sm font-black">◀</button>
+                            <div className="flex items-center gap-2 px-2 border-x border-white/5">
+                                <span className="text-[10px] font-black text-slate-500 uppercase">Period</span>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="bg-transparent text-white text-[11px] font-bold outline-none font-mono cursor-pointer"
+                                />
+                                <span className="text-slate-500 text-xs text-[10px]">~</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="bg-transparent text-white text-[11px] font-bold outline-none font-mono cursor-pointer"
+                                />
+                            </div>
+                            <button onClick={() => shiftMonth(1)} className="p-1 px-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-lg transition-all text-sm font-black">▶</button>
+                        </div>
 
-                    <button onClick={() => handleExport('excel')} className="flex items-center gap-2 px-4 py-2 bg-[#107C41] hover:bg-[#0e6b37] text-white rounded-xl text-xs font-bold transition-all"><FileSpreadsheet size={16} /> Excel</button>
-                    <button onClick={() => handleExport('pdf')} className="flex items-center gap-2 px-4 py-2 bg-[#B30B00] hover:bg-[#990900] text-white rounded-xl text-xs font-bold transition-all"><FileText size={16} /> PDF</button>
+                        {/* Cost Center Filter */}
+                        <div className="flex items-center gap-2 bg-[#0B1221] px-3 py-1.5 rounded-xl border border-white/10">
+                            <span className="text-[10px] font-black text-slate-500 uppercase">Cost Center</span>
+                            <select
+                                value={selectedCostCenter}
+                                onChange={(e) => setSelectedCostCenter(e.target.value)}
+                                className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer"
+                            >
+                                {costCenters.map(cc => <option key={cc} value={cc}>{cc}</option>)}
+                            </select>
+                        </div>
+
+                        <button onClick={() => handleExport('excel')} className="flex items-center gap-2 px-4 py-2 bg-[#107C41] hover:bg-[#0e6b37] text-white rounded-xl text-xs font-bold transition-all"><FileSpreadsheet size={16} /> Excel</button>
+                        <button onClick={() => handleExport('pdf')} className="flex items-center gap-2 px-4 py-2 bg-[#B30B00] hover:bg-[#990900] text-white rounded-xl text-xs font-bold transition-all"><FileText size={16} /> PDF</button>
+                    </div>
                 </div>
             </div>
 
@@ -333,14 +413,18 @@ const FinancialStatements: React.FC = () => {
                                         {accounts.filter(a => a.category === 'Asset').map(a => (
                                             <tr key={a.name} onClick={() => setSelectedAccount(a.name)} className="cursor-pointer hover:bg-indigo-50 transition-colors group">
                                                 <td className="py-2 text-gray-600 group-hover:text-indigo-600 font-medium">{a.name}</td>
-                                                <td className="py-2 text-right font-mono font-bold group-hover:text-indigo-600">₩{a.closing.toLocaleString()}</td>
+                                                <td className={`py-2 text-right font-mono font-bold group-hover:text-indigo-600 ${a.closing < 0 ? 'text-rose-600' : ''}`}>
+                                                    {a.closing < 0 ? '-' : ''}₩{Math.abs(a.closing).toLocaleString()}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                     <tfoot>
                                         <tr className="font-black text-base border-t-2 border-black">
                                             <td className="py-3">자산 총계</td>
-                                            <td className="py-3 text-right">₩{bsMetrics.totalAssets.toLocaleString()}</td>
+                                            <td className={`py-3 text-right ${bsMetrics.totalAssets < 0 ? 'text-rose-600' : ''}`}>
+                                                {bsMetrics.totalAssets < 0 ? '-' : ''}₩{Math.abs(bsMetrics.totalAssets).toLocaleString()}
+                                            </td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -354,10 +438,17 @@ const FinancialStatements: React.FC = () => {
                                             {accounts.filter(a => a.category === 'Liability').map(a => (
                                                 <tr key={a.name} onClick={() => setSelectedAccount(a.name)} className="cursor-pointer hover:bg-indigo-50 transition-colors group">
                                                     <td className="py-2 text-gray-600 group-hover:text-indigo-600 font-medium">{a.name}</td>
-                                                    <td className="py-2 text-right font-mono font-bold group-hover:text-indigo-600">₩{a.closing.toLocaleString()}</td>
+                                                    <td className={`py-2 text-right font-mono font-bold group-hover:text-indigo-600 ${a.closing < 0 ? 'text-rose-600' : ''}`}>
+                                                        {a.closing < 0 ? '-' : ''}₩{Math.abs(a.closing).toLocaleString()}
+                                                    </td>
                                                 </tr>
                                             ))}
-                                            <tr className="font-black"><td className="py-2">부채 총계</td><td className="py-2 text-right">₩{bsMetrics.totalLiabilities.toLocaleString()}</td></tr>
+                                            <tr className="font-black">
+                                                <td className="py-2">부채 총계</td>
+                                                <td className={`py-2 text-right ${bsMetrics.totalLiabilities < 0 ? 'text-rose-600' : ''}`}>
+                                                    {bsMetrics.totalLiabilities < 0 ? '-' : ''}₩{Math.abs(bsMetrics.totalLiabilities).toLocaleString()}
+                                                </td>
+                                            </tr>
                                         </tbody>
                                     </table>
                                     <table className="w-full text-sm">
@@ -366,10 +457,17 @@ const FinancialStatements: React.FC = () => {
                                             {accounts.filter(a => a.category === 'Equity').map(a => (
                                                 <tr key={a.name} onClick={() => setSelectedAccount(a.name)} className="cursor-pointer hover:bg-indigo-50 transition-colors group">
                                                     <td className="py-2 text-gray-600 group-hover:text-indigo-600 font-medium">{a.name}</td>
-                                                    <td className="py-2 text-right font-mono font-bold group-hover:text-indigo-600">₩{a.closing.toLocaleString()}</td>
+                                                    <td className={`py-2 text-right font-mono font-bold group-hover:text-indigo-600 ${a.closing < 0 ? 'text-rose-600' : ''}`}>
+                                                        {a.closing < 0 ? '-' : ''}₩{Math.abs(a.closing).toLocaleString()}
+                                                    </td>
                                                 </tr>
                                             ))}
-                                            <tr className="text-blue-600 font-bold"><td className="py-2">당기순이익 (Net Income)</td><td className="py-2 text-right">₩{plMetrics.netIncome.toLocaleString()}</td></tr>
+                                            <tr className={`${plMetrics.netIncome < 0 ? 'text-rose-600' : 'text-blue-600'} font-bold`}>
+                                                <td className="py-2">{plMetrics.netIncome < 0 ? '당기순손실 (Net Loss)' : '당기순이익 (Net Income)'}</td>
+                                                <td className="py-2 text-right">
+                                                    {plMetrics.netIncome < 0 ? '-' : ''}₩{Math.abs(plMetrics.netIncome).toLocaleString()}
+                                                </td>
+                                            </tr>
                                             <tr className="font-black bg-gray-50"><td className="py-3 px-2">자본 총계</td><td className="py-3 px-2 text-right">₩{bsMetrics.totalEquity.toLocaleString()}</td></tr>
                                         </tbody>
                                     </table>
@@ -388,20 +486,33 @@ const FinancialStatements: React.FC = () => {
                             <h3 className="text-xl font-black text-center mb-6 border-b-2 border-black pb-2">손익계산서 (Income Statement)</h3>
                             <table className="w-full text-sm font-medium">
                                 <tbody className="divide-y divide-gray-200">
-                                    <tr className="bg-gray-50"><td className="p-3">I. 매출액 (Revenue)</td><td className="p-3 text-right font-bold w-40">₩{plMetrics.revenue.toLocaleString()}</td></tr>
-                                    <tr><td className="p-3 pl-8 text-gray-500">매출 (Sales)</td><td className="p-3 text-right text-gray-600">₩{plMetrics.revenue.toLocaleString()}</td></tr>
+                                    <tr className="bg-gray-50">
+                                        <td className="p-3">I. 매출액 (Revenue)</td>
+                                        <td className="p-3 text-right font-bold w-40">₩{Math.abs(plMetrics.revenue).toLocaleString()}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 pl-8 text-gray-500">매출 (Sales)</td>
+                                        <td className="p-3 text-right text-gray-600">₩{Math.abs(plMetrics.revenue).toLocaleString()}</td>
+                                    </tr>
 
-                                    <tr className="bg-gray-50"><td className="p-3">II. 영업비용 (Operating Expenses)</td><td className="p-3 text-right font-bold w-40">₩{plMetrics.expenses.toLocaleString()}</td></tr>
+                                    <tr className="bg-gray-50">
+                                        <td className="p-3">II. 영업비용 (Operating Expenses)</td>
+                                        <td className="p-3 text-right font-bold w-40">₩{Math.abs(plMetrics.expenses).toLocaleString()}</td>
+                                    </tr>
                                     {accounts.filter(a => a.category === 'Expense').map(a => (
                                         <tr key={a.name} onClick={() => setSelectedAccount(a.name)} className="cursor-pointer hover:bg-indigo-50 transition-colors group">
                                             <td className="p-3 pl-8 text-gray-500 group-hover:text-indigo-600 font-medium">{a.name}</td>
-                                            <td className="p-3 text-right text-gray-600 group-hover:text-indigo-600">₩{(a.closing - a.opening).toLocaleString()}</td>
+                                            <td className="p-3 text-right text-gray-600 group-hover:text-indigo-600">₩{Math.abs(a.closing - a.opening).toLocaleString()}</td>
                                         </tr>
                                     ))}
 
-                                    <tr className="bg-gray-900 text-white border-t-2 border-black">
-                                        <td className="p-4 text-lg font-black">III. 당기순이익 (Net Income)</td>
-                                        <td className="p-4 text-right text-xl font-black">₩{plMetrics.netIncome.toLocaleString()}</td>
+                                    <tr className={`${plMetrics.netIncome < 0 ? 'bg-rose-900' : 'bg-gray-900'} text-white border-t-2 border-black transition-colors`}>
+                                        <td className="p-4 text-lg font-black">
+                                            III. {plMetrics.netIncome < 0 ? '당기순손실 (Net Loss)' : '당기순이익 (Net Income)'}
+                                        </td>
+                                        <td className="p-4 text-right text-xl font-black">
+                                            {plMetrics.netIncome < 0 ? '-' : ''}₩{Math.abs(plMetrics.netIncome).toLocaleString()}
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -496,7 +607,7 @@ const FinancialStatements: React.FC = () => {
                             <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-lg flex items-start gap-4">
                                 <Zap className="text-indigo-400 shrink-0" size={20} />
                                 <p className="text-xs text-indigo-700 font-bold leading-relaxed">
-                                    [AI 감사관 의견] Movement TB를 분석한 결과, 운전자본(Working Capital)의 변동이 현금 유출의 주요 원인으로 파악되었습니다. 특히 매출채권의 증가 속도가 매출 성장보다 빠를 경우 유동성 경고가 발생할 수 있습니다.
+                                    [Financial Insight] Movement TB를 분석한 결과, 운전자본(Working Capital)의 변동이 현금 유출의 주요 원인으로 파악되었습니다. 특히 매출채권의 증가 속도가 매출 성장보다 빠를 경우 유동성 경고가 발생할 수 있습니다.
                                 </p>
                             </div>
                         </div>

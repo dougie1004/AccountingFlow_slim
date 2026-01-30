@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../App';
 
-interface AuditFinding {
+interface ControlInsight {
     id: string;
     category: string;
     severity: string;
@@ -24,7 +24,7 @@ interface AuditFinding {
 interface AnalysisResult {
     summary: string;
     risk_score: number;
-    findings: AuditFinding[];
+    findings: ControlInsight[];
 }
 
 interface SheetPreview {
@@ -373,7 +373,7 @@ export default function DataUpload() {
                         <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded-xl text-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.2)]">
                             <Zap size={20} />
                         </div>
-                        <h1 className="text-3xl font-black text-white tracking-tight italic uppercase">Universal Auditor Workspace</h1>
+                        <h1 className="text-3xl font-black text-white tracking-tight italic uppercase">Accounting Intelligence Terminal</h1>
                     </div>
 
                     <div className="relative group">
@@ -388,7 +388,7 @@ export default function DataUpload() {
                             }}
                             className="appearance-none bg-slate-900 border border-white/10 text-white font-black text-xs py-4 px-8 pr-16 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/20 w-[400px] shadow-2xl transition-all cursor-pointer hover:border-blue-500/30"
                         >
-                            <option value="" disabled>--- SELECT PROJECT SCOPE ---</option>
+                            <option value="" disabled>--- SELECT ENTITY SCOPE ---</option>
                             {projects.map(p => (
                                 <option key={p.id} value={p.id}>{p.id} : {p.title}</option>
                             ))}
@@ -468,7 +468,7 @@ export default function DataUpload() {
                                         <h3 className="text-3xl font-black text-white tracking-tighter italic uppercase flex items-center gap-4">
                                             <ShieldCheck className="text-blue-500" size={32} /> Asset Verification
                                         </h3>
-                                        <p className="text-slate-500 font-medium">Real-time content extraction and verification pipeline.</p>
+                                        <p className="text-slate-500 font-medium">Real-time accounting context extraction and verification.</p>
                                     </div>
 
                                     <div className="flex gap-4">
@@ -560,7 +560,7 @@ export default function DataUpload() {
                                                 <h2 className="text-6xl font-black text-white tracking-tighter italic uppercase">Activate Discovery Engine</h2>
                                                 <p className="text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed text-xl">
                                                     Analysis payload: <span className="text-blue-400 font-mono">[{uploadedFiles.length}] Real PC Assets</span>. <br />
-                                                    Ready to deploy Gemini 3.0 Pro for multi-modal risk triangulation.
+                                                    Ready to deploy AccountingFlow Intelligence for multi-modal analysis.
                                                 </p>
                                             </div>
                                             <button onClick={handleAnalyze} disabled={isAnalyzing} className="bg-white text-black px-24 py-8 rounded-[40px] font-black text-2xl uppercase tracking-[0.2em] hover:bg-blue-50 transition-all flex items-center gap-6 mx-auto shadow-2xl hover:scale-105 active:scale-95 disabled:opacity-50">
@@ -571,7 +571,7 @@ export default function DataUpload() {
                                     ) : (
                                         <div className="space-y-16 animate-in zoom-in-95 duration-500">
                                             <div className="bg-emerald-500/10 border border-emerald-500/20 p-20 rounded-[48px] space-y-12 relative overflow-hidden">
-                                                <h3 className="text-5xl font-black text-white tracking-tighter italic uppercase">Discovery Phase Complete</h3>
+                                                <h3 className="text-5xl font-black text-white tracking-tighter italic uppercase">Intelligence Scan Complete</h3>
                                                 <div className="grid grid-cols-2 gap-12 mt-12 relative z-10">
                                                     <div className="bg-white/5 p-12 rounded-[40px] border border-white/10 backdrop-blur-md shadow-2xl">
                                                         <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Anomalies Detected</p>
@@ -582,7 +582,7 @@ export default function DataUpload() {
                                                         <p className="text-8xl font-black text-rose-500 tracking-tighter">{analysisResult.risk_score}</p>
                                                     </div>
                                                 </div>
-                                                <p className="text-slate-400 text-lg italic mt-8">"Neural scan detected significant correlations across uploaded assets. Proceed to Management View."</p>
+                                                <p className="text-slate-400 text-lg italic mt-8">"Neural scan detected significant correlations across uploaded assets. Proceed to Management Dashboard."</p>
                                             </div>
                                             <div className="flex gap-8 justify-center">
                                                 <button onClick={() => navigate('/ai-discovery')} className="bg-blue-600 text-white px-12 py-6 rounded-3xl font-black text-sm uppercase tracking-[0.3em] hover:bg-blue-700 transition-all flex items-center gap-4"><BrainCircuit size={20} /> Go to Discovery Report</button>

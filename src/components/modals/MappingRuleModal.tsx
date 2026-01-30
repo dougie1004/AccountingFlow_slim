@@ -28,7 +28,7 @@ export const MappingRuleModal: React.FC<MappingRuleModalProps> = ({ isOpen, onCl
             keyword,
             targetAccount,
             type,
-            isAutoApprove
+            autoApprove: isAutoApprove
         });
         onClose();
     };

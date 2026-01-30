@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccountingFlow - AI 자율 경영의 시작</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #4F46E5 0%, #10B981 100%);
+            --bg-dark: #0B1221;
+            --bg-card: #151D2E;
+            --text-white: #FFFFFF;
+            --text-gray: #94A3B8;
+            --accent-indigo: #4F46E5;
+            --accent-emerald: #10B981;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-white);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 5%;
+            backdrop-filter: blur(10px);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-decoration: none;
+        }
+
+        .nav-links a {
+            color: var(--text-gray);
+            text-decoration: none;
+            margin-left: 2rem;
+            font-weight: 500;
+            transition: 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-white);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 160px 5% 100px;
+            text-align: center;
+            background: radial-gradient(circle at 50% 20%, rgba(79, 70, 229, 0.1) 0%, transparent 50%);
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+
+        .hero h1 span {
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-gray);
+            max-width: 700px;
+            margin: 0 auto 3rem;
+        }
+
+        .cta-btn {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            background: var(--primary-gradient);
+            color: white;
+            text-decoration: none;
+            border-radius: 99px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            transition: transform 0.2s, shadow 0.2s;
+            box-shadow: 0 10px 30px -10px rgba(79, 70, 229, 0.5);
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px -10px rgba(79, 70, 229, 0.6);
+        }
+
+        /* Features Grid */
+        .features {
+            padding: 100px 5%;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            padding: 3rem;
+            border-radius: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(79, 70, 229, 0.3);
+            background: linear-gradient(145deg, var(--bg-card), #1A2438);
+        }
+
+        .icon-circle {
+            width: 64px;
+            height: 64px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card p {
+            color: var(--text-gray);
+            line-height: 1.7;
+        }
+
+        /* Beta Application Form (Restored) */
+        .beta-section {
+            padding: 100px 5%;
+            background: #0F1623;
+            position: relative;
+        }
+
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--bg-card);
+            padding: 4rem;
+            border-radius: 2.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-gray);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 1rem;
+            background: var(--bg-dark);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            font-size: 1rem;
+            transition: 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-indigo);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 1.25rem;
+            background: var(--primary-gradient);
+            border: none;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border-radius: 16px;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: 0.2s;
+        }
+
+        .submit-btn:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+
+        .disclaimer {
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #64748B;
+        }
+
+        footer {
+            padding: 3rem 5%;
+            text-align: center;
+            color: var(--text-gray);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .form-container {
+                padding: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <a href="index.html" class="logo">AccountingFlow</a>
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="auditflow.html">AuditFlow</a>
+            <a href="#company">Company</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <h1>
+            <span>AI 경영 비서</span>가 만드는<br>자율 경영의 미래
+        </h1>
+        <p>
+            복잡한 전표 입력부터 부가세(VAT) 처리, 자금 흐름(Runway) 분석까지.<br>
+            20년 노하우가 담긴 AccountingFlow가 사장님의 시간을 돌려드립니다.
+        </p>
+        <a href="#apply" class="cta-btn">무료 베타 신청하기 <i class="fas fa-arrow-right" style="margin-left:8px;"></i></a>
+    </section>
+
+    <!-- Dashboard Preview Section -->
+    <section class="dashboard-preview" style="padding: 0 5%; margin-top: -60px; position: relative; z-index: 10;">
+        <div
+            style="max-width: 1200px; margin: 0 auto; border-radius: 20px; overflow: hidden; box-shadow: 0 50px 100px -20px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1);">
+            <img src="./assets/dashboard_screenshot.png" alt="AccountingFlow AI Dashboard"
+                style="width: 100%; height: auto; display: block;">
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="section-header">
+            <h2>무엇이 달라지나요?</h2>
+            <p style="color: var(--text-gray);">단순 회계 프로그램을 넘어선, 의사결정 지원 파트너입니다.</p>
+        </div>
+
+        <div class="feature-grid">
+            <!-- New Feature 1: Smart Import -->
+            <div class="feature-card">
+                <div class="icon-circle" style="color: var(--accent-indigo);">
+                    <i class="fas fa-file-invoice"></i>
+                </div>
+                <h3>스마트 엑셀 가져오기</h3>
+                <p>
+                    이제 카드사/은행 엑셀을 양식 편집 없이 그대로 올리세요.<br>
+                    AI가 '스타벅스', '카카오T' 등 거래처를 인식하여
+                    <strong>복리후생비, 여비교통비 등 계정 과목을 자동 매핑</strong>합니다.
+                </p>
+            </div>
+
+            <!-- New Feature 2: Smart VAT -->
+            <div class="feature-card">
+                <div class="icon-circle" style="color: var(--accent-emerald);">
+                    <i class="fas fa-percent"></i>
+                </div>
+                <h3>지능형 부가세(VAT) 처리</h3>
+                <p>
+                    면세/과세 구분을 더 이상 고민하지 마세요.<br>
+                    <strong>병원, 의원, 서점 등 면세 업종을 자동 식별</strong>하고,
+                    명확하게 세액을 분리하여 정확한 부가세 신고 자료를 생성합니다.
+                </p>
+            </div>
+
+            <!-- New Feature 3: AI CFO -->
+            <div class="feature-card">
+                <div class="icon-circle" style="color: #F43F5E;">
+                    <i class="fas fa-comments-dollar"></i>
+                </div>
+                <h3>AI CFO 실시간 진단</h3>
+                <p>
+                    "이번 달 현금 언제 소진돼?" 라고 물어보세요.<br>
+                    <strong>실시간 Burn Rate와 Runway(자금 소진 기간)</strong>를 분석하여,
+                    마치 전문가처럼 경영 리스크를 브리핑해 드립니다.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Beta Application Section (Restored) -->
+    <section id="apply" class="beta-section">
+        <div class="section-header">
+            <h2>베타 테스터 신청</h2>
+            <p style="color: var(--text-gray);">가장 먼저 AI 경영 비서를 만나보세요. 3월 정식 출시 전까지 무료로 제공됩니다.</p>
+        </div>
+
+        <div class="form-container">
+            <form id="betaForm" onsubmit="alert('신청이 성공적으로 접수되었습니다. 곧 안내 메일을 드리겠습니다.'); return false;">
+                <div class="form-group">
+                    <label class="form-label">성함 (Name)</label>
+                    <input type="text" class="form-input" required placeholder="홍길동">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">회사명 (Company)</label>
+                    <input type="text" class="form-input" required placeholder="(주)인사이트릭스">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">이메일 (Work Email)</label>
+                    <input type="email" class="form-input" required placeholder="name@company.com">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">연락처 (Mobile)</label>
+                    <input type="tel" class="form-input" required placeholder="010-1234-5678">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">관심 분야 (다중 선택 가능)</label>
+                    <select class="form-input" style="height: 50px;">
+                        <option>전표 자동화 (Smart Import)</option>
+                        <option>부가세 신고 (VAT/Tax)</option>
+                        <option>자금 흐름 관리 (CFO Dashboard)</option>
+                        <option>기타</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="submit-btn">베타 테스트 승인 요청</button>
+
+                <p class="disclaimer">
+                    * 제출하신 정보는 서비스 안내 목적으로만 사용되며, 안전하게 보호됩니다.
+                </p>
+            </form>
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2026 Insightrix Corp. All rights reserved.</p>
+        <p style="font-size: 0.8rem; margin-top: 10px; color: #475569;">AccountingFlow는 세무 대리인이 아니며, 최종 세무 신고의 책임은 납세자에게
+            있습니다.</p>
+    </footer>
+
+</body>
+
+</html>

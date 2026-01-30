@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import BrandHeader from './components/layout/BrandHeader';
+import { CfoAssistant } from './components/ai/CfoAssistant';
 import Journal from './pages/Journal';
 import LedgerView from './pages/LedgerView';
 import Partners from './pages/Partners';
@@ -13,6 +14,8 @@ import FinancialStatements from './pages/FinancialStatements';
 import DailyCashReport from './pages/DailyCashReport';
 import VendorLedger from './pages/VendorLedger';
 import TaxReport from './pages/TaxReport';
+import { AiLab } from './pages/AiLab';
+import { ArApManagement } from './pages/ArApManagement';
 
 import { AccountingProvider } from './context/AccountingContext';
 import { ConfigProvider } from './context/ConfigContext';
@@ -58,10 +61,13 @@ const AppContent = () => {
                         {activeTab === 'vendor-ledger' && <VendorLedger />}
                         {activeTab === 'approval-desk' && <ApprovalDesk />}
                         {activeTab === 'migration' && <DataMigration setTab={setActiveTab} />}
+                        {activeTab === 'ai-performance' && <AiLab />}
+                        {activeTab === 'arap-management' && <ArApManagement />}
                         {activeTab === 'settings' && <Settings />}
                     </div>
                 </div>
             </main>
+            <CfoAssistant />
         </div>
     );
 };

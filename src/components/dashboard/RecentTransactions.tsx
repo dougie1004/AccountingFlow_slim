@@ -3,6 +3,8 @@ import { JournalEntry } from '../../types';
 import { ArrowUpRight, ArrowDownLeft, Terminal, Calendar, CheckSquare, Square, ChevronRight } from 'lucide-react';
 import { cleanMarkdown } from '../../utils/textUtils';
 
+import { InfoTooltip } from '../ui/InfoTooltip';
+
 interface RecentTransactionsProps {
     transactions: JournalEntry[];
     onNavigate?: (tab: string) => void;
@@ -53,7 +55,13 @@ export const RecentTransactions: React.FC<RecentTransactionsProps> = ({ transact
                     <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-400">
                         <Terminal size={20} />
                     </div>
-                    <h3 className="text-lg font-black text-white">Transactional Ledger Snapshot</h3>
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-black text-white">Transactional Ledger Snapshot</h3>
+                        <InfoTooltip
+                            title="Ledger Snapshot (거래 내역 스냅샷)"
+                            content="전체 장부에서 승인되었거나 확인 대기 중인 최근 거래 내역을 보여줍니다. 기간 필터를 사용하여 특정 시점의 거래를 조회할 수 있습니다."
+                        />
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-2">

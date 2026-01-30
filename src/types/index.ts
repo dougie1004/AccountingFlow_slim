@@ -17,10 +17,14 @@ export interface JournalEntry {
     vat: number;
     type: string;
     status: string;
-    auditTrail?: string[];
+    controlTrail?: string[];
     suggestedDescription?: string;
     suggestedVat?: number;
     taxCode?: string;
+    classificationStatus?: ClassificationStatus;
+    confidence?: number;
+    reasoning?: string[];
+    documentType?: DocumentType;
     evidenceType?: 'TaxInvoice' | 'CreditCard' | 'CashReceipt' | 'None';
     // Cash Flow & AR/AP Tracking
     dueDate?: string;
@@ -98,7 +102,7 @@ export interface ParsedTransaction {
     paymentMethod?: string;
     debitAccount?: string;
     creditAccount?: string;
-    auditTrail?: string[];
+    controlTrail?: string[];
     parseStatus?: ParseStatus;
     bankName?: string;
     bankAccount?: string;
@@ -145,3 +149,7 @@ export interface MappingRule {
     type: 'Expense' | 'Revenue';
     isAutoApprove: boolean;
 }
+
+export type DocumentType = 'CARD_RECEIPT' | 'CASH_RECEIPT' | 'TAX_INVOICE' | 'BANK_STATEMENT' | 'OTHER';
+
+export type ClassificationStatus = 'AUTO_CLASSIFIED' | 'CANDIDATE' | 'UNCLASSIFIED';

@@ -20,6 +20,7 @@ export const TaxReport: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'tax' | 'analysis'>('tax');
     const [quarter, setQuarter] = useState<'1Q' | '2Q' | '3Q' | '4Q'>('1Q');
     const [year, setYear] = useState(new Date().getFullYear().toString());
+    const [showAll, setShowAll] = useState(false);
 
     // --- Common Filter Logic ---
     const filteredLedger = useMemo(() => {
@@ -82,20 +83,27 @@ export const TaxReport: React.FC = () => {
             }
         });
 
-        // Evidence Missing Check (Review Needed)
-        const evidenceRisks = targetData.filter(e => {
-            if (e.type === 'Expense' && e.amount > 30000) {
-                const hasEvidence = e.vat > 0 || ['TaxInvoice', 'CreditCard', 'CashReceipt'].includes(e.evidenceType || '');
-                return !hasEvidence;
-            }
-            return false;
-        });
+        // Evidence Status Check
+        const allExpenses = targetData
+            .filter(e => e.type === 'Expense')
+            .map(e => {
+                const isRequired = e.amount > 30000;
+                const hasEvidence = e.vat > 0 || ['TAX_INVOICE', 'CARD_RECEIPT', 'CASH_RECEIPT'].includes(e.documentType || '');
+                let status: 'OK' | 'MISSING' | 'OPTIONAL' = 'OK';
+                if (isRequired && !hasEvidence) status = 'MISSING';
+                if (!isRequired) status = 'OPTIONAL';
+                return { ...e, evidenceStatus: status };
+            })
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        const evidenceRisks = allExpenses.filter(e => e.evidenceStatus === 'MISSING');
 
         return {
             outputTax, inputTax, salesSupply, purchaseSupply,
             payable: outputTax - inputTax,
             totalWithheld,
-            evidenceRisks
+            evidenceRisks,
+            allExpenses
         };
     }, [ledger, quarter, year]);
 
@@ -292,17 +300,34 @@ export const TaxReport: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Evidence Missing Table */}
+                    {/* Evidence List Section */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 bg-[#151D2E] rounded-[2.5rem] border border-white/5 overflow-hidden">
                             <div className="p-8 border-b border-white/5 flex justify-between items-center">
                                 <h3 className="text-xl font-black text-white flex items-center gap-2">
-                                    <AlertOctagon className="text-rose-500" />
-                                    증빙 누락 (Evidence Missing) ({taxData.evidenceRisks.length})
+                                    {showAll ? <FileText className="text-indigo-400" /> : <AlertOctagon className="text-rose-500" />}
+                                    {showAll ? '지출 증빙 전체 내역' : '증빙 누락 (Evidence Missing)'}
+                                    <span className="text-sm text-slate-500 bg-white/5 px-2 py-0.5 rounded-full ml-2">
+                                        {showAll ? taxData.allExpenses.length : taxData.evidenceRisks.length}
+                                    </span>
                                 </h3>
+                                <div className="flex bg-[#0B1221] p-1 rounded-lg border border-white/5">
+                                    <button
+                                        onClick={() => setShowAll(false)}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-black transition-colors ${!showAll ? 'bg-rose-500 text-white' : 'text-slate-500 hover:text-white'}`}
+                                    >
+                                        누락 건만 보기
+                                    </button>
+                                    <button
+                                        onClick={() => setShowAll(true)}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-black transition-colors ${showAll ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-white'}`}
+                                    >
+                                        전체 보기
+                                    </button>
+                                </div>
                             </div>
                             <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                                {taxData.evidenceRisks.length === 0 ? (
+                                {(showAll ? taxData.allExpenses : taxData.evidenceRisks).length === 0 ? (
                                     <div className="p-12 text-center">
                                         <CheckCircle size={48} className="text-emerald-500 mx-auto mb-4" />
                                         <h4 className="text-white font-bold text-lg">완벽합니다!</h4>
@@ -315,20 +340,52 @@ export const TaxReport: React.FC = () => {
                                                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase">일자</th>
                                                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase">거래내용</th>
                                                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase text-right">금액</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase text-center">상태</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase text-center">증빙 상태</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase text-center">보기</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5">
-                                            {taxData.evidenceRisks.map(risk => (
-                                                <tr key={risk.id} className="hover:bg-rose-500/5 transition-colors">
-                                                    <td className="px-6 py-4 text-slate-400 font-bold text-xs">{risk.date}</td>
+                                            {(showAll ? taxData.allExpenses : taxData.evidenceRisks).map(item => (
+                                                <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
+                                                    <td className="px-6 py-4 text-slate-400 font-bold text-xs">{item.date}</td>
                                                     <td className="px-6 py-4 text-white font-bold text-sm">
-                                                        {risk.description}
-                                                        <div className="text-[10px] text-slate-500 mt-1">{risk.debitAccount}</div>
+                                                        {item.description}
+                                                        <div className="text-[10px] text-slate-500 mt-1">{item.debitAccount}</div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-right text-rose-400 font-mono font-bold">₩{risk.amount.toLocaleString()}</td>
+                                                    <td className={`px-6 py-4 text-right font-mono font-bold ${item.evidenceStatus === 'MISSING' ? 'text-rose-400' : 'text-white'}`}>
+                                                        ₩{item.amount.toLocaleString()}
+                                                    </td>
                                                     <td className="px-6 py-4 text-center">
-                                                        <span className="px-2 py-1 bg-rose-500/20 text-rose-400 rounded text-[10px] font-black">증빙불비</span>
+                                                        {item.evidenceStatus === 'MISSING' && (
+                                                            <span className="px-2 py-1 bg-rose-500/20 text-rose-400 rounded text-[10px] font-black inline-flex items-center gap-1">
+                                                                <AlertOctagon size={10} /> 증빙불비
+                                                            </span>
+                                                        )}
+                                                        {item.evidenceStatus === 'OK' && (
+                                                            <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded text-[10px] font-black inline-flex items-center gap-1">
+                                                                <CheckCircle size={10} /> 적격증빙
+                                                            </span>
+                                                        )}
+                                                        {item.evidenceStatus === 'OPTIONAL' && (
+                                                            <span className="px-2 py-1 bg-slate-500/20 text-slate-400 rounded text-[10px] font-black">
+                                                                해당없음
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        {item.evidenceStatus === 'OK' ? (
+                                                            <button
+                                                                onClick={() => window.open('https://picsum.photos/600/800', '_blank', 'width=600,height=800')}
+                                                                className="p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-lg transition-all"
+                                                                title="증빙 보기"
+                                                            >
+                                                                <Search size={14} />
+                                                            </button>
+                                                        ) : (
+                                                            <button className="p-2 bg-white/5 text-slate-600 cursor-not-allowed rounded-lg">
+                                                                <FileText size={14} />
+                                                            </button>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))}

@@ -76,9 +76,9 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ isOpen, onClose,
                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto pt-6 border-t border-white/5">
-                            <label className="text-[10px] font-black text-slate-500 uppercase block mb-4">Audit Trail</label>
+                            <label className="text-[10px] font-black text-slate-500 uppercase block mb-4">Control Trail</label>
                             <div className="space-y-4 text-xs">
-                                {entry.auditTrail?.map((log, i) => (
+                                {entry.controlTrail?.map((log, i) => (
                                     <div key={i} className="flex gap-3">
                                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1" />
                                         <p className="text-slate-300 font-bold">{log}</p>

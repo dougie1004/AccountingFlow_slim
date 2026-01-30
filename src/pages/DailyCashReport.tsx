@@ -20,12 +20,19 @@ import { SmartExcelUploader } from '../components/SmartExcelUploader';
 type ViewMode = 'daily' | 'receivables' | 'payables';
 
 export const DailyCashReport: React.FC = () => {
-    const { ledger, financials, addEntries } = useAccounting();
+    const { ledger, financials, addEntries, addEntry, updateEntry } = useAccounting();
     const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [actualBalance, setActualBalance] = useState<number>(financials.cash);
     const [viewMode, setViewMode] = useState<ViewMode>('daily');
     const [showUpload, setShowUpload] = useState(false);
+
+    // Sync actual balance with book balance on load
+    React.useEffect(() => {
+        if (financials.cash > 0 && actualBalance === 0) {
+            setActualBalance(financials.cash);
+        }
+    }, [financials.cash]);
 
     const handleSmartUpload = (newEntries: JournalEntry[]) => {
         addEntries(newEntries);
@@ -38,7 +45,6 @@ export const DailyCashReport: React.FC = () => {
     // --- Computed Data ---
 
     // 1. Daily Cash Logic (Standard Korean Format: Prev + In - Out = End)
-    // This is the core logic that the user felt was missing.
     const cashSummary = useMemo(() => {
         const target = selectedDate;
         let prevBalance = 0;
@@ -47,20 +53,29 @@ export const DailyCashReport: React.FC = () => {
         const inflows: JournalEntry[] = [];
         const outflows: JournalEntry[] = [];
 
+        const isCashAcc = (acc: string) => {
+            const n = acc.toLowerCase();
+            return n.includes('예금') || n.includes('현금') || n.includes('cash') || n.includes('bank');
+        };
+
         ledger.filter(e => e.status === 'Approved').forEach(e => {
+            const total = e.amount + (e.vat || 0);
+            const isCashD = isCashAcc(e.debitAccount);
+            const isCashC = isCashAcc(e.creditAccount);
+
             // 1. Calculate Previous Balance (Up to yesterday)
             if (e.date < target) {
-                if (e.debitAccount === 'Cash') prevBalance += e.amount;
-                if (e.creditAccount === 'Cash') prevBalance -= e.amount;
+                if (isCashD) prevBalance += total;
+                if (isCashC) prevBalance -= total;
             }
             // 2. Calculate Today's Flow
             else if (e.date === target) {
-                if (e.debitAccount === 'Cash') {
-                    todayIn += e.amount;
+                if (isCashD) {
+                    todayIn += total;
                     inflows.push(e);
                 }
-                if (e.creditAccount === 'Cash') {
-                    todayOut += e.amount;
+                if (isCashC) {
+                    todayOut += total;
                     outflows.push(e);
                 }
             }
@@ -78,27 +93,27 @@ export const DailyCashReport: React.FC = () => {
 
     // 2. Receivables (AR) - Aging Analysis
     const receivables = useMemo(() => {
-        return ledger.filter(e =>
-            (e.type === 'Revenue' || e.debitAccount === 'Accounts Receivable') &&
-            !e.isSettled &&
-            e.debitAccount !== 'Cash'
-        ).map(e => {
+        return ledger.filter(e => {
+            const acc = (e.debitAccount || '').toLowerCase();
+            const isAr = acc.includes('미수') || acc.includes('외상매출') || acc.includes('receivable');
+            return e.status === 'Approved' && isAr && !e.isSettled;
+        }).map(e => {
             const dueDate = e.dueDate || e.date;
             const daysOverdue = Math.floor((new Date().getTime() - new Date(dueDate).getTime()) / (1000 * 3600 * 24));
-            return { ...e, daysOverdue, dueDate };
+            return { ...e, daysOverdue, dueDate } as any;
         }).sort((a, b) => b.daysOverdue - a.daysOverdue);
     }, [ledger]);
 
     // 3. Payables (AP) - Upcoming Payments
     const payables = useMemo(() => {
-        return ledger.filter(e =>
-            (e.type === 'Expense' || e.creditAccount === 'Accounts Payable') &&
-            !e.isSettled &&
-            e.creditAccount !== 'Cash'
-        ).map(e => {
+        return ledger.filter(e => {
+            const acc = (e.creditAccount || '').toLowerCase();
+            const isAp = acc.includes('미지급') || acc.includes('외상매입') || acc.includes('payable');
+            return e.status === 'Approved' && isAp && !e.isSettled;
+        }).map(e => {
             const dueDate = e.dueDate || e.date;
             const daysUntilDue = Math.floor((new Date(dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-            return { ...e, daysUntilDue, dueDate };
+            return { ...e, daysUntilDue, dueDate } as any;
         }).sort((a, b) => a.daysUntilDue - b.daysUntilDue);
     }, [ledger]);
 
@@ -384,7 +399,30 @@ export const DailyCashReport: React.FC = () => {
                                             <td className="px-6 py-4 text-slate-400 text-sm max-w-xs truncate">{item.description}</td>
                                             <td className="px-6 py-4 text-right font-mono font-black text-rose-400">₩{item.amount.toLocaleString()}</td>
                                             <td className="px-6 py-4 text-center">
-                                                <button className="px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-lg text-xs font-bold transition-all border border-indigo-500/20">
+                                                <button
+                                                    onClick={() => {
+                                                        if (window.confirm(`'${item.vendor}'에 대한 ${item.amount.toLocaleString()}원 지급을 승인하시겠습니까?\n\n승인 시 즉시 '보통예금'에서 출금 처리되며, 미지급금 내역에서 삭제됩니다.`)) {
+                                                            // 1. Mark original liability as "Settled" (Removes from this list)
+                                                            updateEntry(item.id, { isSettled: true });
+
+                                                            // 2. Create Cash Outflow Entry (Payment)
+                                                            addEntry({
+                                                                id: crypto.randomUUID(),
+                                                                date: selectedDate, // Payment Date = Report Date
+                                                                description: `[지급] ${item.description}`,
+                                                                vendor: item.vendor,
+                                                                debitAccount: item.creditAccount, // Offset the Payable (e.g. 미지급금)
+                                                                creditAccount: '보통예금', // Cash Out
+                                                                amount: item.amount,
+                                                                vat: 0, // VAT was handled in original invoice
+                                                                type: 'Liability', // Reducing Liability
+                                                                status: 'Approved'
+                                                            });
+                                                            alert('지급 처리가 완료되었습니다.');
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-lg text-xs font-bold transition-all border border-indigo-500/20 active:scale-95"
+                                                >
                                                     지급 승인
                                                 </button>
                                             </td>

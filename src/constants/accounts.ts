@@ -112,11 +112,36 @@ export const getAccountCategory = (accountName: string): AccountCategory => {
     }
 
     if (['매출', '수익', '이익', 'revenue', 'income'].some(k => n.includes(k))) return 'Revenue';
-    if (['비용', '급여', '원가', '상각', '손실', '세금', '공과', '임차료', '수수료', '보험료', '운반비', '접대비', '리스료', 'expense', 'cost', 'fee'].some(k => n.includes(k))) return 'Expense';
+    if (['비용', '급여', '원가', '상각', '손실', '세금', '공과', '임차료', '수수료', '보험료', '운반비', '접대비', '리스료', '식대', '식사', '회식', '카페', '커피', '교통', '차량', '기름', '유류', '보험', '수리', '교육', '도서', '인쇄', '소모품', '광고', '전기', '수도', '가스', '통신', '전화', '인터넷', '우편', '택배', '수선', '여비', '방역', '소독', '청소', '폐기물', '사무용품', '주차', '출장', '협회', '가입', '가입비', '등록비', '증식', '수익', 'expense', 'cost', 'fee'].some(k => n.includes(k))) return 'Expense';
 
     // Default fallback
     return 'Asset';
 }
+
+/**
+ * Robust account matching for AR/AP detection.
+ * Handles varied formatting, casing, and semantic variations.
+ */
+const normalize = (val: any): string => (val || '').toString().toLowerCase().replace(/\s+/g, '');
+
+export const isArAccount = (accountName: string): boolean => {
+    const n = normalize(accountName);
+    const keywords = ['미수', '외상매출', '매출채권', 'receivable'];
+    return keywords.some(k => n.includes(k));
+};
+
+export const isApAccount = (accountName: string): boolean => {
+    const n = normalize(accountName);
+    // Include '미지급', '외상매입', '매입채무', '예수금' (Withholding), 'accrued', 'payable'
+    const keywords = ['미지급', '외상매입', '매입채무', '예수금', 'accrued', 'payable'];
+    return keywords.some(k => n.includes(k));
+};
+
+export const isCashAccount = (accountName: string): boolean => {
+    const n = normalize(accountName);
+    const keywords = ['예금', '현금', 'bank', 'cash'];
+    return keywords.some(k => n.includes(k));
+};
 
 export const ACCOUNT_NAMES = STANDARD_ACCOUNTS.map(a => a.name);
 

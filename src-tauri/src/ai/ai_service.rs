@@ -1,84 +1,197 @@
 use crate::core::models::ParsedTransaction;
 use serde_json::json;
+// use anyhow::{Result, anyhow};
 
 fn get_ai_model() -> String {
-    std::env::var("AI_MODEL_NAME").unwrap_or_else(|_| "gemini-2.0-flash-exp".to_string())
+    // Try GEMINI_MODEL first (latest recommendation), fallback to AI_MODEL_NAME
+    std::env::var("GEMINI_MODEL")
+        .or_else(|_| std::env::var("AI_MODEL_NAME"))
+        .unwrap_or_else(|_| "gemini-2.0-flash".to_string())
 }
 
-/// Simplified Journal AI (Slim Version)
-/// Focuses purely on extracting data into a standard journal structure.
+/// GCP INTEGRITY MODE: Skeleton Request for Journal AI
 pub async fn call_journal_ai(
-    input: &str, 
-    image_data: Option<(Vec<u8>, &str)>, 
-    policy: &str, 
-    _tenant_id: &str, 
-    _tier: &str
-) -> Result<ParsedTransaction, String> {
+    prompt: &str,
+    media: Option<(Vec<u8>, String)>,
+    policy: &str,
+    _tenant_id: &str,
+    _tier: &str,
+) -> Result<Vec<ParsedTransaction>, String> {
     let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| "GEMINI_API_KEY missing".to_string())?;
-    let model_name = get_ai_model();
+    let api_key = api_key.trim().replace('"', ""); 
+    let mut model_name = get_ai_model().trim().to_string();
 
-    let mut parts = Vec::new();
-
-    let prompt = format!(
-        r#"[Role: Accounting Automation AI]
-Extract financial data from the provided raw data/image.
-All descriptions and vendor names must be in KOREAN.
-
-[Rules]:
-1. Select the best account from the [Standard Chart of Accounts].
-2. Output strictly JSON.
-
-[Standard Chart of Accounts]:
-- Assets: 현금, 보통예금, 외상매출금, 미수금, 상품, 비품, 차량운반구, 부가가치세대급금, 선급금, 소모품
-- Liabilities: 외상매입금, 미지급금, 미지급비용, 부가가치세예수금, 단기차입금, 예수금(급여)
-- Equity: 자본금, 이익잉여금
-- Revenue: 상품매출, 제품매출, 이자수익, 잡이익
-- Expenses: 급여, 퇴직급여, 복리후생비, 임차료, 통신비, 수도광열비, 세금과공과, 감가상각비, 여비교통비, 접대비, 광고선전비, 이자비용, 잡손실, 소모품비, 수선비, 보험료, 지급수수료, 운반비
-
-[Response Format]:
-{{
-  "date": "YYYY-MM-DD",
-  "amount": 0.0,
-  "vat": 0.0,
-  "entryType": "Revenue | Expense | Asset",
-  "description": "Summary in Korean",
-  "vendor": "Vendor Name in Korean",
-  "accountName": "Chosen Account Name",
-  "reasoning": "Brief logic",
-  "confidence": "High | Medium | Low"
-}}
-
-Raw Data: {}
-Policy: {}
-"#,
-        input, policy
-    );
-
-    parts.push(json!({ "text": prompt }));
-
-    if let Some((bytes, mime)) = image_data {
-        let base64_data = base64::Engine::encode(&base64::prelude::BASE64_STANDARD, bytes);
-        parts.push(json!({ "inline_data": { "mime_type": mime, "data": base64_data } }));
+    if !model_name.starts_with("models/") {
+        model_name = format!("models/{}", model_name);
     }
 
     let client = reqwest::Client::new();
+    
+    // Construct Parts
+    let mut parts = vec![json!({ "text": prompt })];
+    
+    if let Some((bytes, mime)) = media {
+        use base64::Engine;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+        parts.push(json!({
+            "inline_data": {
+                "mime_type": mime,
+                "data": b64
+            }
+        }));
+    }
+
+    // SKELETON PAYLOAD (GCP Integrity Mode)
+    // We use system_instruction to pass the accounting policy/rules
     let body = json!({
-        "contents": [{ "parts": parts }],
-        "generationConfig": { "response_mime_type": "application/json" }
+        "system_instruction": {
+            "parts": [{ "text": policy }]
+        },
+        "contents": [{
+            "role": "user",
+            "parts": parts
+        }]
     });
 
+    let url = format!("https://generativelanguage.googleapis.com/v1beta/{}:generateContent?key={}", model_name, api_key);
+    
+    // DIAGNOSTIC LOGGING
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!("🔎 [GCP Integrity Mode - Journal]");
+    println!("→ URL      : https://generativelanguage.googleapis.com/v1beta/...");
+    println!("→ Model    : {}", model_name);
+    println!("→ API Key  : {}****{}", &api_key[..4], &api_key[api_key.len()-4..]);
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", model_name, api_key))
+        .post(url)
         .json(&body).send().await.map_err(|e| e.to_string())?;
 
-    let json_res: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
-    let text = json_res["candidates"][0]["content"]["parts"][0]["text"]
-        .as_str().ok_or("AI response error")?.to_string();
+    let status = response.status();
+    let body_text = response.text().await.unwrap_or_else(|_| "No body".to_string());
 
-    let parsed: ParsedTransaction = serde_json::from_str(text.trim_matches('`').trim_start_matches("json")).map_err(|e| e.to_string())?;
-    Ok(parsed)
+    if !status.is_success() {
+        eprintln!("🚨 [Gemini RAW ERROR]");
+        eprintln!("Status : {}", status);
+        eprintln!("Body   : {}", body_text);
+        return Err(format!("AI_SERVER_ERROR_{}: {}", status, body_text));
+    }
+
+    let json_res: serde_json::Value = serde_json::from_str(&body_text).map_err(|e| e.to_string())?;
+    
+    // Safety check for empty candidates
+    let candidates = json_res["candidates"].as_array().ok_or("No candidates in AI response".to_string())?;
+    if candidates.is_empty() {
+        return Err("AI response candidates array is empty".to_string());
+    }
+
+    let text = candidates[0]["content"]["parts"][0]["text"]
+        .as_str().ok_or("AI response text part missing".to_string())?.to_string();
+
+    // Parse the JSON blocks out of the AI response
+    let clean_json = text.trim_matches('`').trim_start_matches("json").trim();
+    
+    // Enhanced Parsing: Handle both Single Object and Array
+    let parsed_json: serde_json::Value = serde_json::from_str(clean_json).map_err(|e| format!("JSON Parsing Error: {}. Raw was: {}", e, clean_json))?;
+
+    if parsed_json.is_array() {
+        let list: Vec<ParsedTransaction> = serde_json::from_value(parsed_json).map_err(|e| format!("Array Mapping Error: {}", e))?;
+        Ok(list)
+    } else {
+        let single: ParsedTransaction = serde_json::from_value(parsed_json).map_err(|e| format!("Object Mapping Error: {}", e))?;
+        Ok(vec![single])
+    }
 }
 
-pub async fn extract_transaction_from_media(bytes: Vec<u8>, mime: &str) -> Result<ParsedTransaction, String> {
-    call_journal_ai("", Some((bytes, mime)), "Receipt Processing", "default", "Pro").await
+pub async fn extract_transaction_from_media(bytes: Vec<u8>, mime: &str) -> Result<Vec<ParsedTransaction>, String> {
+    let system_instruction = r#"
+    You are an expert accounting AI. Analyze the attached document (receipt, invoice, or bank statement) and extract the transaction details.
+    
+    OUTPUT FORMAT INSTRUCTION:
+    - If the document contains a SINGLE transaction (e.g. one receipt), output a SINGLE JSON object.
+    - If the document contains MULTIPLE transactions (e.g. bank statement, credit card bill, invoice with line items), output a JSON LIST (Array) of objects.
+
+    Expected JSON Schema for each object:
+    {
+        "date": "YYYY-MM-DD",
+        "amount": number (transaction amount),
+        "vat": number (tax amount, if 0 write 0),
+        "description": "brief description of items/service",
+        "vendor": "merchant or counterparty name",
+        "accountName": "suggested K-IFRS account name (e.g., 복리후생비, 소모품비, 여비교통비)",
+        "entryType": "Expense" (default) or "Revenue" or "Asset",
+        "reasoning": "brief explanation of classification",
+        "confidence": "High"
+    }
+
+    For Korean receipts, map standard Items to accounts:
+    - Meals/Coffee -> 복리후생비
+    - Taxi/Transport -> 여비교통비
+    - Mart/Convenience Store -> 소모품비
+    "#;
+    
+    call_journal_ai("", Some((bytes, mime.to_string())), system_instruction, "default", "Pro").await
+}
+
+pub async fn perform_ai_audit(transactions: Vec<ParsedTransaction>, context: String) -> Result<Vec<ParsedTransaction>, String> {
+    let tx_json = serde_json::to_string_pretty(&transactions).map_err(|e| e.to_string())?;
+    
+    let prompt = format!(
+        r#"
+        TRANSACTION DATA:
+        {}
+
+        REFERENCE CONTEXT (Guidelines, Drafts, Emails):
+        {}
+        "#,
+        tx_json, context
+    );
+
+    let system_instruction = r#"
+    You are an Expert Accounting Assistant. Your job is to verify the 'TRANSACTION DATA' against the 'REFERENCE CONTEXT' to ensure accuracy.
+
+    INSTRUCTIONS:
+    1. Cross-reference each transaction with the provided context documents.
+    2. If a transaction matches an approved Draft/Plan, mark it as "Approved" and mention the matching document in 'reasoning'.
+    3. If a transaction does not align with Guidelines (e.g. amount limits, category mismatch), mark 'needsClarification': true and politely note the discrepancy in 'reasoning'.
+    4. If there are relevant notes from Emails, append them to 'reasoning' for the user's information.
+    5. Return the EXACT SAME JSON list of transactions, updating only 'reasoning', 'needsClarification', and 'parseStatus'.
+    
+    Maintain a helpful, professional tone. Avoid using the word "Audit" or "Violation".
+    
+    OUTPUT:
+    A single JSON List of the updated transaction objects.
+    "#;
+
+    call_journal_ai(&prompt, None, system_instruction, "default", "Pro").await
+}
+
+pub async fn generic_ai_chat(prompt: &str, system_context: Option<String>) -> Result<String, String> {
+    let system_instruction = system_context.unwrap_or_else(|| "You are a helpful AI assistant.".to_string());
+    
+    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| "GEMINI_API_KEY missing".to_string())?;
+    let api_key = api_key.trim().replace('"', ""); 
+    let mut model_name = get_ai_model().trim().to_string();
+    if !model_name.starts_with("models/") { model_name = format!("models/{}", model_name); }
+    
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "contents": [{
+            "parts": [{ "text": prompt }]
+        }],
+         "system_instruction": {
+            "parts": [{ "text": system_instruction }]
+        }
+    });
+
+    let url = format!("https://generativelanguage.googleapis.com/v1beta/{}:generateContent?key={}", model_name, api_key);
+    let res = client.post(url).json(&body).send().await.map_err(|e| e.to_string())?;
+    
+    let res_json: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+    let text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+        .as_str()
+        .unwrap_or("No response")
+        .to_string();
+        
+    Ok(text)
 }

@@ -26,87 +26,100 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
 
         setIsUploading(true);
         setError(null);
-        let allParsed: ParsedTransaction[] = [];
 
-        try {
-            for (const file of files) {
+        let contextString = "";
+        let transactionFiles: File[] = [];
+        let bulkFiles: File[] = [];
+
+        // 1. First Pass: Identify Context & Sort
+        for (const file of files) {
+            const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+
+            // Context Sources: Regulations, Drafts, Emails
+            if (['.docx', '.txt', '.pdf'].includes(ext)) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const text = await invoke<string>('process_audit_context', {
+                        fileBytes: Array.from(new Uint8Array(arrayBuffer)),
+                        fileName: file.name
+                    });
+                    contextString += `\n[Document: ${file.name}]\n${text}\n`;
+
+                    // Note: We ALSO treat these as potential 'transaction sources' (e.g. Draft -> Transaction)
+                    // so we add them to transactionFiles too.
+                    transactionFiles.push(file);
+                } catch (e) {
+                    console.error("Context extraction failed:", e);
+                }
+            } else if (['.csv', '.xlsx', '.xls', '.tsv'].includes(ext)) {
+                bulkFiles.push(file);
+            } else {
+                // Images are pure transaction sources
+                transactionFiles.push(file);
+            }
+        }
+
+        let aiResults: ParsedTransaction[] = [];
+
+        // 2. Process Transaction Files (Images, & Documents acting as source)
+        for (const file of transactionFiles) {
+            try {
                 const arrayBuffer = await file.arrayBuffer();
                 const bytes = new Uint8Array(arrayBuffer);
                 const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-                const isStructured = ['.csv', '.xlsx', '.xls', '.tsv'].includes(ext);
 
-                if (isStructured && onExcelDetected) {
-                    onExcelDetected(file);
-                    setIsUploading(false);
-                    return;
-                }
-
-                // AI Processing (Unstructured or Fallback)
                 const results = await invoke<ParsedTransaction[]>('process_universal_file', {
                     fileBytes: Array.from(bytes),
                     fileName: file.name
                 });
 
                 if (results && results.length > 0) {
-                    // 1. Image Preview Logic
-                    const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext);
-                    if (isImage) {
+                    // Image Preview
+                    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
                         const blob = new Blob([bytes], { type: file.type });
                         const attachmentUrl = URL.createObjectURL(blob);
-                        results.forEach(tx => {
-                            (tx as any).attachmentUrl = attachmentUrl;
-                        });
+                        results.forEach(tx => { (tx as any).attachmentUrl = attachmentUrl; });
                     }
-
-                    // 2. Validation Logic (Filter out non-transaction documents)
-                    // We define a valid transaction as having an amount > 1 (to ignore garbage or tiny values)
-                    // and some description.
-                    const validResults = results.filter(r => Number(r.amount) > 1);
-                    const invalidCount = results.length - validResults.length;
-
-                    if (invalidCount > 0) {
-                        const sampleInvalid = results.find(r => Number(r.amount) <= 1);
-                        const textPreview = sampleInvalid?.description?.substring(0, 60) + (sampleInvalid?.description && sampleInvalid.description.length > 60 ? '...' : '');
-
-                        // We use a safe notification approach
-                        console.warn('Invalid transaction data detected and filtered:', sampleInvalid);
-
-                        window.alert(
-                            `[인공지능 보안 알림] 🛡️\n\n` +
-                            `회계 증빙이 아닌 것으로 데이터 ${invalidCount}건이 감지되어 자동 차단되었습니다.\n\n` +
-                            `내용 요약: "${textPreview || '내용 없음'}"\n\n` +
-                            `사유: 금액 정보가 없거나(0원) 일반 문서/이미지일 가능성이 큽니다.\n` +
-                            `부정확한 데이터가 장부에 섞이는 것을 방지하기 위해 해당 항목을 제외했습니다.`
-                        );
-                    }
-
-                    if (validResults.length > 0) {
-                        const resultsWithOriginal = validResults.map(r => ({
-                            ...r,
-                            originalAmount: r.amount // Set the ground truth for integrity checks
-                        }));
-                        allParsed = [...allParsed, ...resultsWithOriginal];
-                    }
+                    aiResults.push(...results);
                 }
+            } catch (e) {
+                console.warn(`Skipping ${file.name} as transaction source:`, e);
             }
+        }
 
-            if (allParsed.length === 0 && !mapperOpen) {
-                // If mapper is open, we don't throw error yet
-                if (!pendingFile) {
-                    throw new Error('데이터 분석에 실패했습니다. 파일 형식을 확인하거나 데이터가 포함되어 있는지 확인해 주세요.');
-                }
-            } else if (allParsed.length > 0) {
-                onTransactionsLoaded(allParsed);
+        // 3. AI Audit Cross-Check (The Magic Step)
+        if (aiResults.length > 0 && contextString.trim().length > 0) {
+            try {
+                const auditedResults = await invoke<ParsedTransaction[]>('perform_audit_check', {
+                    transactions: aiResults,
+                    context: contextString
+                });
+                aiResults = auditedResults;
+            } catch (auditErr) {
+                console.error("Audit Check Failed:", auditErr);
+                // Fallback: use unaudited results
             }
+        }
 
-        } catch (err: any) {
-            console.error('Upload Error:', err);
-            setError(err instanceof Error ? err.message : String(err));
-        } finally {
-            if (!pendingFile) {
-                setIsUploading(false);
-            }
-            if (fileInputRef.current) fileInputRef.current.value = '';
+        // 4. Commit Results
+        if (aiResults.length > 0) {
+            // Apply originalAmount for integrity
+            const finalResults = aiResults.map(r => ({ ...r, originalAmount: r.amount }));
+            onTransactionsLoaded(finalResults);
+        }
+
+        // 5. Bulk File Routing
+        if (bulkFiles.length > 0 && onExcelDetected) {
+            // Limitation: We can't easily pass the 'contextString' to the Excel Mapper yet in this architecture.
+            // But we have successfully audited the unstructured files!
+            onExcelDetected(bulkFiles[0]);
+            setIsUploading(false);
+            return;
+        }
+
+        setIsUploading(false);
+        if (aiResults.length === 0 && bulkFiles.length === 0) {
+            setError("처리할 수 있는 데이터가 없거나 분석에 실패했습니다.");
         }
     };
 

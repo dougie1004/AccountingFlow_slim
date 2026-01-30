@@ -15,7 +15,9 @@ import {
     Wallet,
     Building2,
     CheckCircle2,
-    RefreshCw
+    RefreshCw,
+    Sparkles,
+    Clock
 } from 'lucide-react';
 import { useContext } from 'react';
 import { AccountingContext } from '../../context/AccountingContext';
@@ -53,7 +55,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                 { id: 'dashboard', label: '대시보드', description: '주요 KPI 등 회사의 재무 상태를 파악합니다.', icon: LayoutDashboard },
                 { id: 'daily-cash', label: '자금일보 (Cash Report)', description: '일일 시재 및 자금 수지 현황을 보고합니다.', icon: Wallet },
                 { id: 'financial-statements', label: '재무제표 (Financial Statements)', description: 'B/S, P/L, C/F 등 주요 재무제표를 조회합니다.', icon: FileText },
-                { id: 'tax-report', label: '부가세 및 자금 리스크 (VAT & Risk)', description: '세무 신고 및 감사 관련 자료를 관리합니다.', icon: ShieldCheck },
+                { id: 'ai-performance', label: 'AI 지능 벤치마크 (Quality)', description: '시스템의 전표 처리 지능을 표준 사례를 통해 점검합니다.', icon: Sparkles },
+                { id: 'arap-management', label: '채권/채무 현황 (AR/AP)', description: '매출채권 및 매입채무의 연령(Aging)과 연체 상태를 관리합니다.', icon: Clock },
+                { id: 'tax-report', label: '부가세 및 자금 리스크 (VAT & Risk)', description: '세무 신고 및 경영 분석 관련 자료를 관리합니다.', icon: ShieldCheck },
             ]
         },
         {

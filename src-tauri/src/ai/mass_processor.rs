@@ -53,18 +53,19 @@ async fn enhance_transaction_with_ai(
     );
     
     match ai_service::call_journal_ai(&input, None, policy, "default", "Pro").await {
-        Ok(ai_result) => {
-            tx.account_name = tx.account_name.or(ai_result.account_name);
-            tx.confidence = Some("High".to_string());
-            tx.reasoning = format!("{} | AI Enhanced", tx.reasoning);
-            tx.needs_clarification = ai_result.needs_clarification;
-            tx.clarification_prompt = ai_result.clarification_prompt;
-            
-            tx.audit_trail.push(format!(
-                "[{}] AI Enhanced (Slim Engine)",
-                chrono::Local::now().format("%H:%M:%S")
-            ));
-            
+        Ok(ai_result_list) => {
+            if let Some(ai_result) = ai_result_list.into_iter().next() {
+                tx.account_name = tx.account_name.or(ai_result.account_name);
+                tx.confidence = Some("High".to_string());
+                tx.reasoning = format!("{} | AI Enhanced", tx.reasoning);
+                tx.needs_clarification = ai_result.needs_clarification;
+                tx.clarification_prompt = ai_result.clarification_prompt;
+                
+                tx.audit_trail.push(format!(
+                    "[{}] AI Enhanced (Slim Engine)",
+                    chrono::Local::now().format("%H:%M:%S")
+                ));
+            }
             Ok(tx)
         }
         Err(e) => {

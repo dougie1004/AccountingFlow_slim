@@ -16,11 +16,16 @@ pub async fn parse_transaction(
     tier: String,
 ) -> Result<AnalysisResponse, String> {
     // Slimmed: Minimal journal extraction
-    let parsed = if let (Some(bytes), Some(mime)) = (image_bytes, image_mime) {
-        ai_service::call_journal_ai(&input, Some((bytes, &mime)), &policy, &tenant_id, &tier).await?
-    } else {
-        ai_service::call_journal_ai(&input, None, &policy, &tenant_id, &tier).await?
+    let parsed_list = match (image_bytes, image_mime) {
+        (Some(bytes), Some(mime)) => {
+            ai_service::call_journal_ai(&input, Some((bytes, mime)), &policy, &tenant_id, &tier).await?
+        },
+        _ => {
+            ai_service::call_journal_ai(&input, None, &policy, &tenant_id, &tier).await?
+        }
     };
+
+    let parsed = parsed_list.into_iter().next().ok_or("AI returned no transactions")?;
     
     Ok(AnalysisResponse {
         transaction: Some(parsed),
@@ -112,4 +117,27 @@ pub fn generate_journal_id(date: String, entry_type: String) -> String {
 #[tauri::command]
 pub fn parse_universal_file(file_bytes: Vec<u8>) -> Result<csv_inference::InferenceResult, String> {
     crate::ai::csv_inference::analyze_csv(file_bytes)
+}
+#[tauri::command]
+pub async fn generic_ai_chat(
+    prompt: String,
+    system_context: Option<String>
+) -> Result<String, String> {
+    ai_service::generic_ai_chat(&prompt, system_context).await
+}
+
+#[tauri::command]
+pub async fn process_audit_context(
+    file_bytes: Vec<u8>,
+    file_name: String,
+) -> Result<String, String> {
+    crate::ai::universal_ingestor::extract_context_text(file_bytes, file_name).await
+}
+
+#[tauri::command]
+pub async fn perform_audit_check(
+    transactions: Vec<ParsedTransaction>,
+    context: String,
+) -> Result<Vec<ParsedTransaction>, String> {
+    crate::ai::ai_service::perform_ai_audit(transactions, context).await
 }

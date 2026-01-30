@@ -70,7 +70,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                 vat: d.vat,
                                 type: d.entryType || 'Expense',
                                 status: 'Unconfirmed',
-                                auditTrail: d.auditTrail
+                                controlTrail: d.controlTrail
                             }));
                             onConfirm(entries);
                         }}
@@ -126,8 +126,28 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
 
                 <div className="space-y-6">
                     {selectedRow !== null && (
-                        <div className="professional-card p-6 space-y-6">
+                        <div className="professional-card p-6 space-y-6 animate-in slide-in-from-right-4 duration-300">
                             <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Detail View</h4>
+
+                            {(stagedData[selectedRow] as any).attachmentUrl && (
+                                <div className="rounded-xl overflow-hidden border border-white/10 relative group">
+                                    <div className="absolute top-2 right-2 px-2 py-1 bg-black/50 backdrop-blur-md rounded text-[10px] text-white font-bold">
+                                        원본 증빙
+                                    </div>
+                                    <img
+                                        src={(stagedData[selectedRow] as any).attachmentUrl}
+                                        alt="Evidence"
+                                        className="w-full h-auto object-contain max-h-[300px] bg-white/5"
+                                    />
+                                    <button
+                                        onClick={() => window.open((stagedData[selectedRow] as any).attachmentUrl, '_blank')}
+                                        className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white font-bold transition-opacity"
+                                    >
+                                        크게 보기
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="text-xl font-black text-white">{stagedData[selectedRow].description}</div>
 
                             <div className="space-y-4">
@@ -141,7 +161,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                             newData[selectedRow].accountName = e.target.value;
                                             setStagedData(newData);
                                         }}
-                                        className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white font-bold text-sm outline-none"
+                                        className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white font-bold text-sm outline-none focus:border-indigo-500 transition-colors"
                                     />
                                     <datalist id="staging-account-list">
                                         {ALL_ACCOUNTS.map(acc => <option key={acc.code} value={acc.name} />)}
@@ -149,7 +169,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">Reasoning</label>
-                                    <p className="text-sm text-slate-400 leading-relaxed bg-white/5 p-4 rounded-xl">
+                                    <p className="text-sm text-slate-400 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
                                         {stagedData[selectedRow].reasoning}
                                     </p>
                                 </div>

@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatUtils';
 
+import { InfoTooltip } from '../ui/InfoTooltip';
+
 interface UnsettledStatusProps {
     metrics: {
         overdueReceivables: number;
@@ -29,6 +31,10 @@ export const CFOReportCard: React.FC<UnsettledStatusProps> = ({ metrics, onViewR
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest border border-slate-500/20 px-2 py-0.5 rounded-full bg-slate-500/5">
                             Pending Status
                         </span>
+                        <InfoTooltip
+                            title="Pending Status (미결제 현황)"
+                            content="장부에 기록되었으나 아직 현금 유출입이 완료되지 않은(isSettled=false) 거래들의 합계입니다."
+                        />
                     </div>
                     <h2 className="text-2xl font-black text-white tracking-tight">
                         미결제 현황 (Unsettled)
@@ -53,6 +59,10 @@ export const CFOReportCard: React.FC<UnsettledStatusProps> = ({ metrics, onViewR
                     <div className="flex items-center gap-2 mb-2 text-emerald-400">
                         <ArrowDownLeft size={18} />
                         <span className="text-[10px] font-black uppercase tracking-widest">To Collect</span>
+                        <InfoTooltip
+                            title="Accounts Receivable (미수금)"
+                            content="매출은 발생했으나 아직 대금을 받지 못한 금액입니다. 장부상 '미수금' 또는 '외상매출금' 계정 중 미결제된 항목의 합계입니다."
+                        />
                     </div>
                     <p className="text-xs font-bold text-slate-500 mb-1">미수금 (받을 돈)</p>
                     <p className="text-2xl font-black text-white tracking-tight">
@@ -65,6 +75,10 @@ export const CFOReportCard: React.FC<UnsettledStatusProps> = ({ metrics, onViewR
                     <div className="flex items-center gap-2 mb-2 text-rose-400">
                         <ArrowUpRight size={18} />
                         <span className="text-[10px] font-black uppercase tracking-widest">To Pay</span>
+                        <InfoTooltip
+                            title="Accounts Payable (미지급금)"
+                            content="비용은 발생했으나 아직 대금을 지급하지 않은 금액입니다. 장부상 '미지급금' 또는 '외상매입금' 계정 중 미결제된 항목의 합계입니다."
+                        />
                     </div>
                     <p className="text-xs font-bold text-slate-500 mb-1">미지급금 (줄 돈)</p>
                     <p className="text-2xl font-black text-white tracking-tight">

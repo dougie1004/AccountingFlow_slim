@@ -39,7 +39,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({ onConfirm }) =
             vat: analysis.vat,
             type: (analysis.entryType as any) || 'Expense',
             status: 'Unconfirmed',
-            auditTrail: analysis.auditTrail
+            controlTrail: analysis.controlTrail
         };
         onConfirm(newEntry);
         setAnalysis(null);

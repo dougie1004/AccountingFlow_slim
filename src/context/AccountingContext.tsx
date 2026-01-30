@@ -121,7 +121,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
                     ...entry,
                     debitAccount: isExpense ? rule.targetAccount : 'Cash',
                     creditAccount: isExpense ? 'Cash' : rule.targetAccount,
-                    auditTrail: [...(entry.auditTrail || []), `[Standard Mapping] Rule applied for "${rule.keyword}" -> ${rule.targetAccount}`]
+                    controlTrail: [...(entry.controlTrail || []), `[Standard Mapping] Rule applied for "${rule.keyword}" -> ${rule.targetAccount}`]
                 };
             }
             return entry;

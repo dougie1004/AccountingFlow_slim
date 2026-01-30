@@ -178,7 +178,7 @@ const ApprovalDesk: React.FC = () => {
                             <div className="flex-1 space-y-4 pl-10">
                                 <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-mono text-slate-500">{entry.date}</span>
-                                    {entry.auditTrail?.some(log => log.includes('[Standard Mapping]')) ? (
+                                    {entry.controlTrail?.some(log => log.includes('[Standard Mapping]')) ? (
                                         <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-2 py-1 rounded-lg flex items-center gap-1">
                                             <CheckCircle size={10} /> MAPPED
                                         </span>

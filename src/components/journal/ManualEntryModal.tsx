@@ -23,6 +23,7 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
     const [debitAmount, setDebitAmount] = useState<number>(0);
     const [creditAmount, setCreditAmount] = useState<number>(0);
     const [validationError, setValidationError] = useState<string | null>(null);
+    const [isAiSuggesting, setIsAiSuggesting] = useState(false);
 
     if (!isOpen) return null;
 
@@ -66,6 +67,36 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
         setCreditAmount(0);
         setValidationError(null);
         onClose();
+    };
+
+    const handleSmartSuggest = (text: string, vendor: string) => {
+        const full = (text + vendor).toLowerCase();
+        let suggestedDebit = '';
+        let suggestedCredit = '미지급금';
+
+        if (full.includes('식사') || full.includes('밥') || full.includes('식당') || full.includes('카페') || full.includes('커피')) {
+            suggestedDebit = '복리후생비';
+        } else if (full.includes('택시') || full.includes('버스') || full.includes('지하철') || full.includes('kakaot')) {
+            suggestedDebit = '여비교통비';
+        } else if (full.includes('컴퓨터') || full.includes('노트북') || full.includes('모니터')) {
+            suggestedDebit = '비품';
+        } else if (full.includes('편의점') || full.includes('문구') || full.includes('소모품')) {
+            suggestedDebit = '소모품비';
+        } else if (full.includes('통신') || full.includes('핸드폰') || full.includes('인터넷') || full.includes('skt') || full.includes('kt')) {
+            suggestedDebit = '통신비';
+        } else if (full.includes('수수료') || full.includes('카드') || full.includes('지급수수료')) {
+            suggestedDebit = '지급수수료';
+        }
+
+        if (suggestedDebit) {
+            setIsAiSuggesting(true);
+            setFormData(prev => ({
+                ...prev,
+                debitAccount: prev.debitAccount || suggestedDebit,
+                creditAccount: prev.creditAccount || suggestedCredit
+            }));
+            setTimeout(() => setIsAiSuggesting(false), 2000);
+        }
     };
 
     return (
@@ -136,7 +167,10 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
                             placeholder="전표 내용을 입력하세요..."
                             className="w-full px-6 py-4 bg-[#0B1221] border border-white/5 rounded-2xl font-black text-white outline-none shadow-inner"
                             value={formData.description}
-                            onChange={e => setFormData({ ...formData, description: e.target.value })}
+                            onChange={e => {
+                                setFormData({ ...formData, description: e.target.value });
+                                handleSmartSuggest(e.target.value, formData.vendor || '');
+                            }}
                         />
                     </div>
 
@@ -222,37 +256,83 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
                                     required
                                     className="w-full px-6 py-4 bg-[#0B1221] border border-emerald-500/10 rounded-2xl font-black text-emerald-400 outline-none shadow-inner font-mono text-right focus:border-emerald-500/50 transition-colors"
                                     value={creditAmount || ''}
-                                    onChange={e => setCreditAmount(Number(e.target.value))}
+                                    onChange={e => {
+                                        const val = Number(e.target.value);
+                                        setCreditAmount(val);
+                                        if (debitAmount === 0) setDebitAmount(val);
+                                    }}
                                 />
                             </div>
                         </div>
                     </div>
 
-                    {/* Balance Indicator & VAT */}
-                    <div className="grid grid-cols-2 gap-6 items-end">
+                    {/* VAT & Tax Type Section */}
+                    <div className="grid grid-cols-2 gap-6 items-start">
                         <div className="space-y-3">
                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
                                 <Calculator size={12} /> 부가세 (VAT)
                             </label>
-                            <input
-                                type="number"
-                                className="w-full px-6 py-4 bg-[#0B1221] border border-white/5 rounded-2xl font-black text-slate-400 outline-none shadow-inner font-mono text-right"
-                                value={formData.vat}
-                                onChange={e => setFormData({ ...formData, vat: Number(e.target.value) })}
-                            />
+                            <div className="relative">
+                                <input
+                                    type="number"
+                                    className="w-full px-6 py-4 bg-[#0B1221] border border-white/5 rounded-2xl font-black text-slate-400 outline-none shadow-inner font-mono text-right"
+                                    value={formData.vat}
+                                    onChange={e => setFormData({ ...formData, vat: Number(e.target.value) })}
+                                />
+                                <div className="absolute right-2 top-2 flex gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, vat: Math.floor(debitAmount * 0.1) })}
+                                        className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] text-slate-400"
+                                    >
+                                        10%
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, vat: 0 })}
+                                        className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] text-slate-400"
+                                    >
+                                        0%
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className={`px-6 py-4 rounded-2xl border flex items-center justify-between shadow-lg ${debitAmount === creditAmount
-                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                            }`}>
-                            <span className="text-xs font-black uppercase tracking-wider">대차차액 (Balance)</span>
-                            <span className="font-mono font-black text-lg">
-                                {debitAmount === creditAmount ? 'Balanced' : `Wait... ${Math.abs(debitAmount - creditAmount).toLocaleString()}`}
-                            </span>
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
+                                <FileText size={12} /> 세무 구분 (Tax Type)
+                            </label>
+                            <div className="flex gap-2">
+                                {(['과세', '면세', '영세'] as const).map(type => (
+                                    <button
+                                        key={type}
+                                        type="button"
+                                        onClick={() => {
+                                            // Auto-calc VAT based on type
+                                            const newVat = type === '과세' ? Math.floor(debitAmount * 0.1) : 0;
+                                            setFormData({ ...formData, vat: newVat });
+                                        }}
+                                        className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all ${(formData.vat > 0 && type === '과세') || (formData.vat === 0 && type !== '과세')
+                                            ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400'
+                                            : 'bg-[#0B1221] border-white/5 text-slate-500 hover:bg-white/5'
+                                            }`}
+                                    >
+                                        {type}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
+                    <div className={`px-6 py-4 rounded-2xl border flex items-center justify-between shadow-lg ${debitAmount === creditAmount
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                        : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                        }`}>
+                        <span className="text-xs font-black uppercase tracking-wider">대차차액 (Balance)</span>
+                        <span className="font-mono font-black text-lg">
+                            {debitAmount === creditAmount ? 'Balanced' : `Wait... ${Math.abs(debitAmount - creditAmount).toLocaleString()}`}
+                        </span>
+                    </div>
                     <datalist id="manual-account-list">
                         {ALL_ACCOUNTS.map(acc => (
                             <option key={acc.code} value={acc.name}>{acc.code} {acc.description}</option>

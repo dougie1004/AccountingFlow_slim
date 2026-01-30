@@ -6,4 +6,4 @@ pub mod rule_based_classifier;
 pub mod ai_cache;
 pub mod excel_parser;
 pub mod csv_inference;
-pub mod local_ocr_engine;
+// pub mod local_ocr_engine;

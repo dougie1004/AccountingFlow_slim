@@ -1,0 +1,1 @@
+﻿src/pages/TaxReport.tsx(88,105): error TS2339: Property 'evidenceType' does not exist on type 'JournalEntry'.

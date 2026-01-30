@@ -4,6 +4,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { JournalEntry } from '../../types';
 import { cleanMarkdown } from '../../utils/textUtils';
 
+import { InfoTooltip } from '../ui/InfoTooltip';
+
 interface ManagementReport {
     reportTitle: string;
     reportDate: string;
@@ -91,7 +93,13 @@ export const ManagementReportPanel: React.FC<ManagementReportPanelProps> = ({ le
                             <Terminal size={24} />
                         </div>
                         <div>
-                            <h3 className="text-xl font-black text-white tracking-tight">CFO Strategic Performance Insights</h3>
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-xl font-black text-white tracking-tight">CFO Strategic Performance Insights</h3>
+                                <InfoTooltip
+                                    title="Automated Insight (자동 분석 리포트)"
+                                    content="AI 엔진이 전체 장부 데이터를 분석하여 도출한 재무 인사이트입니다. 현재의 지출 패턴과 수익 구조를 바탕으로 리스크를 평가하고 권장 사항을 제안합니다."
+                                />
+                            </div>
                             <p className="text-sm font-bold text-slate-500">Automated Financial Controller Analysis: {report.reportDate}</p>
                         </div>
                     </div>

@@ -99,7 +99,7 @@ const Journal: React.FC = () => {
                                         vendor: '(주)현대캐피탈',
                                         reasoning: '[K-IFRS 1116] 매달 반복되는 리스료 지출이 감지되었습니다. 원금/이자 분리를 위한 리스 자산화 기능을 사용해 보세요.',
                                         confidence: 'High',
-                                        auditTrail: [`[${new Date().toLocaleTimeString()}] AI 감지: 리스 거래 패턴 식별`]
+                                        controlTrail: [`[${new Date().toLocaleTimeString()}] AI 감지: 리스 거래 패턴 식별`]
                                     },
                                     {
                                         id: 'TEST-PAYROLL-001',
@@ -112,7 +112,7 @@ const Journal: React.FC = () => {
                                         vendor: '홍길동',
                                         reasoning: '임직원 급여 지출입니다. 4대보험 및 소득세 원천징수 분할 전표 생성이 가능합니다.',
                                         confidence: 'High',
-                                        auditTrail: [`[${new Date().toLocaleTimeString()}] AI 감지: 급여 항목 식별`]
+                                        controlTrail: [`[${new Date().toLocaleTimeString()}] AI 감지: 급여 항목 식별`]
                                     },
                                     {
                                         id: 'TEST-ASSET-001',
@@ -125,7 +125,7 @@ const Journal: React.FC = () => {
                                         vendor: '델 테크놀로지스',
                                         reasoning: '1천만원 이상의 고액 자산 구매입니다. 세무상 유리한 감가상각 처리를 위해 자산 대장에 즉시 등록하는 것을 권장합니다.',
                                         confidence: 'High',
-                                        auditTrail: [`[${new Date().toLocaleTimeString()}] AI 감지: 고액 자산 취득 식별`]
+                                        controlTrail: [`[${new Date().toLocaleTimeString()}] AI 감지: 고액 자산 취득 식별`]
                                     }
                                 ];
                                 setStagingTransactions(testData);
@@ -188,7 +188,7 @@ const Journal: React.FC = () => {
                             <h2 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">Unified Digital Ledger</h2>
                         </div>
                         <h1 className="text-3xl font-black text-white tracking-tight">AI 통합 분개장 및 원장 관리</h1>
-                        <p className="mt-2 text-slate-400 font-bold">Audit-Ready: 확정(Authorized)된 전표만 재무제표 및 공시 지표에 반영됩니다.</p>
+                        <p className="mt-2 text-slate-400 font-bold">Compliance-Ready: 확정(Authorized)된 전표만 재무제표 및 경영 분석 지표에 반영됩니다.</p>
                     </div>
                 </div>
 
@@ -338,8 +338,8 @@ const Journal: React.FC = () => {
             {showSmartUpload && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
                     <div
-                        className="absolute inset-0 bg-[#070C11]/95 backdrop-blur-md"
-                        onClick={() => setShowSmartUpload(false)}
+                        className="absolute inset-0 bg-[#070C11]/95 backdrop-blur-md cursor-default"
+                    // onClick={() => setShowSmartUpload(false)}  // Prevent accidental close
                     ></div>
                     <div className="relative w-full max-w-5xl">
                         <div className="absolute -top-12 right-0">

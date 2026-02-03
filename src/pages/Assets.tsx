@@ -15,7 +15,7 @@ const DEPRECIATION_RATES: Record<number, number> = {
 };
 
 export const Assets: React.FC = () => {
-    const { assets, addAsset, updateAsset, addEntries, ledger } = useContext(AccountingContext)!;
+    const { assets, addAsset, updateAsset, addEntries, runAutoDepreciation } = useContext(AccountingContext)!;
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newAsset, setNewAsset] = useState<Partial<Asset>>({
         name: '',
@@ -26,8 +26,8 @@ export const Assets: React.FC = () => {
         residualValue: 0
     });
 
-    const totalCost = assets.reduce((acc, curr) => acc + curr.cost, 0);
-    const totalCurrent = assets.reduce((acc, curr) => acc + (curr.cost - curr.accumulatedDepreciation), 0);
+    const totalCost = assets.filter(a => a.status === 'ACTIVE').reduce((acc, curr) => acc + curr.cost, 0);
+    const totalCurrent = assets.filter(a => a.status === 'ACTIVE').reduce((acc, curr) => acc + (curr.cost - curr.accumulatedDepreciation), 0);
 
     const handleAddAsset = () => {
         if (!newAsset.name || !newAsset.cost) return;
@@ -40,82 +40,82 @@ export const Assets: React.FC = () => {
             cost: Number(newAsset.cost),
             usefulLife: Number(newAsset.usefulLife),
             residualValue: Number(newAsset.residualValue),
-            accumulatedDepreciation: 0
+            accumulatedDepreciation: 0,
+            status: 'ACTIVE'
         };
 
         addAsset(asset);
         setNewAsset({
             name: '', acquisitionDate: new Date().toISOString().split('T')[0],
             depreciationMethod: 'StraightLine',
-            cost: 0, usefulLife: 5, residualValue: 0, accumulatedDepreciation: 0
+            cost: 0, usefulLife: 5, residualValue: 0
         });
         setIsModalOpen(false);
     };
 
     const handleRunDepreciation = () => {
         const today = new Date();
-        const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-        const lastDayStr = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+        const period = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+        runAutoDepreciation(period);
+    };
 
-        const alreadyRun = ledger.some(e => e.description.includes(`[${currentMonth}] 감가상각`));
-        if (alreadyRun) {
-            if (!window.confirm(`⚠️ ${currentMonth}월 감가상각 키워드가 이미 발견되었습니다.\n그래도 다시 실행하시겠습니까? (이중 계상 주의)`)) return;
-        } else {
-            if (!window.confirm(`${currentMonth}월 감가상각을 실행하시겠습니까?\n대상 자산: ${assets.length}건`)) return;
-        }
+    const handleDispose = (asset: Asset) => {
+        const value = window.prompt(`자산 [${asset.name}]을 처분하시겠습니까? 처분 가액을 입력하세요.`, '0');
+        if (value === null) return;
 
-        const entries: JournalEntry[] = [];
-        let totalDepreciation = 0;
+        const disposalValue = Number(value);
+        const bookValue = asset.cost - asset.accumulatedDepreciation;
+        const gainLoss = disposalValue - bookValue;
+        const today = new Date().toISOString().split('T')[0];
 
-        try {
-            assets.forEach(asset => {
-                const bookValue = asset.cost - asset.accumulatedDepreciation;
-                if (bookValue <= asset.residualValue) return;
-
-                let monthlyDep = 0;
-
-                if (asset.depreciationMethod === 'DecliningBalance') {
-                    // 정률법 (Declining Balance)
-                    // 미상각잔액 * 정률 / 12
-                    const rate = DEPRECIATION_RATES[asset.usefulLife] || 0.451; // Default to 5yr rate if undefined
-                    const annualDep = bookValue * rate;
-                    monthlyDep = Math.floor(annualDep / 12);
-                } else {
-                    // 정액법 (Straight Line)
-                    // (취득가 - 잔존가) / 내용연수 / 12
-                    const annualDep = (asset.cost - asset.residualValue) / asset.usefulLife;
-                    monthlyDep = Math.floor(annualDep / 12);
-                }
-
-                if (monthlyDep <= 0) return;
-                const amount = Math.min(monthlyDep, bookValue - asset.residualValue);
-
-                entries.push({
-                    id: crypto.randomUUID(),
-                    date: lastDayStr,
-                    debitAccount: '감가상각비',
-                    creditAccount: '감가상각누계액',
-                    amount: amount,
-                    description: `[${currentMonth}] 감가상각비 (${asset.name})`,
-                    status: 'Unconfirmed',
-                    type: 'Expense',
-                    vat: 0
-                });
-
-                updateAsset(asset.id, { accumulatedDepreciation: asset.accumulatedDepreciation + amount });
-                totalDepreciation += amount;
-            });
-
-            if (entries.length > 0) {
-                addEntries(entries);
-                alert(`✅ 총 ${entries.length}건, ₩${totalDepreciation.toLocaleString()}의 상각 처리 완료.\n[전표 승인 데스크]에서 최종 승인해주세요.`);
-            } else {
-                alert('상각 대상 자산이 없거나 이미 상각이 완료되었습니다.');
+        const entries: JournalEntry[] = [
+            {
+                id: crypto.randomUUID(),
+                date: today,
+                debitAccount: '보통예금 (Bank)',
+                creditAccount: '비품 (Equipment)', // Simplified: should ideally offset Gross + AccumDep
+                amount: disposalValue,
+                description: `[처분] ${asset.name} 자산 처분 (처분가 ₩${disposalValue.toLocaleString()})`,
+                status: 'Approved',
+                type: 'AUTO_DISPOSAL',
+                vat: 0
             }
-        } catch (err) {
-            console.error(err);
-            alert('상각 처리 중 오류가 발생했습니다.');
+        ];
+
+        // Recognition of Gain/Loss on Disposal
+        if (gainLoss > 0) {
+            entries.push({
+                id: crypto.randomUUID(),
+                date: today,
+                debitAccount: '비품 (Equipment)',
+                creditAccount: '유형자산처분이익',
+                amount: gainLoss,
+                description: `[처분손익] ${asset.name} 처분이익 인식`,
+                status: 'Approved',
+                type: 'AUTO_DISPOSAL',
+                vat: 0
+            });
+        } else if (gainLoss < 0) {
+            entries.push({
+                id: crypto.randomUUID(),
+                date: today,
+                debitAccount: '유형자산처분손실',
+                creditAccount: '비품 (Equipment)',
+                amount: Math.abs(gainLoss),
+                description: `[처분손익] ${asset.name} 처분손실 인식`,
+                status: 'Approved',
+                type: 'AUTO_DISPOSAL',
+                vat: 0
+            });
         }
+
+        addEntries(entries);
+        updateAsset(asset.id, {
+            status: 'DISPOSED',
+            disposedAt: today,
+            disposalValue
+        });
+        alert('자산 처분 전표가 생성되었습니다.');
     };
 
     return (
@@ -169,18 +169,19 @@ export const Assets: React.FC = () => {
                             <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">취득 원가</th>
                             <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">상각 누계액</th>
                             <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-right">장부 가액</th>
+                            <th className="px-8 py-6 text-xs font-black text-slate-500 uppercase tracking-widest text-center">상태 / 관리</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                         {assets.map((asset) => (
-                            <tr key={asset.id} className="hover:bg-white/[0.02] transition-all group">
+                            <tr key={asset.id} className={`hover:bg-white/[0.02] transition-all group ${asset.status === 'DISPOSED' ? 'opacity-60 bg-rose-950/5' : ''}`}>
                                 <td className="px-8 py-6">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-[#0B1221] flex items-center justify-center text-indigo-400">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${asset.status === 'DISPOSED' ? 'bg-rose-500/10 text-rose-500' : 'bg-[#0B1221] text-indigo-400'}`}>
                                             <Landmark size={20} />
                                         </div>
                                         <div>
-                                            <p className="text-white font-bold">{asset.name}</p>
+                                            <p className={`font-bold ${asset.status === 'DISPOSED' ? 'text-slate-400 line-through' : 'text-white'}`}>{asset.name}</p>
                                             <p className="text-slate-500 text-[10px] uppercase font-black">{asset.acquisitionDate} 취득</p>
                                         </div>
                                     </div>
@@ -196,12 +197,32 @@ export const Assets: React.FC = () => {
                                 </td>
                                 <td className="px-8 py-6 text-right text-slate-400 font-bold font-mono">₩{asset.cost.toLocaleString()}</td>
                                 <td className="px-8 py-6 text-right text-rose-500/70 font-bold font-mono">₩{asset.accumulatedDepreciation.toLocaleString()}</td>
-                                <td className="px-8 py-6 text-right text-emerald-400 font-black font-mono">₩{(asset.cost - asset.accumulatedDepreciation).toLocaleString()}</td>
+                                <td className="px-8 py-6 text-right text-emerald-400 font-black font-mono">
+                                    {asset.status === 'ACTIVE'
+                                        ? `₩${(asset.cost - asset.accumulatedDepreciation).toLocaleString()}`
+                                        : <span className="text-slate-500 italic">Disposed</span>
+                                    }
+                                </td>
+                                <td className="px-8 py-6 text-center">
+                                    {asset.status === 'ACTIVE' ? (
+                                        <button
+                                            onClick={() => handleDispose(asset)}
+                                            className="px-3 py-1.5 bg-rose-500/10 text-rose-400 text-[10px] font-black uppercase rounded-lg hover:bg-rose-500 hover:text-white transition-all border border-rose-500/20"
+                                        >
+                                            처분 (Dispose)
+                                        </button>
+                                    ) : (
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[10px] font-black text-rose-500 uppercase px-2 py-0.5 bg-rose-500/10 rounded border border-rose-500/20">Disposed</span>
+                                            {asset.disposedAt && <span className="text-[9px] text-slate-600 mt-0.5">{asset.disposedAt}</span>}
+                                        </div>
+                                    )}
+                                </td>
                             </tr>
                         ))}
                         {assets.length === 0 && (
                             <tr>
-                                <td colSpan={6} className="py-20 text-center text-slate-500">등록된 자산이 없습니다.</td>
+                                <td colSpan={7} className="py-20 text-center text-slate-500">등록된 자산이 없습니다.</td>
                             </tr>
                         )}
                     </tbody>

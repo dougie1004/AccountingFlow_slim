@@ -8,11 +8,14 @@ interface CEOQuickBarProps {
     isProfitable?: boolean;
     hasActivity?: boolean;
     onNavigate?: (tab: string) => void;
+    timeRange?: 'day' | 'week' | 'month' | 'year';
 }
 
-export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthlyBurn, isProfitable, hasActivity, onNavigate }) => {
+export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthlyBurn, isProfitable, hasActivity, onNavigate, timeRange = 'day' }) => {
     const runway = avgMonthlyBurn > 0 ? Math.floor(financials.cash / avgMonthlyBurn) : 0;
     const margin = financials.revenue > 0 ? Math.round((financials.netIncome / financials.revenue) * 100) : 0;
+
+    const rangeLabel = timeRange === 'day' ? '14 Days' : timeRange === 'week' ? 'Weekly' : timeRange === 'month' ? 'Monthly' : 'Yearly';
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in slide-in-from-top-4 duration-700">
@@ -28,7 +31,7 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
                             <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-400">
                                 <Activity size={18} />
                             </div>
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Net Income (YTD)</span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Net Income ({rangeLabel})</span>
                             <InfoTooltip
                                 title="Net Income (당기순이익)"
                                 content="전체 수익에서 모든 비용을 차감한 순이익입니다. 장부에 기록된 Revenue와 Expense 항목을 기반으로 계산됩니다."
@@ -64,9 +67,16 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
                         />
                     </div>
                     <h3 className="text-3xl font-black text-white tracking-tight">{financials.displayCash || '-'}</h3>
-                    <div className="flex items-center gap-2 mt-3">
-                        <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-[9px] font-black text-emerald-400 uppercase">Liquid</span>
-                        <span className="text-[10px] font-bold text-slate-500">가용 현금 자산</span>
+                    {/* Breakdown by Dr/Cr as requested */}
+                    <div className="flex flex-col gap-1 mt-2 w-full pr-2">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 border-b border-white/5 pb-1">
+                            <span>Inflow (Dr)</span>
+                            <span className="text-emerald-400 font-mono tracking-tight">+₩{financials.cashInflow?.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 pt-0.5">
+                            <span>Outflow (Cr)</span>
+                            <span className="text-rose-400 font-mono tracking-tight">-₩{financials.cashOutflow?.toLocaleString()}</span>
+                        </div>
                     </div>
                 </div>
             </button>

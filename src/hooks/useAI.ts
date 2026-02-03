@@ -161,9 +161,9 @@ export function useAI() {
 
                 // 2. Grant Detection Intelligence
                 if ((desc.includes('grant') && desc.includes('deposit')) || desc.includes('보조금') || desc.includes('지원금')) {
-                    if (result.transaction.entryType !== 'Revenue') { // Grants are non-operating revenue
+                    if (result.transaction.entryType !== 'Revenue') {
                         result.transaction.entryType = 'Revenue';
-                        result.transaction.accountName = '국고보조금수익'; // Specific Account
+                        result.transaction.accountName = '국고보조금수익';
                         result.transaction.confidence = 'High';
                         result.transaction.reasoning = `[Antigravity Cortex] 'Grant' Pattern Detected -> Classified as Non-Operating Revenue.`;
                         result.transaction.creditAccount = '국고보조금수익';
@@ -171,7 +171,39 @@ export function useAI() {
                     }
                 }
 
-                // 3. Amount Sync Check (Safety Net)
+                // 3. Common Expense Patterns (Korean Context)
+                // Meals & Entertainment
+                if (desc.includes('식대') || desc.includes('식당') || desc.includes('점심') || desc.includes('저녁') || desc.includes('회식') || desc.includes('restaurant')) {
+                    result.transaction.accountName = '복리후생비';
+                    result.transaction.entryType = 'Expense';
+                    result.transaction.debitAccount = '복리후생비';
+                    result.transaction.creditAccount = '미지급금';
+                }
+
+                // Transport / Taxi
+                if (desc.includes('택시') || desc.includes('taxi') || desc.includes('카카오T') || desc.includes('주차') || desc.includes('통행료')) {
+                    result.transaction.accountName = '여비교통비';
+                    result.transaction.entryType = 'Expense';
+                    result.transaction.debitAccount = '여비교통비';
+                }
+
+                // Office Supplies
+                if (desc.includes('다이소') || desc.includes('문구') || desc.includes('사무용품') || desc.includes('office') || desc.includes('쿠팡')) {
+                    if (!result.transaction.accountName || result.transaction.accountName === 'Account Not Assigned') {
+                        result.transaction.accountName = '소모품비';
+                        result.transaction.entryType = 'Expense';
+                        result.transaction.debitAccount = '소모품비';
+                    }
+                }
+
+                // Utilities & Rent
+                if (desc.includes('월세') || desc.includes('임차료') || desc.includes('관리비') || desc.includes('rent')) {
+                    result.transaction.accountName = '지급임차료';
+                    result.transaction.entryType = 'Expense';
+                    result.transaction.debitAccount = '지급임차료';
+                }
+
+                // 4. Amount Sync Check (Safety Net)
                 // If amount is suspiciously low (e.g. < 1000) for "Capital" or "Grant", user might need warning, 
                 // but we trust the parser's numeric extraction for now unless it breaks.
             }

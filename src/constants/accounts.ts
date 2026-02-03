@@ -9,81 +9,56 @@ export interface AccountDef {
     name: string;
     category: AccountCategory;
     description?: string;
-    english?: string; // For compatibility
+    english?: string;
+    sortOrder: number; // For Liquid -> Fixed ordering
 }
 
 export const STANDARD_ACCOUNTS: AccountDef[] = [
     // --- Assets (자산) ---
-    { name: '현금', category: 'Asset', english: 'Cash' },
-    { name: '보통예금', category: 'Asset', english: 'Bank' },
-    { name: '외상매출금', category: 'Asset', english: 'Accounts Receivable' },
-    { name: '미수금', category: 'Asset', english: 'Other Receivables' },
-    { name: '상품', category: 'Asset', english: 'Inventory (Merchandise)' },
-    { name: '매출원가', category: 'Expense' }, // COGS is Expense, but treated specially
-    { name: '비품', category: 'Asset', english: 'Equipment' },
-    { name: '기계장치', category: 'Asset', english: 'Machinery' },
-    { name: '건물', category: 'Asset', english: 'Building' },
-    { name: '토지', category: 'Asset', english: 'Land' },
-    { name: '차량운반구', category: 'Asset', english: 'Vehicles' },
-    { name: '부가가치세대급금', category: 'Asset', english: 'VAT Asset' },
-    { name: '선급금', category: 'Asset', english: 'Prepayments' },
-    { name: '선급비용', category: 'Asset', english: 'Prepaid Expense' },
-    { name: '보증금', category: 'Asset', english: 'Deposits' },
-    { name: '사용권자산', category: 'Asset', english: 'RoU Asset' },
-    // Contra-Assets
-    { name: '감가상각누계액', category: 'Asset' }, // Usually Credit balance, but classified as Asset (Contra)
-    { name: '사용권자산누계액', category: 'Asset' },
+    { name: '현금', category: 'Asset', english: 'Cash', sortOrder: 10 },
+    { name: '보통예금', category: 'Asset', english: 'Bank', sortOrder: 20 },
+    { name: '외상매출금', category: 'Asset', english: 'Accounts Receivable', sortOrder: 30 },
+    { name: '미수금', category: 'Asset', english: 'Other Receivables', sortOrder: 40 },
+    { name: '선급금', category: 'Asset', english: 'Prepayments', sortOrder: 50 },
+    { name: '선급비용', category: 'Asset', english: 'Prepaid Expense', sortOrder: 60 },
+    { name: '상품', category: 'Asset', english: 'Inventory (Merchandise)', sortOrder: 70 },
+    { name: '부가가치세대급금', category: 'Asset', english: 'VAT Asset', sortOrder: 80 },
+    { name: '가지급금', category: 'Asset', english: 'Suspense Payments', sortOrder: 90 },
+    { name: '비품', category: 'Asset', english: 'Equipment', sortOrder: 100 },
+    { name: '기계장치', category: 'Asset', english: 'Machinery', sortOrder: 110 },
+    { name: '차량운반구', category: 'Asset', english: 'Vehicles', sortOrder: 120 },
+    { name: '건물', category: 'Asset', english: 'Building', sortOrder: 130 },
+    { name: '보증금', category: 'Asset', english: 'Deposits', sortOrder: 140 },
+    { name: '감가상각누계액', category: 'Asset', sortOrder: 150 },
 
     // --- Liabilities (부채) ---
-    { name: '외상매입금', category: 'Liability', english: 'Accounts Payable' },
-    { name: '미지급금', category: 'Liability', english: 'Other Payables' },
-    { name: '미지급비용', category: 'Liability', english: 'Accrued Expense' },
-    { name: '부가가치세예수금', category: 'Liability', english: 'VAT Liability' },
-    { name: '예수금(원천세)', category: 'Liability', english: 'Withholding Tax' },
-    { name: '예수금', category: 'Liability', english: 'Withholding Tax' },
-    { name: '단기차입금', category: 'Liability', english: 'Short-term Loan' },
-    { name: '장기차입금', category: 'Liability', english: 'Long-term Loan' },
-    { name: '리스부채', category: 'Liability', english: 'Lease Liability' },
-    { name: '임대보증금', category: 'Liability', english: 'Leasehold Deposit' },
-    { name: '선수금', category: 'Liability', english: 'Advances Received' },
-    { name: '미지급법인세', category: 'Liability', english: 'Tax Payable' },
+    { name: '외상매입금', category: 'Liability', english: 'Accounts Payable', sortOrder: 210 },
+    { name: '미지급금', category: 'Liability', english: 'Other Payables', sortOrder: 220 },
+    { name: '예수금', category: 'Liability', english: 'Withholding Tax', sortOrder: 230 },
+    { name: '부가가치세예수금', category: 'Liability', english: 'VAT Liability', sortOrder: 240 },
+    { name: '선수금', category: 'Liability', english: 'Advances Received', sortOrder: 250 },
+    { name: '가수금', category: 'Liability', english: 'Suspense Receipts', sortOrder: 260 },
+    { name: '단기차입금', category: 'Liability', english: 'Short-term Loan', sortOrder: 270 },
+    { name: '장기차입금', category: 'Liability', english: 'Long-term Loan', sortOrder: 280 },
 
     // --- Equity (자본) ---
-    { name: '자본금', category: 'Equity', english: 'Capital Stock' },
-    { name: '이익잉여금', category: 'Equity', english: 'Retained Earnings' },
-    { name: '자본잉여금', category: 'Equity', english: 'Capital Surplus' },
-    { name: '집합손익', category: 'Equity', english: 'Income Summary' }, // Temporary Equity
+    { name: '자본금', category: 'Equity', english: 'Capital Stock', sortOrder: 310 },
+    { name: '이익잉여금', category: 'Equity', english: 'Retained Earnings', sortOrder: 320 },
 
     // --- Revenue (수익) ---
-    { name: '상품매출', category: 'Revenue', english: 'Sales Revenue' },
-    { name: '제품매출', category: 'Revenue', english: 'Sales Revenue' },
-    { name: '서비스매출', category: 'Revenue', english: 'Service Revenue' },
-    { name: '이자수익', category: 'Revenue', english: 'Interest Income' },
-    { name: '잡이익', category: 'Revenue', english: 'Misc Income' },
+    { name: '매출', category: 'Revenue', english: 'Sales Revenue', sortOrder: 410 },
+    { name: '이자수익', category: 'Revenue', english: 'Interest Income', sortOrder: 420 },
 
     // --- Expenses (비용) ---
-    { name: '급여', category: 'Expense' },
-    { name: '퇴직급여', category: 'Expense' },
-    { name: '복리후생비', category: 'Expense' },
-    { name: '여비교통비', category: 'Expense' },
-    { name: '접대비', category: 'Expense' },
-    { name: '통신비', category: 'Expense' },
-    { name: '수도광열비', category: 'Expense' },
-    { name: '세금과공과', category: 'Expense' },
-    { name: '지급임차료', category: 'Expense' },
-    { name: '수선비', category: 'Expense' },
-    { name: '보험료', category: 'Expense' },
-    { name: '운반비', category: 'Expense' },
-    { name: '교육훈련비', category: 'Expense' },
-    { name: '도서인쇄비', category: 'Expense' },
-    { name: '소모품비', category: 'Expense' },
-    { name: '지급수수료', category: 'Expense' },
-    { name: '광고선전비', category: 'Expense' },
-    { name: '감가상각비', category: 'Expense' },
-    { name: '대손상각비', category: 'Expense' },
-    { name: '이자비용', category: 'Expense' },
-    { name: '법인세비용', category: 'Expense' },
-    { name: '잡손실', category: 'Expense' },
+    { name: '매출원가', category: 'Expense', sortOrder: 510 },
+    { name: '급여', category: 'Expense', sortOrder: 520 },
+    { name: '복리후생비', category: 'Expense', sortOrder: 530 },
+    { name: '임차료', category: 'Expense', sortOrder: 540 },
+    { name: '지급수수료', category: 'Expense', sortOrder: 550 },
+    { name: '감가상각비', category: 'Expense', sortOrder: 560 },
+    { name: '광고선전비', category: 'Expense', sortOrder: 570 },
+    { name: '소모품비', category: 'Expense', sortOrder: 580 },
+    { name: ' 여비교통비', category: 'Expense', sortOrder: 590 },
 ];
 
 /**
@@ -142,6 +117,34 @@ export const isCashAccount = (accountName: string): boolean => {
     const keywords = ['예금', '현금', 'bank', 'cash'];
     return keywords.some(k => n.includes(k));
 };
+
+export const isSuspenseAccount = (accountName: string): boolean => {
+    const n = normalize(accountName);
+    const keywords = ['가지급금', '가수금', '전도금', 'suspense', 'pettycash'];
+    return keywords.some(k => n.includes(k));
+};
+
+export const CLEARING_REASON = {
+    EXP_CONFIRMED: { label: "비용 확정", code: "EXP_CONFIRMED" },
+    EMPLOYEE_SETTLED: { label: "임직원 정산 완료", code: "EMPLOYEE_SETTLED" },
+    ADVANCE_OFFSET: { label: "선급금 상계", code: "ADVANCE_OFFSET" },
+    MISPOSTING_FIX: { label: "오분개 수정", code: "MISPOSTING_FIX" },
+    REVENUE_CONFIRMED: { label: "수익 확정", code: "REVENUE_CONFIRMED" },
+    CUSTOMER_IDENTIFIED: { label: "거래처 확인", code: "CUSTOMER_IDENTIFIED" },
+    REFUND_COMPLETED: { label: "환불 완료", code: "REFUND_COMPLETED" },
+    ERROR_CORRECTION: { label: "오류 정정", code: "ERROR_CORRECTION" },
+} as const;
+
+export const BLOCKED_REASON = {
+    EVIDENCE_MISSING: { label: "증빙 누락", code: "EVIDENCE_MISSING" },
+    COUNTERPARTY_DISPUTE: { label: "거래처 분쟁", code: "COUNTERPARTY_DISPUTE" },
+    AMOUNT_UNCERTAIN: { label: "금액 불확정", code: "AMOUNT_UNCERTAIN" },
+    POLICY_VIOLATION: { label: "규정 위반 의심", code: "POLICY_VIOLATION" },
+    OTHER: { label: "기타 사유", code: "OTHER" },
+} as const;
+
+export type ClearingReasonCode = keyof typeof CLEARING_REASON;
+export type BlockedReasonCode = keyof typeof BLOCKED_REASON;
 
 export const ACCOUNT_NAMES = STANDARD_ACCOUNTS.map(a => a.name);
 

@@ -1,0 +1,69 @@
+﻿cargo : warning: unused doc c
+omment
+위치 줄:1 문자:1
++ cargo check 2> errors.txt; 
+Get-Content errors.txt -Encod
+ing Unicode | ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (warning  
+  : unused doc comment:Str   
+ ing) [], RemoteException
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+  --> src\core\security.rs:7:
+1
+   |
+ 7 | / /**
+ 8 | |  * [Security Module] T
+enant Isolation & KMS (Key Ma
+nagement System)
+ 9 | |  * 
+10 | |  * ?뷀꽣?꾨씪?댁쫰湲?蹂댁븞 ?붽뎄?
+ы빆??異⑹”?섍린 ?꾪븳 寃⑸━ 諛???愿由?紐⑤
+뱢?낅땲??
+...  |
+15 | |  * 3. In-Memory Vault:
+ ?ㅼ쓽 硫붾え由????덉쟾??寃⑸━ 蹂닿? (?ㅼ젣
+ ?댁쁺 ?쒖뿉??Encrypted File/Hard
+ware HSM ?곕룞 沅뚯옣)
+16 | |  */
+   | |___^ rustdoc does not g
+enerate documentation for mac
+ro invocations
+   |
+   = help: to document an ite
+m produced by a macro, the ma
+cro must produce the document
+ation as part of its expansio
+n
+   = note: `#[warn(unused_doc
+_comments)]` (part of `#[warn
+(unused)]`) on by default
+
+warning: field `tenant_id` is
+ never read
+  --> src\core\quota_manager.
+rs:11:5
+   |
+10 | struct UserQuota {
+   |        --------- field i
+n this struct
+11 |     tenant_id: String,
+   |     ^^^^^^^^^
+   |
+   = note: `UserQuota` has de
+rived impls for the traits `D
+ebug` and `Clone`, but these 
+are intentionally ignored dur
+ing dead code analysis
+   = note: `#[warn(dead_code)
+]` (part of `#[warn(unused)]`
+) on by default
+
+warning: `accounting-flow` (l
+ib) generated 2 warnings
+    Finished `dev` profile [u
+noptimized + debuginfo] targe
+t(s) in 0.90s

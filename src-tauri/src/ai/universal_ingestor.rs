@@ -1,10 +1,30 @@
 use crate::core::models::ParsedTransaction;
+use crate::ai::ai_service;
 
 pub async fn ingest_universal_file(
-    _file_bytes: Vec<u8>,
-    _file_name: String,
+    file_bytes: Vec<u8>,
+    file_name: String,
 ) -> Result<Vec<ParsedTransaction>, String> {
-    // Skeleton implementation to debug build - Logic will be restored after verifying compilation
+    let lower_name = file_name.to_lowercase();
+    
+    // 1. Detect Media Type
+    let mime = if lower_name.ends_with(".jpg") || lower_name.ends_with(".jpeg") {
+        "image/jpeg"
+    } else if lower_name.ends_with(".png") {
+        "image/png"
+    } else if lower_name.ends_with(".webp") {
+        "image/webp"
+    } else if lower_name.ends_with(".pdf") {
+        "application/pdf"
+    } else {
+        "application/octet-stream"
+    };
+
+    // 2. Process via Gemini Vision for Images/PDFs
+    if mime.starts_with("image/") || mime == "application/pdf" {
+        return ai_service::extract_transaction_from_media(file_bytes, mime).await;
+    }
+
     Ok(vec![])
 }
 

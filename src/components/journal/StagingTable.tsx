@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { Loader2, Database, CheckCircle2, AlertTriangle, Zap, Trash2 } from 'lucide-react';
+import { Loader2, Database, CheckCircle2, AlertTriangle, Zap, Trash2, X, ExternalLink } from 'lucide-react';
 import { useAI } from '../../hooks/useAI';
 import { JournalEntry, Partner, ParsedTransaction } from '../../types';
 import { AccountingContext } from '../../context/AccountingContext';
@@ -19,6 +19,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
     const [stagedData, setStagedData] = useState<ParsedTransaction[]>(data);
     const [analyzingIndex, setAnalyzingIndex] = useState<number | null>(null);
     const [selectedRow, setSelectedRow] = useState<number | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     const runAIAnalysis = async () => {
         const newData = [...stagedData];
@@ -38,6 +39,41 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
 
     return (
         <div className="flex flex-col gap-6 animate-in fade-in duration-500">
+            {/* Image Preview Modal */}
+            {previewUrl && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-10 bg-[#070C18]/90 backdrop-blur-xl animate-in fade-in duration-300">
+                    <div className="relative w-full max-w-5xl max-h-full bg-[#151D2E] rounded-[40px] border border-white/10 shadow-2xl overflow-hidden flex flex-col">
+                        <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center">
+                            <h3 className="text-white font-black flex items-center gap-2">
+                                <ExternalLink size={18} className="text-indigo-400" />
+                                디지털 증빙 원본 확인
+                            </h3>
+                            <button
+                                onClick={() => setPreviewUrl(null)}
+                                className="p-3 hover:bg-white/5 rounded-2xl text-slate-400 hover:text-white transition-all"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-auto flex items-start justify-center bg-black/40 cursor-zoom-in">
+                            <img
+                                src={previewUrl}
+                                alt="Evidence Preview"
+                                className="w-full h-auto shadow-2xl transition-transform hover:scale-105 duration-500"
+                            />
+                        </div>
+                        <div className="px-8 py-6 border-t border-white/5 bg-white/[0.02] flex justify-end gap-3">
+                            <p className="text-[10px] text-slate-500 mr-auto self-center font-bold">마우스 휠이나 터치패드로 확대/축소가 가능합니다.</p>
+                            <button
+                                onClick={() => setPreviewUrl(null)}
+                                className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black text-sm transition-all"
+                            >
+                                닫기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="flex justify-between items-center px-4">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-400">
@@ -70,7 +106,12 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                 vat: d.vat,
                                 type: d.entryType || 'Expense',
                                 status: 'Unconfirmed',
-                                controlTrail: d.controlTrail
+                                attachments: d.attachmentUrl ? [{
+                                    id: Math.random().toString(36).substr(2, 9),
+                                    fileName: 'evidence.jpg',
+                                    fileUrl: d.attachmentUrl,
+                                    uploadedAt: new Date().toISOString()
+                                }] : []
                             }));
                             onConfirm(entries);
                         }}
@@ -129,18 +170,18 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                         <div className="professional-card p-6 space-y-6 animate-in slide-in-from-right-4 duration-300">
                             <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Detail View</h4>
 
-                            {(stagedData[selectedRow] as any).attachmentUrl && (
+                            {stagedData[selectedRow].attachmentUrl && (
                                 <div className="rounded-xl overflow-hidden border border-white/10 relative group">
                                     <div className="absolute top-2 right-2 px-2 py-1 bg-black/50 backdrop-blur-md rounded text-[10px] text-white font-bold">
                                         원본 증빙
                                     </div>
                                     <img
-                                        src={(stagedData[selectedRow] as any).attachmentUrl}
+                                        src={stagedData[selectedRow].attachmentUrl}
                                         alt="Evidence"
                                         className="w-full h-auto object-contain max-h-[300px] bg-white/5"
                                     />
                                     <button
-                                        onClick={() => window.open((stagedData[selectedRow] as any).attachmentUrl, '_blank')}
+                                        onClick={() => setPreviewUrl(stagedData[selectedRow].attachmentUrl || null)}
                                         className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white font-bold transition-opacity"
                                     >
                                         크게 보기

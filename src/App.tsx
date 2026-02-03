@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import BrandHeader from './components/layout/BrandHeader';
@@ -16,11 +16,15 @@ import VendorLedger from './pages/VendorLedger';
 import TaxReport from './pages/TaxReport';
 import { AiLab } from './pages/AiLab';
 import { ArApManagement } from './pages/ArApManagement';
+import { RiskDashboard } from './pages/RiskDashboard';
+import { ClosingManager } from './pages/ClosingManager';
+import { Leases } from './pages/Leases';
+import { OperationPlan } from './pages/OperationPlan';
 
 import { AccountingProvider } from './context/AccountingContext';
 import { ConfigProvider } from './context/ConfigContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { createContext, useContext } from 'react';
+
 
 interface AppContextType {
     activeProject: string | null;
@@ -35,7 +39,12 @@ export const useApp = () => {
 };
 
 const AppContent = () => {
-    const [activeTab, setActiveTab] = useState('dashboard');
+    // [Fix] Persist active tab to localStorage to maintain navigation state on refresh
+    const [activeTab, setActiveTab] = useState(() => localStorage.getItem('last_active_tab') || 'dashboard');
+
+    useEffect(() => {
+        localStorage.setItem('last_active_tab', activeTab);
+    }, [activeTab]);
 
     return (
         <div className="flex h-screen font-sans antialiased overflow-hidden" style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-high)' }}>
@@ -57,12 +66,16 @@ const AppContent = () => {
                             <LedgerView />
                         </div>
                         {activeTab === 'assets' && <Assets />}
+                        {activeTab === 'leases' && <Leases />}
                         {activeTab === 'partners' && <Partners />}
                         {activeTab === 'vendor-ledger' && <VendorLedger />}
                         {activeTab === 'approval-desk' && <ApprovalDesk />}
                         {activeTab === 'migration' && <DataMigration setTab={setActiveTab} />}
                         {activeTab === 'ai-performance' && <AiLab />}
                         {activeTab === 'arap-management' && <ArApManagement />}
+                        {activeTab === 'risk-dashboard' && <RiskDashboard setTab={setActiveTab} />}
+                        {activeTab === 'closing-manager' && <ClosingManager />}
+                        {activeTab === 'operation-plan' && <OperationPlan />}
                         {activeTab === 'settings' && <Settings />}
                     </div>
                 </div>

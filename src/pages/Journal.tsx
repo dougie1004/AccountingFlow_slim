@@ -11,6 +11,7 @@ import { ManualEntryModal } from '../components/journal/ManualEntryModal';
 import { SmartExcelUploader } from '../components/SmartExcelUploader';
 import { AccountingContext } from '../context/AccountingContext';
 import { VatOptimizationReport } from '../components/tax/VatOptimizationReport';
+import { toLocalIsoDate } from '../utils/formatUtils';
 
 const Journal: React.FC = () => {
     const { ledger, addEntry, partners, stagingTransactions, setStagingTransactions } = useAccounting();
@@ -38,11 +39,12 @@ const Journal: React.FC = () => {
 
     // Derived filtered data
     const filteredLedger = useMemo(() => {
-        return ledger.filter((entry) => {
+        const result = ledger.filter((entry) => {
             const dateMatch = (!startDate || entry.date >= startDate) && (!endDate || entry.date <= endDate);
             const vendorMatch = !selectedVendor || entry.vendor === selectedVendor;
             return dateMatch && vendorMatch;
         });
+        return result.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }, [ledger, startDate, endDate, selectedVendor]);
 
     const handleExportCSV = () => {
@@ -76,7 +78,7 @@ const Journal: React.FC = () => {
     };
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 p-8">
             {/* Unified Input Section */}
             <div className="space-y-6">
                 <header className="flex items-center justify-between">
@@ -251,53 +253,106 @@ const Journal: React.FC = () => {
             ) : (
                 <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
                     {/* Filter Toolbar */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-[#151D2E] rounded-2xl border border-white/5 shadow-2xl">
-                        <div className="space-y-2">
-                            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                                <Calendar size={14} />
-                                조회 기간 설정
-                            </label>
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="flex-1 px-4 py-2 bg-[#0B1221] border border-white/10 rounded-xl text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all"
-                                />
-                                <span className="text-slate-600">~</span>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="flex-1 px-4 py-2 bg-[#0B1221] border border-white/10 rounded-xl text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all"
-                                />
+                    <div className="flex flex-col gap-6 p-8 bg-[#151D2E] rounded-[2rem] border border-white/5 shadow-2xl">
+                        <div className="flex flex-wrap items-center justify-between gap-6">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mr-2">기간 조회</span>
+
+                                {/* Hierarchical Period Selector */}
+                                <div className="flex items-center gap-2 bg-[#0B1221] p-1.5 rounded-2xl border border-white/10 shadow-inner">
+                                    <Calendar size={14} className="text-indigo-500 ml-2" />
+                                    <select
+                                        value={startDate ? new Date(startDate).getFullYear() : 2026}
+                                        onChange={(e) => {
+                                            const year = parseInt(e.target.value);
+                                            setStartDate(`${year}-01-01`);
+                                            setEndDate(`${year}-12-31`);
+                                        }}
+                                        className="bg-transparent text-white text-[11px] font-black outline-none cursor-pointer hover:text-indigo-400 transition-colors px-2 border-r border-white/5"
+                                    >
+                                        {[2023, 2024, 2025, 2026].map(y => <option key={y} value={y} className="bg-[#0B1221]">{y}년</option>)}
+                                    </select>
+
+                                    <select
+                                        onChange={(e) => {
+                                            const q = parseInt(e.target.value);
+                                            if (q === 0) return;
+                                            const year = startDate ? new Date(startDate).getFullYear() : 2026;
+                                            const startMonth = (q - 1) * 3;
+                                            setStartDate(toLocalIsoDate(new Date(year, startMonth, 1)));
+                                            setEndDate(toLocalIsoDate(new Date(year, startMonth + 3, 0)));
+                                            setEndDate(toLocalIsoDate(new Date(year, startMonth + 3, 0)));
+                                        }}
+                                        className="bg-transparent text-slate-400 text-[11px] font-black outline-none cursor-pointer hover:text-indigo-400 transition-colors px-2 border-r border-white/5"
+                                    >
+                                        <option value="0" className="bg-[#0B1221]">전체 분기</option>
+                                        <option value="1" className="bg-[#0B1221]">1분기 (Q1)</option>
+                                        <option value="2" className="bg-[#0B1221]">2분기 (Q2)</option>
+                                        <option value="3" className="bg-[#0B1221]">3분기 (Q3)</option>
+                                        <option value="4" className="bg-[#0B1221]">4분기 (Q4)</option>
+                                    </select>
+
+                                    <select
+                                        onChange={(e) => {
+                                            const m = parseInt(e.target.value);
+                                            if (m === 0) return;
+                                            const year = startDate ? new Date(startDate).getFullYear() : 2026;
+                                            setStartDate(toLocalIsoDate(new Date(year, m - 1, 1)));
+                                            setEndDate(toLocalIsoDate(new Date(year, m, 0)));
+                                        }}
+                                        className="bg-transparent text-slate-400 text-[11px] font-black outline-none cursor-pointer hover:text-indigo-400 transition-colors px-2"
+                                    >
+                                        <option value="0" className="bg-[#0B1221]">전체 월</option>
+                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                                            <option key={m} value={m} className="bg-[#0B1221]">{m}월</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center gap-1 bg-[#0B1221] px-1 py-1 rounded-2xl border border-white/10 shadow-inner">
+                                    <div className="flex items-center gap-2 px-3 border-x border-white/5">
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="bg-transparent text-white text-[11px] font-bold outline-none font-mono cursor-pointer"
+                                        />
+                                        <span className="text-slate-600 text-[10px] font-black">~</span>
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="bg-transparent text-white text-[11px] font-bold outline-none font-mono cursor-pointer"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="space-y-2">
-                            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                                <User size={14} />
-                                거래처 선별
-                            </label>
-                            <select
-                                value={selectedVendor}
-                                onChange={(e) => setSelectedVendor(e.target.value)}
-                                className="w-full px-4 py-2 bg-[#0B1221] border border-white/10 rounded-xl text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all appearance-none cursor-pointer"
-                            >
-                                <option value="">전체 거래처 리스트</option>
-                                {vendors.map(v => (
-                                    <option key={v} value={v!}>{v}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="flex items-end">
                             <button
                                 onClick={() => { setStartDate(''); setEndDate(''); setSelectedVendor(''); }}
-                                className="w-full h-10 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/10 hover:text-white transition-all uppercase tracking-widest"
+                                className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-slate-400 hover:bg-white/10 hover:text-white transition-all uppercase tracking-widest"
                             >
                                 검색 조건 초기화
                             </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">
+                            <div className="space-y-3">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                                    <User size={12} className="text-indigo-500" />
+                                    거래처 상세 선별
+                                </label>
+                                <select
+                                    value={selectedVendor}
+                                    onChange={(e) => setSelectedVendor(e.target.value)}
+                                    className="w-full px-4 py-2.5 bg-[#0B1221] border border-white/10 rounded-xl text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all appearance-none cursor-pointer"
+                                >
+                                    <option value="">전체 거래처 리스트</option>
+                                    {vendors.map(v => (
+                                        <option key={v} value={v!}>{v}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -314,33 +369,27 @@ const Journal: React.FC = () => {
                 </div>
             )}
 
-            {/* Manual Entry Modal */}
+            {/* Modals outside the view-conditional section but inside the root div */}
             <ManualEntryModal
                 isOpen={isManualModalOpen}
                 onClose={() => setIsManualModalOpen(false)}
                 onSave={addEntry}
             />
 
-            {/* VAT Optimization Report */}
             {isVatReportOpen && (
                 <VatOptimizationReport
                     onClose={() => setIsVatReportOpen(false)}
                     optimizedEntries={ledger.filter(e => e.suggestedDescription || (e.suggestedVat !== undefined && e.suggestedVat !== e.vat))}
                     onApply={(id) => {
                         alert(`전표 ID: ${id}에 대한 최적화가 반영되었습니다.`);
-                        // Here you would optimally call a function to update the ledger
                         setIsVatReportOpen(false);
                     }}
                 />
             )}
 
-            {/* Smart Excel Uploader Modal */}
             {showSmartUpload && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div
-                        className="absolute inset-0 bg-[#070C11]/95 backdrop-blur-md cursor-default"
-                    // onClick={() => setShowSmartUpload(false)}  // Prevent accidental close
-                    ></div>
+                    <div className="absolute inset-0 bg-[#070C11]/95 backdrop-blur-md cursor-default"></div>
                     <div className="relative w-full max-w-5xl">
                         <div className="absolute -top-12 right-0">
                             <button

@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Sparkles, AlertCircle, RefreshCw, Database, Terminal, Beaker, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { GOLDEN_DATASET, GoldenCase } from '../constants/goldenDataset';
 import { callAiService } from '../services/aiService';
+import { runPhase2IntegrationTest } from '../utils/testScenarios';
+import { useAccounting } from '../hooks/useAccounting';
 
 interface TestResult {
     id: string;
@@ -13,6 +15,7 @@ interface TestResult {
 }
 
 export const AiLab: React.FC = () => {
+    const { ledger, clearAllData, addAsset, addLease, addEntries, performClosing, assets, leases } = useAccounting();
     const [results, setResults] = useState<Record<string, TestResult>>({});
     const [isGlobalRunning, setIsGlobalRunning] = useState(false);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -91,6 +94,13 @@ export const AiLab: React.FC = () => {
                 >
                     {isGlobalRunning ? <RefreshCw className="animate-spin" /> : <Play />}
                     전체 모델 성능 검증 (Regression Test)
+                </button>
+                <button
+                    onClick={() => runPhase2IntegrationTest([], clearAllData, addAsset, addLease, addEntries, performClosing)}
+                    className="flex items-center gap-2 px-8 py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 shadow-xl shadow-emerald-600/20 transition-all shrink-0"
+                >
+                    <CheckCircle2 />
+                    Phase 2 통합 엔진 테스트
                 </button>
             </header>
 

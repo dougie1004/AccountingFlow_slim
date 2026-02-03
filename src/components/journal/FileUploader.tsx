@@ -11,12 +11,56 @@ interface FileUploaderProps {
     onExcelDetected?: (file: File) => void;
 }
 
+const compressImage = async (file: File): Promise<Uint8Array> => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1200; // Even smaller for speed
+                const MAX_HEIGHT = 1200;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        file.arrayBuffer().then(buf => resolve(new Uint8Array(buf)));
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+                    reader.readAsArrayBuffer(blob);
+                }, 'image/jpeg', 0.8);
+            };
+        };
+    });
+};
+
 export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded, onExcelDetected }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [mapperOpen, setMapperOpen] = useState(false);
-    const [pendingFile, setPendingFile] = useState<{ bytes: number[], name: string, headers: string[], initialMapping: Record<string, string> } | null>(null);
+    const [pendingFile, setPendingFile] = useState<{ bytes: Uint8Array, name: string, headers: string[], initialMapping: Record<string, string> } | null>(null);
     const [isMappingProgress, setIsMappingProgress] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const { config } = useAccounting();
@@ -35,18 +79,15 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
         for (const file of files) {
             const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
 
-            // Context Sources: Regulations, Drafts, Emails
             if (['.docx', '.txt', '.pdf'].includes(ext)) {
                 try {
                     const arrayBuffer = await file.arrayBuffer();
+                    const bytes = new Uint8Array(arrayBuffer);
                     const text = await invoke<string>('process_audit_context', {
-                        fileBytes: Array.from(new Uint8Array(arrayBuffer)),
+                        fileBytes: bytes, // No Array.from
                         fileName: file.name
                     });
                     contextString += `\n[Document: ${file.name}]\n${text}\n`;
-
-                    // Note: We ALSO treat these as potential 'transaction sources' (e.g. Draft -> Transaction)
-                    // so we add them to transactionFiles too.
                     transactionFiles.push(file);
                 } catch (e) {
                     console.error("Context extraction failed:", e);
@@ -54,72 +95,94 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
             } else if (['.csv', '.xlsx', '.xls', '.tsv'].includes(ext)) {
                 bulkFiles.push(file);
             } else {
-                // Images are pure transaction sources
                 transactionFiles.push(file);
             }
         }
 
-        let aiResults: ParsedTransaction[] = [];
+        try {
+            const allAiResults: ParsedTransaction[] = [];
 
-        // 2. Process Transaction Files (Images, & Documents acting as source)
-        for (const file of transactionFiles) {
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                const bytes = new Uint8Array(arrayBuffer);
-                const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+            // 2. Sequential Processing (More stable, hits fewer API limits)
+            for (const file of transactionFiles) {
+                try {
+                    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+                    const isImage = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext);
+                    const isContextCandidate = ['.docx', '.txt', '.pdf'].includes(ext);
 
-                const results = await invoke<ParsedTransaction[]>('process_universal_file', {
-                    fileBytes: Array.from(bytes),
-                    fileName: file.name
-                });
-
-                if (results && results.length > 0) {
-                    // Image Preview
-                    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
-                        const blob = new Blob([bytes], { type: file.type });
-                        const attachmentUrl = URL.createObjectURL(blob);
-                        results.forEach(tx => { (tx as any).attachmentUrl = attachmentUrl; });
+                    let bytes: Uint8Array;
+                    if (isImage) {
+                        bytes = await compressImage(file);
+                    } else {
+                        const buf = await file.arrayBuffer();
+                        bytes = new Uint8Array(buf);
                     }
-                    aiResults.push(...results);
+
+                    // Extract Context if needed
+                    if (isContextCandidate) {
+                        try {
+                            const text = await invoke<string>('process_audit_context', {
+                                fileBytes: bytes,
+                                fileName: file.name
+                            });
+                            contextString += `\n[Doc: ${file.name}]\n${text}\n`;
+                        } catch (e) {
+                            console.warn("Context extraction failed for", file.name, e);
+                        }
+                    }
+
+                    // AI Extraction
+                    console.log(`Analyzing ${file.name} (${(bytes.length / 1024).toFixed(1)} KB) with AI...`);
+                    const apiResults = await invoke<ParsedTransaction[]>('process_universal_file', {
+                        fileBytes: bytes,
+                        fileName: file.name
+                    });
+
+                    if (apiResults && apiResults.length > 0) {
+                        if (isImage) {
+                            // Fix: Use bytes.buffer for Blob to ensure correct binary format
+                            const blob = new Blob([bytes.buffer as any], { type: 'image/jpeg' });
+                            const attachmentUrl = URL.createObjectURL(blob);
+                            apiResults.forEach(tx => { tx.attachmentUrl = attachmentUrl; });
+                        }
+                        allAiResults.push(...apiResults);
+                    }
+                } catch (beErr) {
+                    console.error(`Analysis failed for ${file.name}:`, beErr);
+                    // Single file failure shouldn't stop the whole process, but we log it
                 }
-            } catch (e) {
-                console.warn(`Skipping ${file.name} as transaction source:`, e);
             }
-        }
 
-        // 3. AI Audit Cross-Check (The Magic Step)
-        if (aiResults.length > 0 && contextString.trim().length > 0) {
-            try {
-                const auditedResults = await invoke<ParsedTransaction[]>('perform_audit_check', {
-                    transactions: aiResults,
-                    context: contextString
-                });
-                aiResults = auditedResults;
-            } catch (auditErr) {
-                console.error("Audit Check Failed:", auditErr);
-                // Fallback: use unaudited results
+            let auditedResults = [...allAiResults];
+
+            // 3. AI Audit Cross-Check
+            if (auditedResults.length > 0 && contextString.trim().length > 0) {
+                try {
+                    auditedResults = await invoke<ParsedTransaction[]>('perform_audit_check', {
+                        transactions: auditedResults,
+                        context: contextString
+                    });
+                } catch (auditErr) {
+                    console.error("Audit Check Failed:", auditErr);
+                }
             }
-        }
 
-        // 4. Commit Results
-        if (aiResults.length > 0) {
-            // Apply originalAmount for integrity
-            const finalResults = aiResults.map(r => ({ ...r, originalAmount: r.amount }));
-            onTransactionsLoaded(finalResults);
-        }
+            // 4. Commit Results
+            if (auditedResults.length > 0) {
+                const finalResults = auditedResults.map((r: ParsedTransaction) => ({ ...r, originalAmount: r.amount }));
+                onTransactionsLoaded(finalResults);
+            } else if (bulkFiles.length === 0) {
+                setError("분석된 거래 내역이 없습니다. 파일 형식을 확인해주세요.");
+            }
 
-        // 5. Bulk File Routing
-        if (bulkFiles.length > 0 && onExcelDetected) {
-            // Limitation: We can't easily pass the 'contextString' to the Excel Mapper yet in this architecture.
-            // But we have successfully audited the unstructured files!
-            onExcelDetected(bulkFiles[0]);
+            // 5. Bulk File Routing
+            if (bulkFiles.length > 0 && onExcelDetected) {
+                onExcelDetected(bulkFiles[0]);
+            }
+        } catch (err) {
+            console.error("General processing error:", err);
+            setError("파일 처리 중 오류가 발생했습니다.");
+        } finally {
             setIsUploading(false);
-            return;
-        }
-
-        setIsUploading(false);
-        if (aiResults.length === 0 && bulkFiles.length === 0) {
-            setError("처리할 수 있는 데이터가 없거나 분석에 실패했습니다.");
         }
     };
 
@@ -213,8 +276,11 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
                 />
 
                 {isUploading ? (
-                    <div className="bg-indigo-500/10 p-5 rounded-3xl text-indigo-400 animate-pulse">
-                        <Loader2 size={40} className="animate-spin" />
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="bg-indigo-500/10 p-5 rounded-3xl text-indigo-400 animate-pulse">
+                            <Loader2 size={40} className="animate-spin" />
+                        </div>
+                        <p className="text-sm font-bold text-indigo-400">AI가 전표 및 이미지 증빙을 분석 중입니다...</p>
                     </div>
                 ) : (
                     <div className="bg-indigo-500/10 p-5 rounded-3xl text-indigo-400">

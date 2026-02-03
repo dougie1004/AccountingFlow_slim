@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useAccounting } from '../hooks/useAccounting';
+import { runPhase2IntegrationTest, runPhase3BvATest } from '../utils/testScenarios';
+import { ClosingInsightWidget } from '../components/dashboard/ClosingInsightWidget';
 import {
     Activity,
     Terminal,
@@ -13,24 +15,31 @@ import {
     Clock,
     DollarSign,
     ShieldAlert,
-    Calendar
+    Calendar,
+    Lock,
+    RefreshCw,
+    Target
 } from 'lucide-react';
 import { isArAccount, isApAccount, isCashAccount } from '../constants/accounts';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
+import { calculateFinancials } from '../core/accountingEngine';
 import { RecentTransactions } from '../components/dashboard/RecentTransactions';
 import { CFOReportCard } from '../components/dashboard/CFOReportCard';
 import { ManagementReportPanel } from '../components/dashboard/ManagementReportPanel';
 import { CEOQuickBar } from '../components/dashboard/CEOQuickBar';
-import { generateComprehensiveMockData } from '../utils/mockDataGenerator';
+import { AIForecastPanel } from '../components/dashboard/AIForecastPanel';
+import { ManagementRiskReport } from '../components/dashboard/ManagementRiskReport';
+import { generateThreeYearSimulation, generateStressTestData } from '../utils/mockDataGenerator';
 import { formatCLevel } from '../utils/formatUtils';
 import { InfoTooltip } from '../components/ui/InfoTooltip';
 
 export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab }) => {
-    const { ledger, financials, addEntries, clearAllData } = useAccounting();
+    const { ledger, financials, addEntries, clearAllData, periods, closingRecords, seedThreeYearSimulation, addAsset, addLease, performClosing, setBudget } = useAccounting();
     const [isMounted, setIsMounted] = useState(false);
     const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('day');
+    const [showRiskReport, setShowRiskReport] = useState(false);
 
     React.useEffect(() => {
         setIsMounted(true);
@@ -99,7 +108,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
 
         // 4. Advanced Burn Rate & Runway Analysis (CFO Logic)
         const outEntries = approvedLedger.filter(e => e.type === 'Expense' || e.type === 'Payroll');
-        const totalOut = outEntries.reduce((s, e) => s + (e.amount || 0), 0);
+        const totalOut = outEntries.reduce((s, e) => s + ((e.amount || 0) + (e.vat || 0)), 0);
 
         let avgBurnRate = 0;
         let activityDays = 0;
@@ -134,46 +143,135 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
         return { ar, ap };
     }, [ledger]);
 
+    const rangeFinancials = useMemo(() => {
+        const approvedLedger = ledger.filter(e => e.status === 'Approved');
+        if (approvedLedger.length === 0) return financials;
+
+        const sortedDates = approvedLedger.map(e => e.date).sort();
+        const endLimitDay = new Date(sortedDates[sortedDates.length - 1]);
+        const rangeStart = new Date(endLimitDay);
+
+        if (timeRange === 'week') rangeStart.setDate(endLimitDay.getDate() - 7);
+        else if (timeRange === 'month') rangeStart.setMonth(endLimitDay.getMonth() - 1);
+        else if (timeRange === 'year') rangeStart.setFullYear(endLimitDay.getFullYear() - 1);
+        else rangeStart.setDate(endLimitDay.getDate() - 14);
+
+        const startStr = rangeStart.toISOString().split('T')[0];
+        const endStr = endLimitDay.toISOString().split('T')[0];
+
+        // Filter ledger for calculating range-specific metrics
+        const rangeLedger = approvedLedger.filter(e => e.date >= startStr && e.date <= endStr);
+
+        // We calculate P/L metrics for the range, but for Cash/AR/AP, 
+        // we might want the cumulative state at the end of the range.
+        const rangeStats = calculateFinancials(rangeLedger);
+        const cumulativeAtEnd = calculateFinancials(approvedLedger.filter(e => e.date <= endStr));
+
+        return {
+            ...rangeStats,
+            cash: cumulativeAtEnd.cash,
+            displayCash: cumulativeAtEnd.displayCash,
+            cashInflow: rangeStats.cashInflow,
+            cashOutflow: rangeStats.cashOutflow
+        };
+    }, [ledger, timeRange, financials]);
+
+    const latestPeriod = useMemo(() => {
+        const closed = periods.filter(p => p.status === 'CLOSED').sort((a, b) => b.period.localeCompare(a.period));
+        return closed.length > 0 ? closed[0] : null;
+    }, [periods]);
+
+    const latestRecord = useMemo(() => {
+        if (!latestPeriod) return null;
+        return closingRecords.find(r => r.period === latestPeriod.period) || null;
+    }, [latestPeriod, closingRecords]);
+
     return (
         <div className="flex-1 bg-[#0B1221] space-y-6 pb-12">
-            <header className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-3xl font-black text-white flex items-center gap-3">
-                        <Activity className="text-indigo-400" size={32} />
-                        경영 관리 대시보드
-                    </h2>
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+                <div className="flex items-center gap-5">
+                    <div className="w-14 h-14 bg-indigo-600 rounded-[1.25rem] flex items-center justify-center shadow-2xl shadow-indigo-600/40 rotate-12 transition-transform hover:rotate-0 cursor-pointer">
+                        <Activity className="text-white" size={32} />
+                    </div>
+                    <div>
+                        <h1 className="text-4xl font-black text-white tracking-tighter">경영 대시보드 (Dashboard)</h1>
+                        <p className="text-slate-500 font-bold mt-1 flex items-center gap-2">
+                            마지막 결산 확정일: <span className="text-indigo-400">{closingRecords.length > 0 ? `${closingRecords[closingRecords.length - 1].period} (CLOSED)` : '내역 없음'}</span>
+                        </p>
+                    </div>
                 </div>
-                <div className="flex items-center gap-3">
+
+                <div className="flex flex-wrap gap-3">
+                    <div className="flex bg-[#151D2E] p-1 rounded-2xl border border-white/5 shadow-xl">
+                        {(['day', 'week', 'month', 'year'] as const).map((r) => (
+                            <button
+                                key={r}
+                                onClick={() => setTimeRange(r)}
+                                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${timeRange === r ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                {r === 'day' ? '14일' : r === 'week' ? '주간' : r === 'month' ? '월간' : '연간'}
+                            </button>
+                        ))}
+                    </div>
+
                     <button
-                        onClick={() => {
-                            if (confirm('시뮬레이션 데이터를 추가하시겠습니까?')) {
-                                addEntries(generateComprehensiveMockData());
-                            }
-                        }}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all active:scale-95"
+                        onClick={() => runPhase2IntegrationTest([], clearAllData, addAsset, addLease, addEntries, performClosing)}
+                        className="flex items-center gap-2 px-6 py-3 bg-[#151D2E] text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 text-[10px] font-black uppercase rounded-2xl transition-all border border-emerald-500/20"
                     >
-                        <Terminal size={16} /> 시뮬레이션
+                        <ShieldAlert size={16} />
+                        Phase 2 엔진 검증
                     </button>
+
+                    <button
+                        onClick={() => runPhase3BvATest(addEntries, setBudget, performClosing)}
+                        className="flex items-center gap-2 px-6 py-3 bg-[#151D2E] text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 text-[10px] font-black uppercase rounded-2xl transition-all border border-rose-500/20"
+                    >
+                        <Target size={16} />
+                        Phase 3 엔진 검증 (BvA)
+                    </button>
+
+                    <button
+                        onClick={() => setTab('closing-manager')}
+                        className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-2xl transition-all shadow-xl shadow-emerald-600/20 active:scale-95 border border-white/10"
+                    >
+                        <Lock size={16} />
+                        실시간 월마감 실행
+                    </button>
+
                     <button
                         onClick={() => {
-                            if (confirm('데이터를 초기화하시겠습니까?')) {
-                                clearAllData();
+                            if (window.confirm('기존 데이터를 모두 삭제하고 3개년 시뮬레이션 데이터를 생성하시겠습니까?\n(33개월 자동 결산 포함)')) {
+                                seedThreeYearSimulation();
                             }
                         }}
-                        className="px-4 py-2.5 border border-white/10 text-slate-400 rounded-xl text-xs font-bold hover:bg-white/5 transition-all"
+                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-2xl transition-all shadow-xl shadow-indigo-600/20 active:scale-95 border border-white/10"
                     >
-                        데이터 리셋
+                        <RefreshCw size={16} />
+                        Phase 1 시나리오
+                    </button>
+
+                    <button
+                        onClick={() => setShowRiskReport(true)}
+                        className="flex items-center gap-2 px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-2xl transition-all shadow-xl shadow-rose-600/20 active:scale-95 border border-white/10 animate-pulse"
+                    >
+                        <Target size={16} />
+                        Risk Briefing (Phase 4.5)
                     </button>
                 </div>
             </header>
 
+            {showRiskReport && <ManagementRiskReport onClose={() => setShowRiskReport(false)} />}
+
             <CEOQuickBar
-                financials={financials}
+                financials={rangeFinancials}
                 avgMonthlyBurn={analytics.avgBurnRate * 30.41}
-                isProfitable={financials.netIncome > 0}
+                isProfitable={rangeFinancials.netIncome > 0}
                 hasActivity={analytics.hasActivity}
                 onNavigate={setTab}
+                timeRange={timeRange}
             />
+
+            <AIForecastPanel />
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <CFOReportCard
@@ -186,8 +284,8 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                 <ManagementReportPanel ledger={ledger} />
             </div>
 
-            <div className="grid grid-cols-1 gap-6">
-                <div className="bg-[#151D2E] p-8 rounded-[2.5rem] border border-white/5 h-[480px] relative overflow-hidden">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div className="xl:col-span-2 bg-[#151D2E] p-8 rounded-[2.5rem] border border-white/5 h-[480px] relative overflow-hidden">
                     <div className="flex justify-between items-center mb-6">
                         <div>
                             <div className="flex items-center gap-2">
@@ -205,7 +303,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                                 <button
                                     key={range}
                                     onClick={() => setTimeRange(range)}
-                                    className={`px - 4 py - 1.5 rounded - lg text - xs font - black uppercase tracking - widest transition - all ${timeRange === range ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${timeRange === range ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'
                                         } `}
                                 >
                                     {range}
@@ -280,9 +378,17 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                     </div>
                 </div>
 
-                <div className="h-[450px]">
-                    <RecentTransactions transactions={ledger} onNavigate={setTab} />
+                <div className="xl:col-span-1 h-[480px]">
+                    <ClosingInsightWidget
+                        latestRecord={latestRecord}
+                        latestPeriod={latestPeriod}
+                        onNavigate={setTab}
+                    />
                 </div>
+            </div>
+
+            <div className="h-[450px]">
+                <RecentTransactions transactions={ledger} onNavigate={setTab} />
             </div>
         </div>
     );

@@ -17,7 +17,9 @@ import {
     CheckCircle2,
     RefreshCw,
     Sparkles,
-    Clock
+    Clock,
+    Lock,
+    Target
 } from 'lucide-react';
 import { useContext } from 'react';
 import { AccountingContext } from '../../context/AccountingContext';
@@ -53,11 +55,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
             title: '경영 및 분석 (Analysis)',
             items: [
                 { id: 'dashboard', label: '대시보드', description: '주요 KPI 등 회사의 재무 상태를 파악합니다.', icon: LayoutDashboard },
-                { id: 'daily-cash', label: '자금일보 (Cash Report)', description: '일일 시재 및 자금 수지 현황을 보고합니다.', icon: Wallet },
+                { id: 'daily-cash', label: '자금수지 (Cash Flow)', description: '일일 시재 및 자금 수지 현황을 보고합니다.', icon: Wallet },
                 { id: 'financial-statements', label: '재무제표 (Financial Statements)', description: 'B/S, P/L, C/F 등 주요 재무제표를 조회합니다.', icon: FileText },
                 { id: 'ai-performance', label: 'AI 지능 벤치마크 (Quality)', description: '시스템의 전표 처리 지능을 표준 사례를 통해 점검합니다.', icon: Sparkles },
                 { id: 'arap-management', label: '채권/채무 현황 (AR/AP)', description: '매출채권 및 매입채무의 연령(Aging)과 연체 상태를 관리합니다.', icon: Clock },
-                { id: 'tax-report', label: '부가세 및 자금 리스크 (VAT & Risk)', description: '세무 신고 및 경영 분석 관련 자료를 관리합니다.', icon: ShieldCheck },
+                { id: 'risk-dashboard', label: '결산 및 자금 통제 센터', description: '가계정 및 미결 항목의 조직적 리스크를 분석합니다.', icon: Lock },
+                { id: 'tax-report', label: '세무 및 경영 리스크 (Tax)', description: '세무 신고 및 경영 분석 관련 자료를 관리합니다.', icon: ShieldCheck },
+                { id: 'operation-plan', label: '운영 계획 수립 (Budgeting)', description: '월별 예산 및 비용 계획을 수립합니다.', icon: Target },
             ]
         },
         {
@@ -66,12 +70,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                 { id: 'ledger', label: '거래 전표 관리', description: 'AI가 추출한 거래 데이터를 관리합니다.', icon: BookOpen },
                 { id: 'ledger-view', label: '총계정원장 (G/L)', description: '계정별 원장을 조회합니다.', icon: FileText },
                 { id: 'approval-desk', label: '전표 승인 데스크', description: 'AI 분류 전표를 최종 승인합니다.', icon: ShieldCheck, badge: true },
+                { id: 'closing-manager', label: '결산 및 마감 관리', description: '회계 기간 확정 및 장부 폐쇄를 관리합니다.', icon: Lock },
             ]
         },
         {
             title: '운영 및 자산 (Operations)',
             items: [
                 { id: 'assets', label: '고정자산 관리', description: '유/무형 자산 및 감가상각을 관리합니다.', icon: Landmark },
+                { id: 'leases', label: '리스 자산 및 부채 관리', description: 'IFRS 16 운용리스 및 부채를 관리합니다.', icon: Building2 },
                 { id: 'vendor-ledger', label: '거래처 원장 (Vendor Ledger)', description: '거래처별 상세 거래 내역을 조회합니다.', icon: Users },
                 { id: 'partners', label: '거래처 정보', description: '주요 거래처 정보를 관리합니다.', icon: Users },
             ]

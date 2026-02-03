@@ -27,11 +27,30 @@ pub async fn parse_transaction(
 
     let parsed = parsed_list.into_iter().next().ok_or("AI returned no transactions")?;
     
+    // 2. Compliance Logic (Restoring Compliance AI)
+    let is_non_financial = parsed.description.as_deref() == Some("NOT_A_FINANCIAL_DOCUMENT");
+    let status = if is_non_financial {
+        "Violation"
+    } else if parsed.confidence.as_deref() == Some("High") {
+        "Safe"
+    } else {
+        "Warning"
+    };
+
+    let compliance_msg = if is_non_financial {
+        format!("⚠️ 규정 준수 위반: {}", parsed.reasoning)
+    } else {
+        format!("✅ 검토 의견: {}", parsed.reasoning)
+    };
+    
     Ok(AnalysisResponse {
         transaction: Some(parsed),
         vendor_status: "Bypassed".to_string(),
         suggested_vendor: None,
-        compliance_review: None,
+        compliance_review: Some(crate::core::models::ComplianceReview {
+            status: status.to_string(),
+            message: compliance_msg,
+        }),
     })
 }
 

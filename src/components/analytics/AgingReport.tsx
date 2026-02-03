@@ -4,10 +4,10 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 interface AgingReportProps {
     entries: JournalEntry[];
-    type: 'AR' | 'AP';
+    type: 'AR' | 'AP' | 'SUS';
 }
 
-import { isArAccount, isApAccount } from '../../constants/accounts';
+import { isArAccount, isApAccount, isSuspenseAccount } from '../../constants/accounts';
 
 export const AgingReport: React.FC<AgingReportProps> = ({ entries, type }) => {
     const data = useMemo(() => {
@@ -23,7 +23,11 @@ export const AgingReport: React.FC<AgingReportProps> = ({ entries, type }) => {
             if (e.isSettled || e.status !== 'Approved') return false;
             const isAr = isArAccount(e.debitAccount);
             const isAp = isApAccount(e.creditAccount);
-            return type === 'AR' ? isAr : isAp;
+            const isSus = isSuspenseAccount(e.debitAccount) || isSuspenseAccount(e.creditAccount);
+
+            if (type === 'AR') return isAr;
+            if (type === 'AP') return isAp;
+            return isSus;
         }).forEach(e => {
             const dueDateStr = e.dueDate || e.date; // Use entry date if due date is missing
             const dueDate = new Date(dueDateStr);
@@ -44,7 +48,11 @@ export const AgingReport: React.FC<AgingReportProps> = ({ entries, type }) => {
         return buckets;
     }, [entries, type]);
 
-    const colors = type === 'AR' ? ['#10b981', '#fbbf24', '#f59e0b', '#ef4444'] : ['#3b82f6', '#818cf8', '#6366f1', '#4f46e5'];
+    const colors = type === 'AR'
+        ? ['#10b981', '#fbbf24', '#f59e0b', '#ef4444']
+        : type === 'AP'
+            ? ['#3b82f6', '#818cf8', '#6366f1', '#4f46e5']
+            : ['#f59e0b', '#d97706', '#b45309', '#92400e']; // Amber colors for Suspense
 
     return (
         <div className="h-[300px] w-full mt-4">

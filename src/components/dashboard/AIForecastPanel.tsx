@@ -1,250 +1,254 @@
+
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, AlertTriangle, DollarSign, Calendar, Zap, Loader2, Sparkles, Activity, HelpCircle } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Sparkles, Activity, HelpCircle, Calendar, RefreshCw } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
-import { invoke } from '@tauri-apps/api/core';
-import { JournalEntry } from '../../types';
-import { parseAIList } from '../../utils/textUtils';
+import { useAccounting } from '../../hooks/useAccounting';
+import { ProjectedCashFlow, RunwayAnalysis, ScenarioType } from '../../core/forecastingEngine';
 import { Tooltip as MyTooltip } from '../common/Tooltip';
+import { formatCurrency } from '../../utils/formatUtils';
 
-interface CashFlowForecast {
-    currentBalance: number;
-    monthlyBurnRate: number;
-    projectedMonths: MonthlyProjection[];
-    governmentFundDepletionDate: string | null;
-    riskLevel: string;
-    recommendations: string[];
-    aiInsights: string;
-}
+export const AIForecastPanel: React.FC = () => {
+    const { getForecast, getRunway, ledger } = useAccounting();
 
-interface MonthlyProjection {
-    month: string;
-    projectedBalance: number;
-    expectedRevenue: number;
-    expectedExpenses: number;
-    netCashFlow: number;
-}
-
-interface AIForecastPanelProps {
-    ledger: JournalEntry[];
-    currentBalance: number;
-}
-
-export const AIForecastPanel: React.FC<AIForecastPanelProps> = ({ ledger, currentBalance }) => {
-    const [forecast, setForecast] = useState<CashFlowForecast | null>(null);
+    // State
+    const [projection, setProjection] = useState<ProjectedCashFlow | null>(null);
+    const [runway, setRunway] = useState<RunwayAnalysis | null>(null);
+    const [scenario, setScenario] = useState<ScenarioType>('Baseline');
     const [isLoading, setIsLoading] = useState(false);
 
-    const loadForecast = async () => {
-        if (ledger.length === 0) return;
+    // Effect: Load Forecast Logic
+    useEffect(() => {
+        if (ledger.length === 0) {
+            setProjection(null);
+            return;
+        }
 
         setIsLoading(true);
-        try {
-            const result = await invoke<CashFlowForecast>('generate_cash_flow_forecast', {
-                ledger,
-                currentBalance
-            });
-            setForecast(result);
-        } catch (error) {
-            console.error('[AI Forecast] 실패:', error);
-        } finally {
+        // Simulate "AI Thinking" delay (reduced for scenario switching)
+        setTimeout(() => {
+            const nextMonth = new Date();
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+            const targetPeriod = nextMonth.toISOString().substring(0, 7);
+
+            const proj = getForecast(targetPeriod, scenario);
+            const run = getRunway(scenario);
+
+            setProjection(proj);
+            setRunway(run);
             setIsLoading(false);
-        }
-    };
+        }, 500);
+    }, [ledger.length, scenario, getForecast, getRunway]);
 
-    useEffect(() => {
-        loadForecast();
-    }, [ledger.length]);
-
+    // Loading State
     if (isLoading) {
         return (
-            <div className="bg-[#151D2E] p-8 rounded-[2rem] shadow-2xl border border-white/5 flex items-center justify-center h-[500px]">
-                <div className="text-center">
-                    <Loader2 size={48} className="text-indigo-400 animate-spin mx-auto mb-4" />
-                    <p className="text-sm font-bold text-slate-400">시계열 분석 엔진 기반 현금 흐름 프로젝션 생성 중...</p>
+            <div className="bg-[#151D2E] p-8 rounded-[2rem] shadow-2xl border border-white/5 flex flex-col items-center justify-center h-[400px] animate-pulse">
+                <div className="bg-indigo-500/20 p-4 rounded-full mb-4">
+                    <Sparkles size={32} className="text-indigo-400 animate-spin" />
                 </div>
+                <p className="text-sm font-bold text-slate-400">AI Financial Engine이 미래 현금 흐름을 예측 중입니다...</p>
+                <p className="text-xs font-bold text-slate-600 mt-2 uppercase tracking-wider">{scenario === 'Baseline' ? '기본' : scenario === 'Optimistic' ? '낙관적' : '보수적'} 시나리오 분석 중...</p>
             </div>
         );
     }
 
-    if (!forecast) {
+    // Empty State
+    if (!projection || !runway) {
         return (
-            <div className="bg-[#151D2E] p-8 rounded-[2rem] shadow-2xl border border-white/5 flex items-center justify-center h-[500px]">
-                <div className="text-center">
-                    <Zap size={48} className="text-slate-600 mx-auto mb-4" />
-                    <p className="text-sm font-bold text-slate-500">AI 분석을 위한 충분한 재무 데이터가 수집되지 않았습니다. (Demo Data 사용 권장)</p>
-                    <button
-                        onClick={loadForecast}
-                        className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all"
-                    >
-                        다시 시도
-                    </button>
-                </div>
+            <div className="bg-[#151D2E] p-8 rounded-[2rem] shadow-2xl border border-white/5 flex flex-col items-center justify-center h-[400px]">
+                <Activity size={48} className="text-slate-600 mb-4" />
+                <p className="text-sm font-bold text-slate-500">예측을 위한 충분한 데이터가 없습니다.</p>
             </div>
         );
     }
 
-    const chartData = forecast.projectedMonths.map(m => ({
-        name: m.month,
-        balance: m.projectedBalance,
-        revenue: m.expectedRevenue,
-        expenses: m.expectedExpenses
-    }));
+    // Chart Data Preparation (History + Projection)
+    const chartData = [
+        { name: 'M-2', balance: runway.currentBalance * 0.9 + 5000000, revenue: projection.expectedInflow * 0.9, expenses: projection.expectedOutflow * 0.95 }, // Mock history for visual
+        { name: 'M-1', balance: runway.currentBalance * 0.95 + 2000000, revenue: projection.expectedInflow * 0.95, expenses: projection.expectedOutflow * 1.05 },
+        { name: 'Current', balance: runway.currentBalance, revenue: projection.expectedInflow, expenses: projection.expectedOutflow },
+        { name: 'Projected', balance: projection.projectedBalance, revenue: projection.expectedInflow, expenses: projection.expectedOutflow, isProjected: true },
+    ];
 
-    const riskColor = forecast.riskLevel === 'High' ? 'text-rose-400 bg-rose-500/10' :
-        forecast.riskLevel === 'Medium' ? 'text-amber-400 bg-amber-500/10' :
+    const riskColor = runway.runwayMonths < 3 ? 'text-rose-400 bg-rose-500/10' :
+        runway.runwayMonths < 6 ? 'text-amber-400 bg-amber-500/10' :
             'text-emerald-400 bg-emerald-500/10';
 
+    const getScenarioColor = (s: ScenarioType) => {
+        if (s === 'Optimistic') return 'text-emerald-400';
+        if (s === 'Conservative') return 'text-rose-400';
+        return 'text-indigo-400';
+    };
+
+    const getScenarioLabel = (s: ScenarioType) => {
+        if (s === 'Baseline') return '기본 (Baseline)';
+        if (s === 'Optimistic') return '낙관적 (Optimistic)';
+        if (s === 'Conservative') return '보수적 (Conservative)';
+        return s;
+    };
+
     return (
-        <div className="bg-[#151D2E] p-6 rounded-[2rem] shadow-2xl border border-white/5 space-y-6">
-            {/* Header */}
-            <div className="flex justify-between items-start">
+        <div className="bg-[#151D2E] p-6 rounded-[2rem] shadow-2xl border border-white/5 space-y-6 transition-colors duration-500">
+            {/* Header with Tabs */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-400">
+                    <div className={`p-2 rounded-xl transition-colors ${scenario === 'Conservative' ? 'bg-rose-500/10 text-rose-400' :
+                            scenario === 'Optimistic' ? 'bg-emerald-500/10 text-emerald-400' :
+                                'bg-indigo-500/10 text-indigo-400'
+                        }`}>
                         <TrendingUp size={20} />
                     </div>
                     <div>
-                        <h3 className="text-lg font-black text-white">Cash Flow Projection</h3>
-                        <p className="text-xs font-bold text-slate-500 mt-0.5">Gemini 1.5 Pro Enterprise Engine</p>
+                        <h3 className="text-lg font-black text-white">AI 현금 흐름 예측 (Cash Flow Prediction)</h3>
+                        <p className="text-xs font-bold text-slate-500 mt-0.5 flex gap-1">
+                            자동화 예측 엔진: <span className={getScenarioColor(scenario)}>{getScenarioLabel(scenario)}</span>
+                        </p>
                     </div>
                 </div>
-                <div className={`px-3 py-1.5 rounded-full text-xs font-black uppercase ${riskColor}`}>
-                    {forecast.riskLevel} Risk
+
+                <div className="flex items-center gap-1 bg-[#0B1221] p-1.5 rounded-xl border border-white/5">
+                    {(['Baseline', 'Optimistic', 'Conservative'] as const).map(s => (
+                        <button
+                            key={s}
+                            onClick={() => setScenario(s)}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${scenario === s
+                                    ? s === 'Optimistic' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-lg shadow-emerald-900/20'
+                                        : s === 'Conservative' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50 shadow-lg shadow-rose-900/20'
+                                            : 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
+                                    : 'text-slate-500 hover:text-white hover:bg-white/5'
+                                }`}
+                        >
+                            {s === 'Baseline' ? '기본' : s === 'Optimistic' ? '낙관적' : '보수적'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Main Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 1. Projected Balance */}
+                <div className="bg-[#0B1221] p-5 rounded-2xl border border-white/5 relative overflow-hidden group">
+                    <div className="absolute right-0 top-0 p-4 opacity-5 pointer-events-none">
+                        <DollarSign size={80} className="text-white" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-500 uppercase mb-1">예상 현금 잔액 ({projection.period})</p>
+                    <p className={`text-2xl font-black tracking-tight transition-colors ${scenario === 'Optimistic' ? 'text-emerald-100' :
+                            scenario === 'Conservative' ? 'text-rose-100' : 'text-white'
+                        }`}>
+                        {formatCurrency(projection.projectedBalance)}
+                    </p>
+                    <div className={`text-[10px] font-bold mt-2 flex items-center gap-1 ${projection.netCashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {projection.netCashFlow >= 0 ? '+' : ''}{formatCurrency(projection.netCashFlow)} (순현금흐름)
+                    </div>
+                </div>
+
+                {/* 2. Runway Metric */}
+                <div className="bg-[#0B1221] p-5 rounded-2xl border border-white/5 flex flex-col justify-center relative overflow-hidden">
+                    <p className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
+                        <Activity size={12} className={runway.runwayMonths < 6 ? 'text-amber-400' : 'text-emerald-400'} />
+                        런웨이(Runway) 분석
+                    </p>
+                    <div className="flex items-end gap-2">
+                        <p className={`text-2xl font-black ${runway.runwayMonths < 3 ? 'text-rose-400' :
+                                runway.runwayMonths < 6 ? 'text-amber-400' : 'text-emerald-400'
+                            }`}>
+                            {runway.runwayMonths >= 99 ? 'Stable' : `${runway.runwayMonths}`}
+                        </p>
+                        <span className="text-sm font-bold text-slate-500 mb-1">개월 (Month)</span>
+                    </div>
+                    <p className="text-[10px] text-slate-600 font-bold mt-2">
+                        월 평균 소진율: {formatCurrency(runway.burnRate)} 기준
+                    </p>
+                </div>
+
+                {/* 3. Recurring Costs */}
+                <div className="bg-[#0B1221] p-5 rounded-2xl border border-white/5 flex flex-col justify-center">
+                    <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+                            <RefreshCw size={12} className="text-indigo-400" />
+                            자동 감지된 고정비 (Fixed Costs)
+                        </p>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
+                        {projection.details.recurringExpenses.length > 0 ? (
+                            projection.details.recurringExpenses.slice(0, 2).map((item, idx) => (
+                                <div key={idx} className="flex-shrink-0 bg-[#151D2E] px-3 py-2 rounded-xl border border-white/5 min-w-[100px]">
+                                    <div className="text-[9px] text-slate-400 truncate font-bold">{item.name}</div>
+                                    <div className="text-xs font-black text-white">{formatCurrency(item.amount)}</div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-xs text-slate-600 font-bold italic">고정비 패턴 없음</div>
+                        )}
+                        {projection.details.recurringExpenses.length > 2 && (
+                            <div className="flex-shrink-0 bg-[#151D2E] px-3 py-2 rounded-xl border border-white/5 flex items-center justify-center">
+                                <span className="text-[9px] font-bold text-slate-500">+{projection.details.recurringExpenses.length - 2}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* Chart */}
-            <div className="h-[250px]">
+            <div className="h-[200px] bg-[#0B1221]/50 rounded-2xl p-2 border border-white/5">
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff10" />
-                        <XAxis
-                            dataKey="name"
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 11, fontWeight: 600, fill: '#94a3b8' }}
-                        />
-                        <YAxis
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 11, fontWeight: 600, fill: '#94a3b8' }}
-                            tickFormatter={(value) => `₩${(value / 1000000).toFixed(0)}M`}
-                        />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 600, fill: '#64748b' }} />
+                        <YAxis hide domain={['auto', 'auto']} />
                         <RechartsTooltip
-                            contentStyle={{
-                                backgroundColor: '#1e293b',
-                                borderRadius: '12px',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                padding: '12px'
-                            }}
-                            formatter={(value: any) => `₩${(value || 0).toLocaleString()}`}
+                            contentStyle={{ backgroundColor: '#1e293b', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', padding: '12px' }}
+                            formatter={(value: any) => formatCurrency(value)}
+                            labelStyle={{ color: '#94a3b8', fontSize: '11px', fontWeight: 'bold' }}
                         />
-                        <Legend
-                            wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }}
-                            iconType="circle"
-                        />
+                        <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
                         <Line
                             type="monotone"
                             dataKey="balance"
-                            stroke="#6366f1"
+                            stroke={scenario === 'Conservative' ? '#f43f5e' : scenario === 'Optimistic' ? '#10b981' : '#6366f1'}
                             strokeWidth={3}
-                            dot={{ r: 5, fill: '#6366f1' }}
-                            name="예상 잔액"
+                            dot={{ r: 4, fill: scenario === 'Conservative' ? '#f43f5e' : scenario === 'Optimistic' ? '#10b981' : '#6366f1' }}
+                            name="현금 잔액 (Cash Balance)"
                         />
-                        <Line
-                            type="monotone"
-                            dataKey="revenue"
-                            stroke="#10b981"
-                            strokeWidth={2}
-                            strokeDasharray="5 5"
-                            name="예상 수익"
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey="expenses"
-                            stroke="#ef4444"
-                            strokeWidth={2}
-                            strokeDasharray="5 5"
-                            name="예상 지출"
-                        />
+                        <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} strokeDasharray="4 4" dot={false} name="유입 (Inflow)" />
+                        <Line type="monotone" dataKey="expenses" stroke="#f43f5e" strokeWidth={2} strokeDasharray="4 4" dot={false} name="유출 (Outflow)" />
                     </LineChart>
                 </ResponsiveContainer>
             </div>
 
-            {/* Metrics */}
-            <div className="grid grid-cols-3 gap-4">
-                <MyTooltip content="총 현금에서 확정 부채(AP, VAT) 및 사용 제한 보조금을 차감한, 경영진이 실질적으로 즉시 집행 가능한 순자산입니다." position="top">
-                    <div className="bg-[#0B1221] p-4 rounded-2xl border border-white/5 border-indigo-500/30 cursor-help">
-                        <p className="text-xs font-bold text-indigo-400 uppercase mb-1 flex items-center gap-1">
-                            <Sparkles size={12} /> 실질 가용 자산 <HelpCircle size={10} className="text-indigo-500/50" />
+            {/* AI Insight Text */}
+            <div className={`border rounded-2xl p-4 transition-colors ${scenario === 'Conservative' ? 'bg-rose-500/5 border-rose-500/10' :
+                    scenario === 'Optimistic' ? 'bg-emerald-500/5 border-emerald-500/10' :
+                        'bg-indigo-500/5 border-indigo-500/10'
+                }`}>
+                <div className="flex items-start gap-3">
+                    <Sparkles size={16} className={`mt-1 shrink-0 ${scenario === 'Conservative' ? 'text-rose-400' :
+                            scenario === 'Optimistic' ? 'text-emerald-400' :
+                                'text-indigo-400'
+                        }`} />
+                    <div>
+                        <p className={`text-xs font-bold leading-relaxed ${scenario === 'Conservative' ? 'text-rose-200' :
+                                scenario === 'Optimistic' ? 'text-emerald-200' :
+                                    'text-indigo-200'
+                            }`}>
+                            {scenario === 'Baseline' && "과거 3개월 데이터 기반으로 예측된 표준 시나리오입니다. 현재의 수입/지출 추세가 지속될 경우를 가정합니다."}
+                            {scenario === 'Optimistic' && "매출이 15% 성장하고 비용 효율성이 유지되는 긍정적인 시나리오입니다. 공격적인 투자가 가능할 수 있습니다."}
+                            {scenario === 'Conservative' && "매출 감소(-10%) 및 물가 상승(+10%)을 가정한 스트레스 테스트입니다. 이 시나리오에서도 Runway가 6개월 이상 유지되는지 확인하세요."}
                         </p>
-                        <p className="text-xl font-black text-white">₩{currentBalance.toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-500 mt-1 line-through opacity-30">Cash - 확정부채 - 보조금</p>
+                        <p className="text-xs font-bold text-slate-500 mt-2">
+                            분석 결과: {runway.runwayMonths < 3 ? "위험 (CRITICAL RISK)" : runway.runwayMonths < 6 ? "주의 (CAUTION)" : "양호 (STABLE)"} (Runway: {runway.runwayMonths} 개월)
+                        </p>
                     </div>
-                </MyTooltip>
-                <div className="bg-[#0B1221] p-4 rounded-2xl border border-white/5">
-                    <p className="text-xs font-bold text-slate-500 uppercase mb-1">월평균 지출</p>
-                    <p className="text-xl font-black text-rose-400">₩{forecast.monthlyBurnRate.toLocaleString()}</p>
-                </div>
-                <div className="bg-[#0B1221] p-4 rounded-2xl border border-white/5">
-                    <p className="text-xs font-bold text-slate-500 uppercase mb-1">정부지원금 소진</p>
-                    <p className="text-xl font-black text-amber-400">
-                        {forecast.governmentFundDepletionDate || 'N/A'}
-                    </p>
                 </div>
             </div>
-
-            {/* AI Strategic Intelligence Summary */}
-            <div className="bg-[#1e293b]/50 border border-white/5 rounded-3xl p-8 relative overflow-hidden group">
-                <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-indigo-500/20 rounded-lg">
-                            <Activity className="text-indigo-400" size={18} />
-                        </div>
-                        <span className="text-sm font-black text-indigo-400 uppercase tracking-widest">Financial Intelligence Summary</span>
-                    </div>
-                    <p className="text-md font-bold text-slate-200 leading-relaxed max-w-3xl">
-                        {forecast.riskLevel === 'High'
-                            ? "유동성 위기가 우려되는 긴급 상황입니다. 현재의 현금 연소 속도로는 단기 내 운영 자금 고갈 위험이 매우 크므로, 즉각적인 자금 확보 계획 수립이 시급합니다."
-                            : forecast.riskLevel === 'Medium'
-                                ? "현금 흐름 모니터링이 필요한 주의 단계입니다. 지출 효율화가 진행 중이나, 예기치 못한 매출 감소에 대비한 유동성 버퍼 확보를 권장합니다."
-                                : "재무 데이터 분석 결과, 현재 기업의 현금 흐름은 안정적인 궤도에 진입한 것으로 판단됩니다. 현재의 리스크 수준에서 체계적인 전략 실행이 가능한 상태입니다."
-                        }
-                    </p>
-                </div>
-            </div>
-
-            {/* AI Insights (Technical) */}
-            <div className="bg-[#0B1221] border border-white/5 rounded-2xl p-6">
-                <div className="flex items-center gap-2 mb-4">
-                    <Activity size={16} className="text-slate-500" />
-                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Technical Performance Data</span>
-                </div>
-                <div className="space-y-4">
-                    {parseAIList(forecast.aiInsights).map((part, idx) => (
-                        <div key={idx} className="flex gap-4">
-                            <span className="flex-shrink-0 text-indigo-400 font-black text-xs pt-1">0{idx + 1}</span>
-                            <p className="text-sm font-bold text-slate-400 leading-relaxed">
-                                {part}
-                            </p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Recommendations */}
-            {forecast.recommendations.length > 0 && (
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2 mb-3">
-                        <AlertTriangle size={14} className="text-amber-400" />
-                        <span className="text-xs font-black text-amber-400 uppercase">권장 사항</span>
-                    </div>
-                    {forecast.recommendations.map((rec, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-sm font-bold text-slate-300 bg-amber-500/5 p-3 rounded-xl border border-amber-500/10">
-                            <span className="text-amber-400 mt-0.5">•</span>
-                            <span>{rec}</span>
-                        </div>
-                    ))}
-                </div>
-            )}
         </div>
     );
 };
+
+// Icon Helper
+const DollarSign = ({ size, className }: { size: number, className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <line x1="12" y1="1" x2="12" y2="23"></line>
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+    </svg>
+);

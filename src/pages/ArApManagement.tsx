@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useAccounting } from '../hooks/useAccounting';
 import { AgingReport } from '../components/analytics/AgingReport';
+import { ClearingModal } from '../components/journal/ClearingModal';
+import { JournalEntry } from '../types';
 import {
     ArrowDownLeft,
     ArrowUpRight,
@@ -11,15 +13,103 @@ import {
     Clock,
     CheckCircle2,
     Building2,
-    DollarSign
+    DollarSign,
+    AlertCircle
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatUtils';
 
-import { isArAccount, isApAccount } from '../constants/accounts';
+import { isArAccount, isApAccount, isSuspenseAccount } from '../constants/accounts';
+
+const EntryRow = React.memo(({ e, view, onAction, formatCurrency }: {
+    e: JournalEntry,
+    view: 'AR' | 'AP' | 'SUS',
+    onAction: (e: JournalEntry) => void,
+    formatCurrency: (v: number) => string
+}) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const refDateStr = (view === 'SUS' || !e.dueDate) ? e.date : e.dueDate;
+    const refDate = new Date(refDateStr);
+    refDate.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.ceil((refDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const isOverdue = diffDays < 0;
+
+    return (
+        <tr className="hover:bg-white/[0.02] transition-colors group border-b border-white/5">
+            <td className="px-8 py-5">
+                {isOverdue ? (
+                    <div className="flex items-center gap-2 text-rose-500">
+                        <ShieldAlert size={14} />
+                        <span className="text-[10px] font-black">기한초과</span>
+                    </div>
+                ) : e.clearingRecord?.status === 'BLOCKED' ? (
+                    <div className="flex items-center gap-2 text-rose-400">
+                        <AlertCircle size={14} />
+                        <span className="text-[10px] font-black underline decoration-dotted">정산불가</span>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2 text-slate-500">
+                        <Clock size={14} />
+                        <span className="text-[10px] font-black">대기중</span>
+                    </div>
+                )}
+            </td>
+            <td className="px-8 py-5">
+                <div className="text-white text-sm font-black">{e.date}</div>
+                <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1 mt-1">
+                    <Calendar size={10} /> {e.dueDate || '-'}
+                </div>
+            </td>
+            <td className="px-8 py-5">
+                <div className="flex items-center gap-2 text-white font-bold text-sm">
+                    <Building2 size={14} className="text-slate-600" />
+                    {e.description}
+                    {e.clearingRecord?.status === 'BLOCKED' && (
+                        <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 text-[9px] border border-rose-500/20 rounded-md">
+                            Risk: {e.clearingRecord.reasonCode}
+                        </span>
+                    )}
+                </div>
+                <div className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-tight flex items-center gap-2">
+                    {e.debitAccount} / {e.creditAccount}
+                    {e.clearingRecord?.reasonText && (
+                        <span className="text-rose-400/60 font-medium normal-case line-clamp-1 italic">
+                            - {e.clearingRecord.reasonText}
+                        </span>
+                    )}
+                </div>
+            </td>
+            <td className="px-8 py-5 text-right font-black text-white text-sm">
+                {formatCurrency(e.amount + (e.vat || 0))}
+            </td>
+            <td className="px-8 py-5">
+                <span className={`text-[10px] font-black px-2 py-1 rounded-md ${isOverdue ? 'bg-rose-500/10 text-rose-500' : 'bg-slate-500/10 text-slate-400'}`}>
+                    {isOverdue ? `연체 ${Math.abs(diffDays)}일` : `D-${Math.abs(diffDays)}`}
+                </span>
+            </td>
+            <td className="px-8 py-5 text-center">
+                <button
+                    onClick={() => onAction(e)}
+                    className={`px-4 py-2 ${view === 'AR' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500' :
+                        view === 'AP' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500' :
+                            e.clearingRecord?.status === 'BLOCKED' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500' :
+                                'bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500'} hover:text-white rounded-lg text-xs font-black transition-all border active:scale-95 flex items-center justify-center gap-2 mx-auto`}
+                >
+                    {view === 'AR' ? <DollarSign size={14} /> : view === 'AP' ? <CheckCircle2 size={14} /> : <CheckCircle2 size={14} />}
+                    {view === 'AR' ? '수금 처리' : view === 'AP' ? '지급 승인' : (e.clearingRecord?.status === 'BLOCKED' ? '재정산(Retry)' : '정산(Clearing)')}
+                </button>
+            </td>
+        </tr>
+    );
+});
 
 export const ArApManagement: React.FC = () => {
-    const { ledger, financials, addEntry, updateEntry } = useAccounting();
-    const [view, setView] = useState<'AR' | 'AP'>('AR');
+    const { ledger, financials, addEntry, updateEntry, performClearing } = useAccounting();
+    const [view, setView] = useState<'AR' | 'AP' | 'SUS'>('AR');
+    const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
+    const [displayCount, setDisplayCount] = useState(100);
 
     const unsettledEntries = useMemo(() => {
         return ledger.filter(e => {
@@ -29,13 +119,26 @@ export const ArApManagement: React.FC = () => {
 
             const isAr = isArAccount(e.debitAccount);
             const isAp = isApAccount(e.creditAccount);
-            return view === 'AR' ? isAr : isAp;
+            const isSus = isSuspenseAccount(e.debitAccount) || isSuspenseAccount(e.creditAccount);
+
+            if (view === 'AR') return isAr;
+            if (view === 'AP') return isAp;
+            return isSus;
         }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }, [ledger, view]);
 
     const stats = useMemo(() => {
         const total = unsettledEntries.reduce((s, e) => s + ((e.amount || 0) + (e.vat || 0)), 0);
-        const overdue = unsettledEntries.filter(e => e.dueDate && new Date(e.dueDate) < new Date()).length;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const overdue = unsettledEntries.filter(e => {
+            const refDateStr = (!e.dueDate) ? e.date : e.dueDate;
+            const refDate = new Date(refDateStr);
+            refDate.setHours(0, 0, 0, 0);
+            return refDate < today;
+        }).length;
+
         return { total, count: unsettledEntries.length, overdue };
     }, [unsettledEntries]);
 
@@ -45,9 +148,11 @@ export const ArApManagement: React.FC = () => {
                 <div>
                     <h2 className="text-3xl font-black text-white flex items-center gap-3">
                         {view === 'AR' ? <ArrowDownLeft className="text-emerald-400" /> : <ArrowUpRight className="text-rose-400" />}
-                        {view === 'AR' ? '매출채권(AR) 관리' : '매입채무(AP) 관리'}
+                        {view === 'AR' ? '매출채권(AR) 관리' : view === 'AP' ? '매입채무(AP) 관리' : '가계정(Suspense) 정산'}
                     </h2>
-                    <p className="text-slate-500 font-bold mt-1">미결제 항목 및 연체 현황을 분석합니다.</p>
+                    <p className="text-slate-500 font-bold mt-1">
+                        {view === 'SUS' ? '미결산 항목(가지급금, 가수금 등)을 정식 계정으로 정산합니다.' : '미결제 항목 및 연체 현황을 분석합니다.'}
+                    </p>
                 </div>
                 <div className="flex bg-[#151D2E] p-1 rounded-2xl border border-white/5">
                     <button
@@ -61,6 +166,12 @@ export const ArApManagement: React.FC = () => {
                         className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${view === 'AP' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'text-slate-500 hover:text-white'}`}
                     >
                         매입채무 (Payables)
+                    </button>
+                    <button
+                        onClick={() => setView('SUS')}
+                        className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${view === 'SUS' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-slate-500 hover:text-white'}`}
+                    >
+                        가계정 (Suspense)
                     </button>
                 </div>
             </header>
@@ -148,106 +259,63 @@ export const ArApManagement: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {unsettledEntries.map((e) => {
-                                const today = new Date();
-                                const dueDate = e.dueDate ? new Date(e.dueDate) : null;
-                                const diffDays = dueDate ? Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
-                                const isOverdue = diffDays !== null && diffDays < 0;
-
-                                return (
-                                    <tr key={e.id} className="hover:bg-white/[0.02] transition-colors group">
-                                        <td className="px-8 py-5">
-                                            {isOverdue ? (
-                                                <div className="flex items-center gap-2 text-rose-500">
-                                                    <ShieldAlert size={14} />
-                                                    <span className="text-[10px] font-black">기한초과</span>
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center gap-2 text-slate-500">
-                                                    <Clock size={14} />
-                                                    <span className="text-[10px] font-black">대기중</span>
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-8 py-5">
-                                            <div className="text-white text-sm font-black">{e.date}</div>
-                                            <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1 mt-1">
-                                                <Calendar size={10} /> {e.dueDate || '-'}
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-5">
-                                            <div className="flex items-center gap-2 text-white font-bold text-sm">
-                                                <Building2 size={14} className="text-slate-600" />
-                                                {e.description}
-                                            </div>
-                                            <div className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-tight">
-                                                {e.debitAccount} / {e.creditAccount}
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-5 text-right font-black text-white text-sm">
-                                            {formatCurrency(e.amount + (e.vat || 0))}
-                                        </td>
-                                        <td className="px-8 py-5">
-                                            {diffDays !== null ? (
-                                                <span className={`text-[10px] font-black px-2 py-1 rounded-md ${isOverdue ? 'bg-rose-500/10 text-rose-500' : 'bg-slate-500/10 text-slate-400'}`}>
-                                                    {isOverdue ? `연체 ${Math.abs(diffDays)}일` : `D-${diffDays}`}
-                                                </span>
-                                            ) : '-'}
-                                        </td>
-                                        <td className="px-8 py-5 text-center">
-                                            {view === 'AR' ? (
-                                                <button
-                                                    onClick={() => {
-                                                        if (window.confirm(`'${e.description}' 건에 대한 수금 처리를 진행하시겠습니까?`)) {
-                                                            updateEntry(e.id, { isSettled: true });
-                                                            addEntry({
-                                                                id: crypto.randomUUID(),
-                                                                date: new Date().toISOString().split('T')[0],
-                                                                description: `[수금] ${e.description}`,
-                                                                vendor: e.vendor || '',
-                                                                debitAccount: '보통예금',
-                                                                creditAccount: e.debitAccount, // Offset AR Account
-                                                                amount: e.amount + (e.vat || 0),
-                                                                vat: 0,
-                                                                type: 'Asset',
-                                                                status: 'Approved'
-                                                            });
-                                                            alert('수금 처리가 완료되었습니다.');
-                                                        }
-                                                    }}
-                                                    className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white rounded-lg text-xs font-black transition-all border border-emerald-500/20 active:scale-95 flex items-center justify-center gap-2 mx-auto"
-                                                >
-                                                    <DollarSign size={14} /> 수금 처리
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() => {
-                                                        if (window.confirm(`'${e.description}' 건에 대한 지급 승인을 진행하시겠습니까?`)) {
-                                                            updateEntry(e.id, { isSettled: true });
-                                                            addEntry({
-                                                                id: crypto.randomUUID(),
-                                                                date: new Date().toISOString().split('T')[0],
-                                                                description: `[지급] ${e.description}`,
-                                                                vendor: e.vendor || '',
-                                                                debitAccount: e.creditAccount, // Offset AP
-                                                                creditAccount: '보통예금',
-                                                                amount: e.amount + (e.vat || 0),
-                                                                vat: 0,
-                                                                type: 'Liability',
-                                                                status: 'Approved'
-                                                            });
-                                                            alert('지급 처리가 완료되었습니다.');
-                                                        }
-                                                    }}
-                                                    className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-lg text-xs font-black transition-all border border-rose-500/20 active:scale-95 flex items-center justify-center gap-2 mx-auto"
-                                                >
-                                                    <CheckCircle2 size={14} /> 지급 승인
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                            {unsettledEntries.slice(0, displayCount).map((e) => (
+                                <EntryRow
+                                    key={e.id}
+                                    e={e}
+                                    view={view}
+                                    formatCurrency={formatCurrency}
+                                    onAction={(entry) => {
+                                        if (view === 'AR') {
+                                            if (window.confirm(`'${entry.description}' 건에 대한 수금 처리를 진행하시겠습니까?`)) {
+                                                updateEntry(entry.id, { isSettled: true });
+                                                addEntry({
+                                                    id: crypto.randomUUID(),
+                                                    date: new Date().toISOString().split('T')[0],
+                                                    description: `[수금] ${entry.description}`,
+                                                    vendor: entry.vendor || '',
+                                                    debitAccount: '보통예금',
+                                                    creditAccount: entry.debitAccount,
+                                                    amount: entry.amount + (entry.vat || 0),
+                                                    vat: 0,
+                                                    type: 'Asset',
+                                                    status: 'Approved'
+                                                });
+                                            }
+                                        } else if (view === 'AP') {
+                                            if (window.confirm(`'${entry.description}' 건에 대한 지급 승인을 진행하시겠습니까?`)) {
+                                                updateEntry(entry.id, { isSettled: true });
+                                                addEntry({
+                                                    id: crypto.randomUUID(),
+                                                    date: new Date().toISOString().split('T')[0],
+                                                    description: `[지급] ${entry.description}`,
+                                                    vendor: entry.vendor || '',
+                                                    debitAccount: entry.creditAccount,
+                                                    creditAccount: '보통예금',
+                                                    amount: entry.amount + (entry.vat || 0),
+                                                    vat: 0,
+                                                    type: 'Liability',
+                                                    status: 'Approved'
+                                                });
+                                            }
+                                        } else {
+                                            setSelectedEntry(entry);
+                                        }
+                                    }}
+                                />
+                            ))}
+                            {unsettledEntries.length > displayCount && (
+                                <tr>
+                                    <td colSpan={6} className="px-8 py-10 text-center">
+                                        <button
+                                            onClick={() => setDisplayCount(prev => prev + 200)}
+                                            className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-xs font-black transition-all border border-white/5 active:scale-95"
+                                        >
+                                            더 보기 (+200건) - 총 {unsettledEntries.length}건 중 {displayCount}건 표시 중
+                                        </button>
+                                    </td>
+                                </tr>
+                            )}
                             {unsettledEntries.length === 0 && (
                                 <tr>
                                     <td colSpan={6} className="px-8 py-20 text-center text-slate-600 font-bold italic">
@@ -259,6 +327,17 @@ export const ArApManagement: React.FC = () => {
                     </table>
                 </div>
             </div>
+
+            {selectedEntry && (
+                <ClearingModal
+                    entry={selectedEntry}
+                    onClose={() => setSelectedEntry(null)}
+                    onConfirm={(targetAccount, metadata) => {
+                        performClearing(selectedEntry.id, targetAccount, metadata);
+                        setSelectedEntry(null);
+                    }}
+                />
+            )}
         </div>
     );
 };

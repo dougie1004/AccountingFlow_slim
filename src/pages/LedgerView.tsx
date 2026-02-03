@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../hooks/useAccounting';
+import { getAccountCategory } from '../constants/accounts';
 import {
     FileText,
     Search,
@@ -102,9 +103,20 @@ export const LedgerView: React.FC = () => {
         return filtered;
     }, [activeData, selectedAccount, searchTerm, startDate, endDate, sortConfig]);
 
-    const totalSum = useMemo(() => {
-        return processedData.reduce((sum, row) => sum + row.amount, 0);
-    }, [processedData]);
+    const totals = useMemo(() => {
+        let debit = 0;
+        let credit = 0;
+        processedData.forEach(row => {
+            if (row.isDebit) debit += row.amount;
+            else credit += row.amount;
+        });
+
+        const category = getAccountCategory(selectedAccount);
+        const isCreditNature = ['Liability', 'Equity', 'Revenue'].includes(category);
+        const balance = isCreditNature ? credit - debit : debit - credit;
+
+        return { debit, credit, balance };
+    }, [processedData, selectedAccount]);
 
     const handleSort = (field: SortField) => {
         setSortConfig(prev => ({
@@ -190,13 +202,23 @@ export const LedgerView: React.FC = () => {
                                 <Calculator size={20} />
                             </div>
                             <div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Selected Account Total</p>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Selected Account</p>
                                 <h4 className="text-lg font-black text-white">{selectedAccount}</h4>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">누적 합계</p>
-                            <h4 className="text-2xl font-black text-indigo-400">{formatCurrency(totalSum)}</h4>
+                        <div className="flex gap-8 text-right">
+                            <div>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Debit</p>
+                                <h4 className="text-xl font-black text-emerald-400">{formatCurrency(totals.debit)}</h4>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Credit</p>
+                                <h4 className="text-xl font-black text-rose-400">{formatCurrency(totals.credit)}</h4>
+                            </div>
+                            <div className="pl-8 border-l border-white/10">
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Net Balance</p>
+                                <h4 className="text-2xl font-black text-white">{formatCurrency(totals.balance)}</h4>
+                            </div>
                         </div>
                     </div>
                 )}

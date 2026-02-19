@@ -42,7 +42,7 @@ export const ClosingInsightWidget: React.FC<ClosingInsightWidgetProps> = ({ late
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[10px] uppercase font-black tracking-widest border border-emerald-500/20">
-                                Official Record
+                                공식 확정 (Confirmed)
                             </span>
                         </div>
                         <h3 className="text-2xl font-black text-white">
@@ -76,7 +76,7 @@ export const ClosingInsightWidget: React.FC<ClosingInsightWidgetProps> = ({ late
                     {latestRecord.aiBriefing && (
                         <div className="mb-6 p-4 bg-gradient-to-br from-indigo-900/30 to-purple-900/10 rounded-2xl border border-indigo-500/20">
                             <div className="flex items-center gap-2 mb-2 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
-                                <ShieldCheck size={12} className="animate-pulse" /> AI Financial Insight
+                                <ShieldCheck size={12} className="animate-pulse" /> AI 재무 브리핑
                             </div>
                             <p className="text-indigo-200/90 text-xs font-bold leading-relaxed whitespace-pre-line line-clamp-4">
                                 {latestRecord.aiBriefing.replace(/###/g, '').replace(/\*\*/g, '')}
@@ -95,7 +95,7 @@ export const ClosingInsightWidget: React.FC<ClosingInsightWidgetProps> = ({ late
                                 onClick={() => onNavigate?.('risk-dashboard')}
                                 className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/10 min-w-0 hover:bg-amber-500/10 transition-colors text-left"
                             >
-                                <div className="text-[9px] font-black text-slate-500 mb-1 truncate">Operational</div>
+                                <div className="text-[9px] font-black text-slate-500 mb-1 truncate">운영 리스크</div>
                                 <div className="text-xs font-bold text-white truncate" title={`₩${unsettled.operationalAmount.toLocaleString()}`}>
                                     ₩{unsettled.operationalAmount.toLocaleString()}
                                 </div>
@@ -104,7 +104,7 @@ export const ClosingInsightWidget: React.FC<ClosingInsightWidgetProps> = ({ late
                                 onClick={() => onNavigate?.('risk-dashboard')}
                                 className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/10 min-w-0 hover:bg-amber-500/10 transition-colors text-left"
                             >
-                                <div className="text-[9px] font-black text-slate-500 mb-1 truncate">Matching</div>
+                                <div className="text-[9px] font-black text-slate-500 mb-1 truncate">매칭 리스크</div>
                                 <div className="text-xs font-bold text-white truncate" title={`₩${unsettled.matchingAmount.toLocaleString()}`}>
                                     ₩{unsettled.matchingAmount.toLocaleString()}
                                 </div>
@@ -113,7 +113,7 @@ export const ClosingInsightWidget: React.FC<ClosingInsightWidgetProps> = ({ late
                                 onClick={() => onNavigate?.('risk-dashboard')}
                                 className="p-3 bg-rose-500/5 rounded-xl border border-rose-500/10 min-w-0 hover:bg-rose-500/10 transition-colors text-left"
                             >
-                                <div className="text-[9px] font-black text-slate-500 mb-1 truncate">Compliance</div>
+                                <div className="text-[9px] font-black text-slate-500 mb-1 truncate">규제 리스크</div>
                                 <div className="text-xs font-bold text-white truncate" title={`₩${unsettled.complianceAmount.toLocaleString()}`}>
                                     ₩{unsettled.complianceAmount.toLocaleString()}
                                 </div>
@@ -134,7 +134,7 @@ export const ClosingInsightWidget: React.FC<ClosingInsightWidgetProps> = ({ late
                 </div>
 
                 <button
-                    onClick={() => onNavigate?.('financial-statements')}
+                    onClick={() => onNavigate?.('trial-balance')}
                     className="mt-4 w-full py-3 bg-white/5 hover:bg-white/10 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 border border-white/5 shrink-0"
                 >
                     상세 리포트 보기 <ArrowRight size={14} />

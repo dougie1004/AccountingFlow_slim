@@ -1,17 +1,27 @@
 import React, { useContext, useState, useMemo } from 'react';
 import { JournalEntry } from '../../types';
-import { Trash2, ChevronUp, ChevronDown, ArrowUpDown, Lock, X, ExternalLink } from 'lucide-react';
+import { Trash2, ChevronUp, ChevronDown, ArrowUpDown, Lock, X, ExternalLink, Sparkles, Shield } from 'lucide-react';
 import { AccountingContext } from '../../context/AccountingContext';
+import { ReviewLiabilityModal } from '../modals/ReviewLiabilityModal';
 
 interface JournalTableProps {
     entries: JournalEntry[];
 }
 
-type SortKey = 'date' | 'vendor' | 'description' | 'debitAccount' | 'amount' | 'status';
+type SortKey = 'date' | 'journalNumber' | 'vendor' | 'description' | 'debitAccount' | 'amount' | 'status';
 
 const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
-    const { updateEntry, deleteEntry, isDateLocked } = useContext(AccountingContext)!;
+    const { updateEntry, deleteEntry, isDateLocked, liabilities } = useContext(AccountingContext)!;
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
+
+    // Liability Modal State
+    const [isLiabilityModalOpen, setIsLiabilityModalOpen] = useState(false);
+    const [selectedLiabilityId, setSelectedLiabilityId] = useState<string | null>(null);
+
+    const handleOpenLiabilityReview = (id: string) => {
+        setSelectedLiabilityId(id);
+        setIsLiabilityModalOpen(true);
+    };
 
     const handleSort = (key: SortKey) => {
         setSortConfig(current => {
@@ -39,6 +49,20 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
         });
     }, [entries, sortConfig]);
 
+    const [itemsPerPage, setItemsPerPage] = useState(100);
+    const [currentPage, setCurrentPage] = useState(1);
+
+    // Reset page when entries change or filter changes
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [entries.length]);
+
+    const totalPages = Math.ceil(sortedEntries.length / itemsPerPage);
+    const paginatedEntries = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return sortedEntries.slice(startIndex, startIndex + itemsPerPage);
+    }, [sortedEntries, currentPage, itemsPerPage]);
+
     const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
         if (sortConfig?.key !== columnKey) return <ArrowUpDown size={10} className="ml-1 opacity-30 group-hover:opacity-100 transition-opacity" />;
         return sortConfig.direction === 'asc'
@@ -58,10 +82,29 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
         </th>
     );
 
+    // Helper to get Liability Status Color
+    const getLiabilityColor = (status: string) => {
+        switch (status) {
+            case 'UNPLANNED': return 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+            case 'PLANNED': return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+            case 'POTENTIAL_EQUITY': return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+            default: return 'text-slate-400 bg-slate-500/10 border-slate-500/20';
+        }
+    };
+
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     return (
         <div className="relative">
+            {/* Liability Review Modal */}
+            {selectedLiabilityId && (
+                <ReviewLiabilityModal
+                    isOpen={isLiabilityModalOpen}
+                    onClose={() => setIsLiabilityModalOpen(false)}
+                    recordId={selectedLiabilityId}
+                />
+            )}
+
             {/* Image Preview Modal */}
             {previewUrl && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-10 bg-[#070C18]/90 backdrop-blur-xl animate-in fade-in duration-300">
@@ -98,26 +141,57 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
                 </div>
             )}
 
+            {/* Pagination & Stats Bar */}
+            <div className="flex justify-between items-center mb-4 px-2">
+                <div className="text-xs text-slate-400 font-bold">
+                    Total <span className="text-white">{sortedEntries.length.toLocaleString()}</span> entries
+                    <span className="mx-2 text-slate-600">|</span>
+                    Page <span className="text-white">{currentPage}</span> of {totalPages}
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1.5 bg-white/5 disabled:opacity-30 rounded hover:bg-white/10 text-xs font-bold text-white transition-colors"
+                    >
+                        Previous
+                    </button>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1.5 bg-white/5 disabled:opacity-30 rounded hover:bg-white/10 text-xs font-bold text-white transition-colors"
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
+
             <div className="overflow-x-auto bg-[#151D2E] rounded-2xl shadow-2xl border border-white/5">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-white/5 border-b border-white/5">
                             {renderHeader("일자", "date")}
+                            {renderHeader("번호 (ID)", "journalNumber")}
                             {renderHeader("거래처", "vendor")}
                             {renderHeader("적요", "description")}
                             {renderHeader("계정 (차/대)", "debitAccount")}
-                            {renderHeader("금액", "amount", "text-right")}
+                            {renderHeader("금액 (VAT 포함)", "amount", "text-right")}
                             {renderHeader("상태", "status", "text-center")}
                             <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">증빙</th>
                             <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">관리</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                        {sortedEntries.length === 0 ? (
+                        {paginatedEntries.length === 0 ? (
                             <tr><td colSpan={8} className="px-6 py-20 text-center text-slate-600 font-bold italic">현재 데이터가 없습니다.</td></tr>
                         ) : (
-                            sortedEntries.map((entry) => {
+                            paginatedEntries.map((entry) => {
                                 const isLocked = isDateLocked(entry.date);
+                                // Find linked liability
+                                const liability = entry.liabilityRecordId
+                                    ? liabilities.find(l => l.id === entry.liabilityRecordId)
+                                    : null;
+
                                 return (
                                     <tr key={entry.id} className={`transition-colors ${isLocked ? 'bg-indigo-500/[0.02] opacity-70' : 'hover:bg-white/[0.02]'}`}>
                                         <td className="px-6 py-4 text-xs text-slate-400 font-mono font-bold">
@@ -133,6 +207,16 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-mono font-black text-indigo-400 tracking-tighter truncate w-24">
+                                                    {entry.journalNumber}
+                                                </span>
+                                                <span className="text-[8px] text-slate-600 font-bold uppercase tracking-widest">
+                                                    #{entry.sequenceNumber}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
                                             <input
                                                 type="text"
                                                 value={entry.vendor || ''}
@@ -142,26 +226,38 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
                                             />
                                         </td>
                                         <td className="px-6 py-4">
-                                            <input
-                                                type="text"
-                                                value={entry.description || ''}
-                                                disabled={isLocked}
-                                                onChange={(e) => updateEntry(entry.id, { description: e.target.value })}
-                                                className={`bg-transparent border-none text-sm text-slate-300 italic outline-none rounded px-1 w-full ${isLocked ? 'cursor-not-allowed opacity-60' : 'focus:ring-1 focus:ring-indigo-500'}`}
-                                            />
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={entry.description || ''}
+                                                    disabled={isLocked}
+                                                    onChange={(e) => updateEntry(entry.id, { description: e.target.value })}
+                                                    className={`bg-transparent border-none text-sm text-slate-300 italic outline-none rounded px-1 w-full ${isLocked ? 'cursor-not-allowed opacity-60' : 'focus:ring-1 focus:ring-indigo-500'}`}
+                                                />
+                                                {(entry.confidence && entry.confidence > 0.8) && (
+                                                    <div className="p-1 rounded bg-indigo-600/10 border border-indigo-600/20">
+                                                        <Sparkles size={10} className="text-indigo-400" />
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-black text-emerald-500 w-4">Dr</span>
+                                                    <span className="text-[10px] font-black text-emerald-500 w-4">차</span>
                                                     <div className="flex flex-col w-full">
-                                                        <input
-                                                            type="text"
-                                                            value={entry.debitAccount}
-                                                            disabled={isLocked}
-                                                            onChange={(e) => updateEntry(entry.id, { debitAccount: e.target.value })}
-                                                            className={`bg-transparent border-none text-[13px] font-bold text-white outline-none rounded px-1 w-full ${isLocked ? 'cursor-not-allowed opacity-60' : 'focus:ring-1 focus:ring-indigo-500'}`}
-                                                        />
+                                                        <div className="flex items-center gap-1">
+                                                            <input
+                                                                type="text"
+                                                                value={entry.debitAccount}
+                                                                disabled={isLocked}
+                                                                onChange={(e) => updateEntry(entry.id, { debitAccount: e.target.value })}
+                                                                className={`bg-transparent border-none text-[13px] font-bold text-white outline-none rounded px-1 w-full ${isLocked ? 'cursor-not-allowed opacity-60' : 'focus:ring-1 focus:ring-indigo-500'}`}
+                                                            />
+                                                            {entry.classificationStatus === 'AUTO_CLASSIFIED' && (
+                                                                <Shield size={10} className="text-emerald-500 shrink-0" />
+                                                            )}
+                                                        </div>
                                                         {entry.vat > 0 && (
                                                             <span className="text-[10px] text-emerald-400 font-bold px-1 flex items-center gap-1">
                                                                 ↳ 부가세대급금 (VAT)
@@ -170,14 +266,27 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-[10px] font-black text-rose-500 w-4">Cr</span>
-                                                    <input
-                                                        type="text"
-                                                        value={entry.creditAccount}
-                                                        disabled={isLocked}
-                                                        onChange={(e) => updateEntry(entry.id, { creditAccount: e.target.value })}
-                                                        className={`bg-transparent border-none text-[13px] font-bold text-slate-400 outline-none rounded px-1 w-full ${isLocked ? 'cursor-not-allowed opacity-60' : 'focus:ring-1 focus:ring-indigo-500'}`}
-                                                    />
+                                                    <span className="text-[10px] font-black text-rose-500 w-4">대</span>
+                                                    <div className="flex items-center w-full gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={entry.creditAccount}
+                                                            disabled={isLocked}
+                                                            onChange={(e) => updateEntry(entry.id, { creditAccount: e.target.value })}
+                                                            className={`bg-transparent border-none text-[13px] font-bold text-slate-400 outline-none rounded px-1 flex-1 ${isLocked ? 'cursor-not-allowed opacity-60' : 'focus:ring-1 focus:ring-indigo-500'}`}
+                                                        />
+                                                        {/* LIABILITY BADGE */}
+                                                        {liability && (
+                                                            <button
+                                                                onClick={() => handleOpenLiabilityReview(liability.id)}
+                                                                className={`flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-black uppercase tracking-wider transition-all hover:scale-105 ${getLiabilityColor(liability.state)}`}
+                                                                title={`책임 상태: ${liability.state}\n클릭하여 관리`}
+                                                            >
+                                                                <span>⚖️</span>
+                                                                <span>{liability.state === 'UNPLANNED' ? '위험' : liability.state === 'PLANNED' ? '계획' : '자본'}</span>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
@@ -205,15 +314,15 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
                                             {isLocked ? (
                                                 <div className="flex flex-col items-center gap-1">
                                                     <span className="px-3 py-1 bg-indigo-500/20 text-indigo-400 rounded-lg text-[9px] font-black border border-indigo-500/30 uppercase tracking-widest">
-                                                        Finalized
+                                                        전표 확정
                                                     </span>
                                                 </div>
                                             ) : (
                                                 <button
                                                     onClick={() => updateEntry(entry.id, { status: entry.status === 'Approved' ? 'Unconfirmed' : 'Approved' })}
-                                                    className={`px-3 py-1 rounded-lg text-[10px] font-black border uppercase tracking-wider transition-all ${entry.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}
+                                                    className={`px-3 py-1 rounded-lg text-[10px] font-black border uppercase tracking-wider transition-all ${entry.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95'}`}
                                                 >
-                                                    {entry.status}
+                                                    {entry.status === 'Approved' ? 'APPROVED' : 'CONFIRM'}
                                                 </button>
                                             )}
                                         </td>
@@ -251,20 +360,20 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
                         <tfoot className="bg-[#0B1221] border-t border-white/10">
                             <tr>
                                 <td colSpan={4} className="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase tracking-widest">
-                                    Trial Balance (대차대조 검증)
+                                    합계잔액 검증 (Trial Balance)
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex flex-col gap-1 items-end">
                                         {/* Debit Total */}
                                         <div className="flex justify-between w-48 text-xs font-bold">
-                                            <span className="text-emerald-500">Total Debit (차변 계)</span>
+                                            <span className="text-emerald-500">차변 합계 (Dr)</span>
                                             <span className="text-emerald-400 font-mono">
                                                 ₩{entries.reduce((acc, cur) => acc + cur.amount + (cur.vat || 0), 0).toLocaleString()}
                                             </span>
                                         </div>
                                         {/* Credit Total */}
                                         <div className="flex justify-between w-48 text-xs font-bold border-t border-white/10 pt-1">
-                                            <span className="text-rose-500">Total Credit (대변 계)</span>
+                                            <span className="text-rose-500">대변 합계 (Cr)</span>
                                             <span className="text-rose-400 font-mono">
                                                 ₩{entries.reduce((acc, cur) => acc + cur.amount + (cur.vat || 0), 0).toLocaleString()}
                                             </span>

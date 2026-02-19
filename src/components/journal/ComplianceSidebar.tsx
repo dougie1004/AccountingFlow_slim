@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ShieldCheck, ShieldQuestion, ShieldAlert, MessageSquare, Brain, Send, ArrowRight } from 'lucide-react';
+import { ShieldCheck, ShieldQuestion, ShieldAlert, MessageSquare, Brain, Send, ArrowRight, User, Clock } from 'lucide-react';
 import { AnalysisResponse } from '../../types';
 import { useAI } from '../../hooks/useAI';
 import { cleanMarkdown } from '../../utils/textUtils';
+import { getResponsibilityRoute } from '../../bridge/StrategicBridge';
 
 interface ComplianceSidebarProps {
     analysis: AnalysisResponse | null;
@@ -36,13 +37,15 @@ export const ComplianceSidebar: React.FC<ComplianceSidebarProps> = ({ analysis, 
     return (
         <div className="h-full bg-[#070C18] p-6 flex flex-col space-y-6 animate-in slide-in-from-right-4 duration-700 rounded-3xl border border-white/5">
             <header className="flex items-center gap-3">
-                <div className={`p-2 rounded-xl border ${complianceStatus === 'Safe' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                <div className={`p-2 rounded-xl border transition-all ${complianceStatus === 'Safe' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
                     complianceStatus === 'Warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-                        'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                        complianceStatus === 'Unclassified' ? 'bg-slate-800/20 border-white/5 text-slate-500 grayscale' :
+                            'bg-rose-500/10 border-rose-500/20 text-rose-400'
                     }`}>
                     {complianceStatus === 'Safe' ? <ShieldCheck size={20} /> :
                         complianceStatus === 'Warning' ? <ShieldQuestion size={20} /> :
-                            <ShieldAlert size={20} />}
+                            complianceStatus === 'Unclassified' ? <Brain size={20} className="opacity-40" /> :
+                                <ShieldAlert size={20} />}
                 </div>
                 <div>
                     <h2 className="text-sm font-black text-white uppercase tracking-wider">Accounting AI</h2>
@@ -60,9 +63,10 @@ export const ComplianceSidebar: React.FC<ComplianceSidebarProps> = ({ analysis, 
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        <div className={`p-6 rounded-3xl border animate-in zoom-in-95 duration-300 ${complianceStatus === 'Safe' ? 'bg-emerald-500/5 border-emerald-500/10 text-emerald-300/80' :
+                        <div className={`p-6 rounded-3xl border animate-in zoom-in-95 duration-300 transition-all ${complianceStatus === 'Safe' ? 'bg-emerald-500/5 border-emerald-500/10 text-emerald-300/80' :
                             complianceStatus === 'Warning' ? 'bg-amber-500/5 border-amber-500/10 text-amber-300/80' :
-                                'bg-rose-500/5 border-rose-500/10 text-rose-300/80'
+                                complianceStatus === 'Unclassified' ? 'bg-slate-900/40 border-white/5 text-slate-500' :
+                                    'bg-rose-500/5 border-rose-500/10 text-rose-300/80'
                             }`}>
                             <h3 className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2">
                                 <MessageSquare size={12} /> Accounting Advisory
@@ -88,10 +92,42 @@ export const ComplianceSidebar: React.FC<ComplianceSidebarProps> = ({ analysis, 
                                 </p>
                             </div>
 
-                            {/* Verification Badge */}
-                            <div className="mt-4 flex items-center gap-2 bg-white/5 px-3 py-2 rounded-xl border border-white/10">
-                                <ShieldCheck size={14} className="text-emerald-400" />
-                                <span className="text-[10px] font-black text-emerald-100 uppercase">AI 회계사 검증 완료</span>
+                            <div className="mt-4 flex flex-col gap-2">
+                                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${complianceStatus === 'Unclassified' ? 'bg-amber-500/5 border-amber-500/10' : 'bg-white/5 border-white/10'}`}>
+                                    <ShieldCheck size={14} className={complianceStatus === 'Unclassified' ? 'text-amber-500/60' : 'text-emerald-400'} />
+                                    <span className={`text-[10px] font-black uppercase ${complianceStatus === 'Unclassified' ? 'text-amber-500/60' : 'text-emerald-100'}`}>
+                                        {complianceStatus === 'Unclassified' ? '사용자 판단 대기 (Manual)' : 'AI 회계사 검증 완료'}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col gap-1 px-3">
+                                    <span className="text-[8px] font-black text-indigo-500/60 uppercase tracking-widest">
+                                        {complianceStatus === 'Unclassified' ? '시스템 회계 정책 제7조(해석 유보) 적용 중' : '시스템 회계 정책 준수 완료'}
+                                    </span>
+                                    {complianceStatus === 'Unclassified' && analysis.transaction && (
+                                        <div className="mt-2 space-y-2">
+                                            <div className="flex items-center gap-2 px-2 py-1.5 bg-rose-500/10 rounded-lg border border-rose-500/20">
+                                                <User size={10} className="text-rose-400" />
+                                                <span className="text-[9px] font-black text-rose-300 uppercase">
+                                                    Next Assignment: {getResponsibilityRoute(analysis.transaction).currentOwner}
+                                                </span>
+                                            </div>
+                                            <p className="text-[9px] text-slate-400 font-bold px-1 leading-tight italic">
+                                                * {getResponsibilityRoute(analysis.transaction).description}
+                                            </p>
+                                            {getResponsibilityRoute(analysis.transaction).nextEscalation && (
+                                                <div className="flex items-center gap-1.5 px-2 text-amber-500/70 border-t border-white/5 pt-2">
+                                                    <Clock size={8} />
+                                                    <span className="text-[8px] font-black italic">
+                                                        {getResponsibilityRoute(analysis.transaction).escalationAfterDays}일 후 {getResponsibilityRoute(analysis.transaction).nextEscalation} 검토로 자동 이관
+                                                    </span>
+                                                </div>
+                                            )}
+                                            <span className="text-[7px] font-bold text-slate-700 uppercase tracking-tighter block px-1 pt-1 opacity-60">
+                                                [Accountability] 처리 이력이 감사 로그에 기록됩니다.
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 

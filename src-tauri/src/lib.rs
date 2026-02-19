@@ -4,6 +4,7 @@ pub mod accounting;
 pub mod tax;
 pub mod ai;
 pub mod inventory;
+pub mod scm;
 pub mod utils;
 
 mod commands;
@@ -54,7 +55,8 @@ pub fn run() {
             commands::parse_universal_file,
             commands::generic_ai_chat,
             commands::process_audit_context,
-            commands::perform_audit_check
+            commands::perform_audit_check,
+            commands::generate_management_report
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

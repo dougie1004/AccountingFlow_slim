@@ -62,7 +62,10 @@ const ApprovalDesk: React.FC = () => {
                     description: '부가세 정산 (매입매출 상계)',
                     status: 'Unconfirmed',
                     type: 'General',
-                    vat: 0
+                    vat: 0,
+                    createdAt: new Date().toISOString(),
+                    journalNumber: 'PENDING',
+                    sequenceNumber: 0
                 });
             }
 
@@ -77,7 +80,10 @@ const ApprovalDesk: React.FC = () => {
                     description: '부가세 정산 (납부세액 확정)',
                     status: 'Unconfirmed',
                     type: 'General',
-                    vat: 0
+                    vat: 0,
+                    createdAt: new Date().toISOString(),
+                    journalNumber: 'PENDING',
+                    sequenceNumber: 0
                 });
             } else if (payable < 0) {
                 entries.push({
@@ -89,7 +95,10 @@ const ApprovalDesk: React.FC = () => {
                     description: '부가세 정산 (환급세액 확정)',
                     status: 'Unconfirmed',
                     type: 'General',
-                    vat: 0
+                    vat: 0,
+                    createdAt: new Date().toISOString(),
+                    journalNumber: 'PENDING',
+                    sequenceNumber: 0
                 });
             }
             addEntries(entries);

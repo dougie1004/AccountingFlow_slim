@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Send, X, MessageSquare, Bot, HelpCircle, TrendingUp, ShieldCheck, ChevronDown, Maximize2 } from 'lucide-react';
 import { AccountingContext } from '../../context/AccountingContext';
 import { chatWithCfo } from '../../services/aiService';
+import { cleanMarkdown } from '../../utils/textUtils';
 
 interface Message {
     id: string;
@@ -167,16 +168,16 @@ export const CfoAssistant: React.FC = () => {
                 3. **데이터가 없는 기간에 대해 절대로 "예상 수치"나 "가상의 거래"를 만들어내지 마십시오.** (할루시네이션 방지)
 
                 [📢 실시간 전사 재무 수치 (대시보드 동기화됨)]
-                - **현재 총 현금 잔액: ${financials.displayCash} (Raw: ${financials.cash.toLocaleString()}원)**
+                - 현재 총 현금 잔액: ${financials.displayCash} (Raw: ${financials.cash.toLocaleString()}원)
                 - 누적 당기순이익: ${financials.displayNetIncome}
-                - **월 평균 고정 지출(Burn Rate): 약 ${Math.round(avgMonthlyBurn).toLocaleString()}원**
-                - **예상 현금 소진 기간(Runway): 약 ${runway.toFixed(1)}개월 (지출이 지속될 경우)**
+                - 월 평균 고정 지출(Burn Rate): 약 ${Math.round(avgMonthlyBurn).toLocaleString()}원
+                - 예상 현금 소진 기간(Runway): 약 ${runway.toFixed(1)}개월 (지출이 지속될 경우)
 
                 [🔍 관리 현황 및 컴플라이언스 (Evidence Health)]
-                - **전표 관리 점수**: ${100 - unconfirmedRatio}점 (높을수록 좋음)
-                - **미승인 전표**: ${unconfirmedCount}건 (${unconfirmedRatio}%) - *이 비율이 높으면 "관리가 밀려있다"고 경고하십시오.*
-                - **적격 증빙 보유율**: ${evidenceHealth}% (카드: ${cardCount}, 세금계산서: ${taxCount}, 현금영수증: ${cashCount})
-                - **증빙 누락 위험군**: ${missingCount}건 - *이 숫자가 크면 "세무 리스크가 있다"고 조언하십시오.*
+                - 전표 관리 점수: ${100 - unconfirmedRatio}점 (높을수록 좋음)
+                - 미승인 전표: ${unconfirmedCount}건 (${unconfirmedRatio}%) - *이 비율이 높으면 "관리가 밀려있다"고 경고하십시오.*
+                - 적격 증빙 보유율: ${evidenceHealth}% (카드: ${cardCount}, 세금계산서: ${taxCount}, 현금영수증: ${cashCount})
+                - 증빙 누락 위험군: ${missingCount}건 - *이 숫자가 크면 "세무 리스크가 있다"고 조언하십시오.*
                 
                 [상세 재무 데이터 (조회된 기간: ${dateToQuery || '없음'})]
                 ${periodContext || '요청된 특정 기간의 데이터가 없습니다. 아래 최근 거래와 전사 요약을 참고하여 답변하십시오.'}
@@ -281,7 +282,7 @@ export const CfoAssistant: React.FC = () => {
                                                 ? 'bg-indigo-600 text-white font-medium rounded-tr-sm shadow-xl shadow-indigo-600/10'
                                                 : 'bg-white/5 border border-white/10 text-slate-200 rounded-tl-sm'
                                                 }`}>
-                                                {msg.content}
+                                                {cleanMarkdown(msg.content)}
                                             </div>
                                         </div>
                                     ))}

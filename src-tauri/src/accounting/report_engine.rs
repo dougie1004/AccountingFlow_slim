@@ -21,6 +21,11 @@ pub struct ManagementReport {
     pub checklist: Vec<String>,
     pub bps_insight: Option<String>,
     pub asset_insights: AssetInsights,
+    // Phase 6 Professional Narrative Fields
+    pub observations: Vec<String>,
+    pub impacts: Vec<String>,
+    pub decisions: Vec<String>,
+    pub pending_risks: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -95,10 +100,11 @@ pub struct RiskAssessment {
  */
 pub async fn generate_management_report(
     ledger: Vec<JournalEntry>,
-    inventory: Vec<crate::core::models::InventoryItem>,
+    inventory: Vec<crate::inventory::InventoryItem>,
     assets: Vec<Asset>,
     period_start: String,
     period_end: String,
+    report_mode: String, // "Growth" | "Efficiency" | "Defense"
 ) -> Result<ManagementReport, String> {
     // 1. 재무 데이터 집계
     let financial_overview = calculate_financial_overview(&ledger);
@@ -165,24 +171,27 @@ pub async fn generate_management_report(
     let asset_insights = calculate_asset_insights(&assets);
 
     // 6. AI 기반 상세 분석 생성 (Gemini 2.0 Flash)
-    let (executive_summary, detailed_analysis, recommendations) = 
-        generate_ai_analysis(&financial_overview, &trend_analysis, &risk_assessment, &scm_insights, &tax_compliance, &asset_insights).await?;
+    let ai_result = generate_ai_analysis(&financial_overview, &trend_analysis, &risk_assessment, &scm_insights, &tax_compliance, &asset_insights, &report_mode).await?;
 
     Ok(ManagementReport {
-        report_title: format!("{} ~ {} 경영 분석 리포트", period_start, period_end),
+        report_title: format!("{} Management Narrative ({})", report_mode, period_end),
         report_date: chrono::Local::now().format("%Y년 %m월 %d일").to_string(),
-        executive_summary,
+        executive_summary: ai_result.executive_summary,
         financial_overview,
         scm_insights,
         tax_compliance,
         trend_analysis,
         risk_assessment,
-        recommendations,
-        detailed_analysis,
-        disclaimer: Some("본 리포트에서 산출된 R&D 세액공제 추정치는 당사가 '기업부설연구소' 또는 '연구개발전담부서' 인가를 득하고 관련 요건을 모두 충족하고 있다는 전제하에 산정된 수치입니다. 실제 세액공제 적용 가능 여부 및 정확한 법인세 산출은 반드시 전담 세무 전문가와 상담하시기 바랍니다.".to_string()),
+        recommendations: ai_result.recommendations,
+        detailed_analysis: ai_result.detailed_analysis,
+        disclaimer: Some("본 보고서는 의사결정 지원 목적의 참고 자료이며, 최종 책임은 사용자에게 있습니다.".to_string()),
         checklist,
         bps_insight,
         asset_insights,
+        observations: ai_result.observations,
+        impacts: ai_result.impacts,
+        decisions: ai_result.decisions,
+        pending_risks: ai_result.pending_risks,
     })
 }
 
@@ -293,7 +302,7 @@ fn analyze_trends(ledger: &[JournalEntry]) -> Vec<TrendInsight> {
 
     // 재고 감모 손실 감지 (NEW)
     let shrinkage: f64 = ledger.iter()
-        .filter(|e| e.debit_account.contains("감모손실") || e.tax_code == Some("INV_SHRINKAGE".to_string()))
+        .filter(|e| e.debit_account.contains("감모손실") || e.description.contains("SHRINKAGE"))
         .map(|e| e.amount)
         .sum();
 
@@ -349,6 +358,17 @@ fn assess_risks(ledger: &[JournalEntry], overview: &FinancialOverview) -> RiskAs
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct AiAnalysisResponse {
+    executive_summary: String,
+    detailed_analysis: String,
+    recommendations: Vec<String>,
+    observations: Vec<String>,
+    impacts: Vec<String>,
+    decisions: Vec<String>,
+    pending_risks: Vec<String>,
+}
+
 async fn generate_ai_analysis(
     overview: &FinancialOverview,
     trends: &[TrendInsight],
@@ -356,7 +376,8 @@ async fn generate_ai_analysis(
     scm: &ScmInsights,
     tax: &TaxCompliance,
     assets: &AssetInsights,
-) -> Result<(String, String, Vec<String>), String> {
+    report_mode: &str,
+) -> Result<AiAnalysisResponse, String> {
     let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| "환경 변수 'GEMINI_API_KEY'가 설정되지 않았습니다.".to_string())?;
 
     let trends_summary = trends.iter()
@@ -400,18 +421,25 @@ async fn generate_ai_analysis(
 - 연간 감가상각비: ₩{:.0}
 - 5개년 상각 추이: {}
 
-다음 4가지를 작성하세요:
+다음 지침에 따라 리포트를 작성하세요:
+분석 모드: {}
 
-1. **경영진 요약** (2-3문장): 핵심 재무 상태와 주요 이슈
-2. **상세 분석** (5-7문장): 비용 증가 원인, 리스크 요인, 특히 **재고 감모 손실**이 있을 경우 규정 범위 내인지 혹은 부정 징후(Fraud)가 있는지 전문가적 견해 포함
-3. **투자 및 자산 전략 (BPS 분석)**: 현재의 무형자산화/고정자산 취득 전략이 BPS(주당순자산) 및 차기 투자 라운드 기업 가치에 미치는 영향을 정량적으로 분석 (예: "현재 전략 유지 시 순자산 가치 X만큼 보전 가능")
-4. **권장 사항** (3개 항목): 실행 가능한 구체적 조치
+1. **Executive Summary** (2-3문장): 전체 현황 요약
+2. **Key Observations** (리스트): 위 데이터에서 식별된 구체적인 회계/재무적 관측 항목
+3. **Management Impact** (리스트): 이 현상이 경영 및 기업 가치에 미치는 실질적 영향
+4. **Key Decisions (Recorded)** (리스트): 경영진이 즉시 내리거나 기록해야 할 의사결정 권고안
+5. **Pending Critical Risks** (리스트): 향후 발생 가능한 가장 치명적인 리스크 1-2개
+6. **Detailed Analysis**: 상세 분석 내용 (BPS 분석 포함)
 
 JSON 형식으로 응답:
 {{
   "executive_summary": "...",
   "detailed_analysis": "...",
-  "recommendations": ["...", "...", "..."]
+  "recommendations": ["...", "..."],
+  "observations": ["...", "..."],
+  "impacts": ["...", "..."],
+  "decisions": ["...", "..."],
+  "pending_risks": ["...", "..."]
 }}
 "#,
         overview.total_revenue,
@@ -439,7 +467,8 @@ JSON 형식으로 응답:
         tax.major_adjustment,
         assets.total_fixed_assets,
         assets.annual_depreciation,
-        assets.next_5_year_forecast.iter().map(|v| format!("₩{:.0}", v)).collect::<Vec<_>>().join(", ")
+        assets.next_5_year_forecast.iter().map(|v| format!("₩{:.0}", v)).collect::<Vec<_>>().join(", "),
+        report_mode,
     );
 
     let client = reqwest::Client::new();
@@ -466,25 +495,8 @@ JSON 형식으로 응답:
         }
     }
 
-    let result: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| format!("JSON 파싱 실패: {}", e))?;
-
-    let executive_summary = result["executive_summary"]
-        .as_str()
-        .unwrap_or("분석 중 오류 발생")
-        .to_string();
-
-    let detailed_analysis = result["detailed_analysis"]
-        .as_str()
-        .unwrap_or("분석 중 오류 발생")
-        .to_string();
-
-    let recommendations = result["recommendations"]
-        .as_array()
-        .ok_or("recommendations 필드 없음")?
-        .iter()
-        .filter_map(|v| v.as_str().map(String::from))
-        .collect();
-
-    Ok((executive_summary, detailed_analysis, recommendations))
+    let ai_res: AiAnalysisResponse = serde_json::from_str(&text)
+        .map_err(|e| format!("JSON 파싱 실패 (AiAnalysisResponse): {}", e))?;
+ 
+    Ok(ai_res)
 }

@@ -16,23 +16,22 @@ import {
 import { JournalEntry } from '../types';
 import { TransactionDetailModal } from '../components/modals/TransactionDetailModal';
 import { SmartExcelUploader } from '../components/SmartExcelUploader';
+import { calculateDailyCashFlow } from '../bridge/StrategicBridge';
+import { isArAccount, isApAccount, isCashAccount } from '../constants/accounts';
 
 type ViewMode = 'daily' | 'receivables' | 'payables';
 
 export const DailyCashReport: React.FC = () => {
-    const { ledger, financials, addEntries, addEntry, updateEntry } = useAccounting();
+    const { ledger, financials, config, addEntries, addEntry, updateEntry, systemNow, setSystemNow } = useAccounting();
     const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [actualBalance, setActualBalance] = useState<number>(financials.cash);
+    const [actualBalance, setActualBalance] = useState<number>(0);
     const [viewMode, setViewMode] = useState<ViewMode>('daily');
     const [showUpload, setShowUpload] = useState(false);
 
-    // Sync actual balance with book balance on load
-    React.useEffect(() => {
-        if (financials.cash > 0 && actualBalance === 0) {
-            setActualBalance(financials.cash);
-        }
-    }, [financials.cash]);
+    const selectedDate = systemNow;
+    const setSelectedDate = setSystemNow;
+
+
 
     const handleSmartUpload = (newEntries: JournalEntry[]) => {
         addEntries(newEntries);
@@ -44,78 +43,52 @@ export const DailyCashReport: React.FC = () => {
 
     // --- Computed Data ---
 
-    // 1. Daily Cash Logic (Standard Korean Format: Prev + In - Out = End)
+    // ...
+
+    // 1. Daily Cash Logic (Single Source of Truth)
+    const openingBalance = useMemo(() => {
+        if (!config.initialBalances) return 0;
+        return config.initialBalances
+            .filter(ib => isCashAccount(ib.account))
+            .reduce((sum, ib) => sum + ib.amount, 0);
+    }, [config.initialBalances]);
+
     const cashSummary = useMemo(() => {
-        const target = selectedDate;
-        let prevBalance = 0;
-        let todayIn = 0;
-        let todayOut = 0;
-        const inflows: JournalEntry[] = [];
-        const outflows: JournalEntry[] = [];
+        return calculateDailyCashFlow(ledger, selectedDate, openingBalance);
+    }, [ledger, selectedDate, openingBalance]);
 
-        const isCashAcc = (acc: string) => {
-            const n = acc.toLowerCase();
-            return n.includes('예금') || n.includes('현금') || n.includes('cash') || n.includes('bank');
-        };
-
-        ledger.filter(e => e.status === 'Approved').forEach(e => {
-            const total = e.amount + (e.vat || 0);
-            const isCashD = isCashAcc(e.debitAccount);
-            const isCashC = isCashAcc(e.creditAccount);
-
-            // 1. Calculate Previous Balance (Up to yesterday)
-            if (e.date < target) {
-                if (isCashD) prevBalance += total;
-                if (isCashC) prevBalance -= total;
-            }
-            // 2. Calculate Today's Flow
-            else if (e.date === target) {
-                if (isCashD) {
-                    todayIn += total;
-                    inflows.push(e);
-                }
-                if (isCashC) {
-                    todayOut += total;
-                    outflows.push(e);
-                }
-            }
-        });
-
-        return {
-            prevBalance,
-            todayIn,
-            todayOut,
-            endBalance: prevBalance + todayIn - todayOut,
-            inflows,
-            outflows
-        };
-    }, [ledger, selectedDate]);
+    // Sync actual balance with calculated book balance when date changes
+    React.useEffect(() => {
+        setActualBalance(cashSummary.endBalance);
+    }, [cashSummary.endBalance]);
 
     // 2. Receivables (AR) - Aging Analysis
     const receivables = useMemo(() => {
         return ledger.filter(e => {
-            const acc = (e.debitAccount || '').toLowerCase();
-            const isAr = acc.includes('미수') || acc.includes('외상매출') || acc.includes('receivable');
-            return e.status === 'Approved' && isAr && !e.isSettled;
+            // Point-in-time filtering: only items occurred on or before selectedDate
+            if (e.date > selectedDate) return false;
+
+            return e.status === 'Approved' && isArAccount(e.debitAccount) && !e.isSettled;
         }).map(e => {
             const dueDate = e.dueDate || e.date;
-            const daysOverdue = Math.floor((new Date().getTime() - new Date(dueDate).getTime()) / (1000 * 3600 * 24));
+            const daysOverdue = Math.floor((new Date(selectedDate).getTime() - new Date(dueDate).getTime()) / (1000 * 3600 * 24));
             return { ...e, daysOverdue, dueDate } as any;
         }).sort((a, b) => b.daysOverdue - a.daysOverdue);
-    }, [ledger]);
+    }, [ledger, selectedDate]);
 
     // 3. Payables (AP) - Upcoming Payments
     const payables = useMemo(() => {
         return ledger.filter(e => {
-            const acc = (e.creditAccount || '').toLowerCase();
-            const isAp = acc.includes('미지급') || acc.includes('외상매입') || acc.includes('payable');
-            return e.status === 'Approved' && isAp && !e.isSettled;
+            // Point-in-time filtering
+            if (e.date > selectedDate) return false;
+
+            return e.status === 'Approved' && isApAccount(e.creditAccount) && !e.isSettled;
         }).map(e => {
             const dueDate = e.dueDate || e.date;
-            const daysUntilDue = Math.floor((new Date(dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+            const daysUntilDue = Math.floor((new Date(dueDate).getTime() - new Date(selectedDate).getTime()) / (1000 * 3600 * 24));
             return { ...e, daysUntilDue, dueDate } as any;
         }).sort((a, b) => a.daysUntilDue - b.daysUntilDue);
-    }, [ledger]);
+    }, [ledger, selectedDate]);
 
     const formatCurrency = (amount: number) => `₩${amount.toLocaleString()}`;
 
@@ -408,16 +381,16 @@ export const DailyCashReport: React.FC = () => {
                                                             // 2. Create Cash Outflow Entry (Payment)
                                                             addEntry({
                                                                 id: crypto.randomUUID(),
-                                                                date: selectedDate, // Payment Date = Report Date
+                                                                date: selectedDate,
                                                                 description: `[지급] ${item.description}`,
                                                                 vendor: item.vendor,
-                                                                debitAccount: item.creditAccount, // Offset the Payable (e.g. 미지급금)
-                                                                creditAccount: '보통예금', // Cash Out
+                                                                debitAccount: item.creditAccount,
+                                                                creditAccount: '보통예금',
                                                                 amount: item.amount,
-                                                                vat: 0, // VAT was handled in original invoice
-                                                                type: 'Liability', // Reducing Liability
+                                                                vat: 0,
+                                                                type: 'Liability',
                                                                 status: 'Approved'
-                                                            });
+                                                            } as any);
                                                             alert('지급 처리가 완료되었습니다.');
                                                         }
                                                     }}

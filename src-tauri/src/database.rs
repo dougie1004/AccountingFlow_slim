@@ -39,7 +39,17 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<(), String> {
         params![]
     ).map_err(|e| e.to_string())?;
 
-    // 3. Initial Balances
+    // 3. Accounts (Master Data - Constitutional Art. 4 Enforcement)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS accounts (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            nature TEXT NOT NULL
+        )",
+        params![]
+    ).map_err(|e| e.to_string())?;
+
+    // 4. Initial Balances
     conn.execute(
         "CREATE TABLE IF NOT EXISTS initial_balances (
             account TEXT PRIMARY KEY,
@@ -47,6 +57,25 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<(), String> {
         )",
         params![]
     ).map_err(|e| e.to_string())?;
+
+    // [CONSTITUTION Art. 4] Mandatory Seeding of Standard Accounts
+    // Ensure all standard accounts exist with their natures.
+    let standard_accounts = vec![
+        ("현금", "ASSET"),
+        ("보통예금", "ASSET"),
+        ("매출", "NON_OPERATING"),
+        ("매출원가", "COGS"),
+        ("급여", "SG&A"),
+        ("지급수수료", "SG&A"),
+        ("임차료", "SG&A"),
+    ];
+
+    for (name, nature) in standard_accounts {
+        conn.execute(
+            "INSERT OR IGNORE INTO accounts (id, name, nature) VALUES (?1, ?2, ?3)",
+            params![uuid::Uuid::new_v4().to_string(), name, nature]
+        ).ok();
+    }
 
     Ok(())
 }

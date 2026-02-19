@@ -1,11 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { safeInvoke, safeListen } from "../lib/tauri-bridge";
 import {
     ArrowRight, ShieldAlert, Cpu, Database,
-    Server, Monitor, LayoutDashboard, AlertCircle,
-    CheckCircle2, Share2, GitBranch, Terminal, X, Activity
+    Server, Monitor, AlertCircle,
+    Share2, GitBranch, Terminal, Activity,
+    Zap, Flame, Lock, Eye, BarChart3
 } from "lucide-react";
 import { useApp } from "../App";
+import { ConstitutionMonitor } from "../constitution/ConstitutionMonitor";
+import { useAccounting } from "../hooks/useAccounting";
+import { analyzeStrategicDeviation } from "../bridge/StrategicBridge";
 
 interface Violation {
     id: string;
@@ -32,18 +36,32 @@ interface MockFile {
 
 export default function ProcessMonitoring() {
     const { activeProject } = useApp();
+    const { injectStressData, ledger } = useAccounting();
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [result, setResult] = useState<MiningResult | null>(null);
     const [progress, setProgress] = useState(0);
     const [mockFiles, setMockFiles] = useState<MockFile[]>([]);
     const [selectedMock, setSelectedMock] = useState<MockFile | null>(null);
 
+    // [Phase 3] Silent Observation Logic
+    const deviations = useMemo(() => {
+        try {
+            return analyzeStrategicDeviation(ledger);
+        } catch (e) {
+            console.error("Strategic Observation Error:", e);
+            return null; // Return null to signal error state
+        }
+    }, [ledger]);
+
     useEffect(() => {
+        // [Immunity System] Process mining is always a REAL_WORLD observation tool
+        ConstitutionMonitor.getInstance().setContext('REAL_WORLD');
+
         let unlistenFn: (() => void) | undefined;
 
         const setupListener = async () => {
             const unlisten = await safeListen("process-mining-progress", (e: any) => {
-                setProgress(e.payload);
+                setProgress(e.payload as number);
             });
             unlistenFn = unlisten;
         };
@@ -77,6 +95,122 @@ export default function ProcessMonitoring() {
 
     return (
         <div className="p-8 md:p-12 space-y-10 bg-[#0B1221] min-h-screen text-slate-300">
+            {/* [Phase 3: Observation Console] */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-4">
+                <div className="lg:col-span-3 bg-[#0F172A] border border-indigo-500/20 rounded-[2.5rem] p-8 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-8 text-indigo-500/5 pointer-events-none"><Eye size={200} /></div>
+                    <div className="relative z-10 space-y-8">
+                        <header className="flex justify-between items-end border-b border-indigo-500/20 pb-6">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-3 text-indigo-400">
+                                    <Monitor size={24} className="animate-pulse" />
+                                    <h2 className="text-xl font-black uppercase tracking-[0.2em]">Strategic Observation Console</h2>
+                                </div>
+                                <p className="text-sm font-bold text-slate-500 max-w-2xl">
+                                    실시간 재무 데이터와 시나리오 기준값(Baseline) 사이의 편차를 감시합니다.
+                                    현재 단계에서는 AI의 주관적 개입 없이, <span className="text-indigo-400">객관적 수치 괴리(Hard Violation)</span>만 리포팅합니다.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2 bg-indigo-500/10 px-4 py-2 rounded-xl border border-indigo-500/20">
+                                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Active Monitoring</span>
+                            </div>
+                        </header>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {!deviations ? (
+                                <div className="col-span-full bg-rose-500/10 border border-rose-500/30 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-4 text-center">
+                                    <ShieldAlert className="text-rose-500 w-12 h-12 animate-bounce" />
+                                    <div>
+                                        <h3 className="text-lg font-black text-rose-400 uppercase tracking-widest mb-1">Observation Suspended</h3>
+                                        <p className="text-sm font-bold text-rose-500/70">Data Integrity Violation Detected</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                deviations.map(d => {
+                                    const isCritical = d.severity === 'CRITICAL';
+                                    const isWatch = d.severity === 'WATCH';
+                                    const colorClass = isCritical ? 'text-rose-500' : isWatch ? 'text-amber-400' : 'text-emerald-500';
+                                    const bgClass = isCritical ? 'bg-rose-500/5 border-rose-500/20' : isWatch ? 'bg-amber-500/5 border-amber-500/20' : 'bg-emerald-500/5 border-emerald-500/20';
+
+                                    return (
+                                        <div key={d.id} className={`${bgClass} border rounded-[2rem] p-6 hover:scale-[1.02] transition-transform duration-300 group`}>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="space-y-1">
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${isCritical ? 'bg-rose-500/20 border-rose-500/30 text-rose-400' : isWatch ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'}`}>
+                                                        {d.severity}
+                                                    </span>
+                                                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2">{d.category}</div>
+                                                </div>
+                                                <div className={`p-2 rounded-xl bg-black/20 ${colorClass}`}>
+                                                    <Activity size={16} />
+                                                </div>
+                                            </div>
+
+                                            <div className="mb-4">
+                                                <h4 className="text-sm font-black text-slate-300 uppercase tracking-tight mb-1">{d.metric}</h4>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className={`text-3xl font-black ${colorClass} tracking-tighter`}>
+                                                        {d.variancePercent > 0 ? '+' : ''}{d.variancePercent}%
+                                                    </span>
+                                                </div>
+                                                <p className="text-[10px] font-mono font-bold text-slate-500 mt-1">
+                                                    Δ {d.delta.toLocaleString()} (vs Base)
+                                                </p>
+                                            </div>
+
+                                            <div className="pt-4 border-t border-white/5">
+                                                <p className="text-xs font-bold text-slate-400 leading-relaxed line-clamp-2 group-hover:line-clamp-none transition-all">
+                                                    {d.insight}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* [Stress Control Center] - Step A & B Checkpoint */}
+            <div className="bg-rose-500/5 border-2 border-rose-500/20 rounded-[40px] p-8 md:p-10 mb-8 overflow-hidden relative group">
+                <div className="absolute top-0 right-0 p-8 text-rose-500/10 group-hover:text-rose-500/20 transition-colors"><Flame size={120} /></div>
+                <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3 text-rose-500">
+                            <ShieldAlert size={28} className="animate-pulse" />
+                            <h2 className="text-2xl font-black uppercase tracking-tighter">Stress Control Center</h2>
+                        </div>
+                        <p className="text-slate-400 font-bold max-w-xl">
+                            <span className="text-rose-400/80 uppercase text-[11px] block mb-1">Article 5: Fail-Fast Policy (Step A/B)</span>
+                            고의적으로 오염된 유전자를 주입하여 시스템의 <strong>방어 능력(Constitution)</strong>을 검증합니다.
+                            주입 시 즉시 Fail-Fast가 작동해야 합니다.
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap gap-4">
+                        <button
+                            onClick={() => injectStressData('unbalanced')}
+                            className="px-6 py-4 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-3 group/btn"
+                        >
+                            <Zap size={16} className="group-hover:scale-125 transition-transform" /> 1원 차대 오차 주입
+                        </button>
+                        <button
+                            onClick={() => injectStressData('negative_asset')}
+                            className="px-6 py-4 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-400 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-3 group/btn"
+                        >
+                            <Flame size={16} className="group-hover:scale-125 transition-transform" /> 음수 잔액 폭탄 주입
+                        </button>
+                        <button
+                            onClick={() => injectStressData('date_error')}
+                            className="px-6 py-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-3 group/btn"
+                        >
+                            <Lock size={16} className="group-hover:scale-125 transition-transform" /> 미래 날짜 오류 주입
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div className="space-y-2">
                     <div className="flex items-center gap-2">

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { X, Check, Calculator, Calendar, User, FileText, ArrowRightLeft, Clock } from 'lucide-react';
-import { JournalEntry, EntryType } from '../../types';
-import { ALL_ACCOUNTS } from '../../constants/accounts';
+import { JournalEntry, EntryType, AccountNature, ConstitutionViolationError } from '../../types';
+import { ALL_ACCOUNTS, getAccountNature, STANDARD_ACCOUNTS } from '../../constants/accounts';
+import { ConstitutionMonitor } from '../../constitution/ConstitutionMonitor';
 
 interface ManualEntryModalProps {
     isOpen: boolean;
@@ -10,6 +11,12 @@ interface ManualEntryModalProps {
 }
 
 export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onClose, onSave }) => {
+    React.useEffect(() => {
+        if (isOpen) {
+            ConstitutionMonitor.getInstance().setContext('REAL_WORLD');
+        }
+    }, [isOpen]);
+
     const [formData, setFormData] = useState<Partial<JournalEntry>>({
         date: new Date().toISOString().split('T')[0],
         description: '',
@@ -22,6 +29,8 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
     });
     const [debitAmount, setDebitAmount] = useState<number>(0);
     const [creditAmount, setCreditAmount] = useState<number>(0);
+    const [debitNature, setDebitNature] = useState<AccountNature | ''>('');
+    const [creditNature, setCreditNature] = useState<AccountNature | ''>('');
     const [validationError, setValidationError] = useState<string | null>(null);
     const [isAiSuggesting, setIsAiSuggesting] = useState(false);
 
@@ -29,6 +38,16 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // CONSTITUTION CHECK: Every account must have exactly one Nature (Art. 1)
+        try {
+            const dn = debitNature || getAccountNature(formData.debitAccount!);
+            const cn = creditNature || getAccountNature(formData.creditAccount!);
+            if (!dn || !cn) throw new Error('Missing Nature');
+        } catch (err) {
+            setValidationError('Constitutional Violation: All accounts must have a selected Nature (Article 1).');
+            return;
+        }
 
         // VALIDATION: Debit must equal Credit
         if (debitAmount !== creditAmount) {
@@ -41,18 +60,17 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
             date: formData.date || new Date().toISOString().split('T')[0],
             description: formData.description || 'Manual Entry',
             vendor: formData.vendor || undefined,
-            debitAccount: formData.debitAccount || 'Suspense',
-            creditAccount: formData.creditAccount || 'Suspense',
-            amount: debitAmount || 0, // Use the verified amount
+            debitAccount: formData.debitAccount!,
+            creditAccount: formData.creditAccount!,
+            amount: debitAmount || 0,
             vat: formData.vat || 0,
             type: formData.type || 'Expense',
             status: 'Approved',
             dueDate: formData.dueDate,
-            isSettled: !formData.dueDate, // If due date is set, assume it's credit (not settled)
+            isSettled: !formData.dueDate,
         };
         onSave(newEntry);
 
-        // Reset form and close
         setFormData({
             date: new Date().toISOString().split('T')[0],
             description: '',
@@ -65,6 +83,8 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
         });
         setDebitAmount(0);
         setCreditAmount(0);
+        setDebitNature('');
+        setCreditNature('');
         setValidationError(null);
         onClose();
     };
@@ -215,8 +235,22 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
                                     placeholder="계정과목 입력/선택"
                                     className="w-full px-6 py-4 bg-[#0B1221] border border-rose-500/20 rounded-2xl font-black text-white outline-none shadow-inner"
                                     value={formData.debitAccount}
-                                    onChange={e => setFormData({ ...formData, debitAccount: e.target.value })}
+                                    onChange={e => {
+                                        setFormData({ ...formData, debitAccount: e.target.value });
+                                        try { setDebitNature(getAccountNature(e.target.value)); } catch { setDebitNature(''); }
+                                    }}
                                 />
+                                {formData.debitAccount && !STANDARD_ACCOUNTS.some(a => a.name === formData.debitAccount) && (
+                                    <select
+                                        className="w-full mt-2 bg-rose-950/30 border border-rose-500/30 rounded-xl px-4 py-2 text-[10px] font-black text-rose-400 outline-none"
+                                        value={debitNature}
+                                        onChange={e => setDebitNature(e.target.value as AccountNature)}
+                                        required
+                                    >
+                                        <option value="">Nature 필수 선택 (신규 계정)</option>
+                                        {Object.values(AccountNature).map(n => <option key={n} value={n}>{n}</option>)}
+                                    </select>
+                                )}
                             </div>
                             <div className="space-y-3">
                                 <label className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
@@ -244,8 +278,22 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
                                     placeholder="계정과목 입력/선택"
                                     className="w-full px-6 py-4 bg-[#0B1221] border border-emerald-500/20 rounded-2xl font-black text-white outline-none shadow-inner"
                                     value={formData.creditAccount}
-                                    onChange={e => setFormData({ ...formData, creditAccount: e.target.value })}
+                                    onChange={e => {
+                                        setFormData({ ...formData, creditAccount: e.target.value });
+                                        try { setCreditNature(getAccountNature(e.target.value)); } catch { setCreditNature(''); }
+                                    }}
                                 />
+                                {formData.creditAccount && !STANDARD_ACCOUNTS.some(a => a.name === formData.creditAccount) && (
+                                    <select
+                                        className="w-full mt-2 bg-emerald-950/30 border border-emerald-500/30 rounded-xl px-4 py-2 text-[10px] font-black text-emerald-400 outline-none"
+                                        value={creditNature}
+                                        onChange={e => setCreditNature(e.target.value as AccountNature)}
+                                        required
+                                    >
+                                        <option value="">Nature 필수 선택 (신규 계정)</option>
+                                        {Object.values(AccountNature).map(n => <option key={n} value={n}>{n}</option>)}
+                                    </select>
+                                )}
                             </div>
                             <div className="space-y-3">
                                 <label className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
@@ -312,7 +360,7 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ isOpen, onCl
                                             const newVat = type === '과세' ? Math.floor(debitAmount * 0.1) : 0;
                                             setFormData({ ...formData, vat: newVat });
                                         }}
-                                        className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all ${(formData.vat > 0 && type === '과세') || (formData.vat === 0 && type !== '과세')
+                                        className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all ${((formData.vat || 0) > 0 && type === '과세') || ((formData.vat || 0) === 0 && type !== '과세')
                                             ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400'
                                             : 'bg-[#0B1221] border-white/5 text-slate-500 hover:bg-white/5'
                                             }`}

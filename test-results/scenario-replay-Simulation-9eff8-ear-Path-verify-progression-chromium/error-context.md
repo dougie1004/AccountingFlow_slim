@@ -1,0 +1,1060 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e7]:
+          - img [ref=e9]
+          - generic [ref=e11]: AccountingFlow
+        - navigation [ref=e12]:
+          - generic [ref=e13]:
+            - heading "경영 및 전략 (Strategy)" [level=3] [ref=e14]
+            - button "CFO 대시보드" [ref=e16] [cursor=pointer]:
+              - generic [ref=e17]:
+                - img [ref=e19]
+                - generic [ref=e24]: CFO 대시보드
+            - button "자금수지 (Cash Flow)" [ref=e26] [cursor=pointer]:
+              - generic [ref=e27]:
+                - img [ref=e29]
+                - generic [ref=e33]: 자금수지 (Cash Flow)
+            - button "리스크 대시보드" [ref=e35] [cursor=pointer]:
+              - generic [ref=e36]:
+                - img [ref=e38]
+                - generic [ref=e40]: 리스크 대시보드
+            - button "월마감 센터" [ref=e42] [cursor=pointer]:
+              - generic [ref=e43]:
+                - img [ref=e45]
+                - generic [ref=e48]: 월마감 센터
+            - button "월별 손익 현황" [ref=e50] [cursor=pointer]:
+              - generic [ref=e51]:
+                - img [ref=e53]
+                - generic [ref=e56]: 월별 손익 현황
+          - generic [ref=e57]:
+            - heading "회계 및 세무 (Accounting)" [level=3] [ref=e58]
+            - button "분개 전표 (Journal)" [ref=e60] [cursor=pointer]:
+              - generic [ref=e61]:
+                - img [ref=e63]
+                - generic [ref=e66]: 분개 전표 (Journal)
+            - button "총계정원장 (GL)" [ref=e68] [cursor=pointer]:
+              - generic [ref=e69]:
+                - img [ref=e71]
+                - generic [ref=e74]: 총계정원장 (GL)
+            - button "재무제표 (Financial Statements)" [ref=e76] [cursor=pointer]:
+              - generic [ref=e77]:
+                - img [ref=e79]
+                - generic [ref=e82]: 재무제표 (Financial Statements)
+          - generic [ref=e83]:
+            - heading "운영 및 관리 (Operations)" [level=3] [ref=e84]
+            - button "채권/채무 정산 (Settlement)" [ref=e86] [cursor=pointer]:
+              - generic [ref=e87]:
+                - img [ref=e89]
+                - generic [ref=e94]: 채권/채무 정산 (Settlement)
+            - button "고정자산 관리" [ref=e96] [cursor=pointer]:
+              - generic [ref=e97]:
+                - img [ref=e99]
+                - generic [ref=e101]: 고정자산 관리
+            - button "리스 부채 관리 (IFRS 16)" [ref=e103] [cursor=pointer]:
+              - generic [ref=e104]:
+                - img [ref=e106]
+                - generic [ref=e110]: 리스 부채 관리 (IFRS 16)
+            - button "거래처 원장" [ref=e112] [cursor=pointer]:
+              - generic [ref=e113]:
+                - img [ref=e115]
+                - generic [ref=e120]: 거래처 원장
+            - button "거래처 정보 관리" [ref=e122] [cursor=pointer]:
+              - generic [ref=e123]:
+                - img [ref=e125]
+                - generic [ref=e130]: 거래처 정보 관리
+            - button "사업 계획 및 예산" [ref=e132] [cursor=pointer]:
+              - generic [ref=e133]:
+                - img [ref=e135]
+                - generic [ref=e138]: 사업 계획 및 예산
+          - generic [ref=e139]:
+            - heading "시스템 권한 (Control)" [level=3] [ref=e140]
+            - button "결재 센터 (Approval)" [ref=e142] [cursor=pointer]:
+              - generic [ref=e143]:
+                - img [ref=e145]
+                - generic [ref=e149]: 결재 센터 (Approval)
+            - button "AI 성능 연구소" [ref=e151] [cursor=pointer]:
+              - generic [ref=e152]:
+                - img [ref=e154]
+                - generic [ref=e156]: AI 성능 연구소
+        - generic [ref=e159]:
+          - generic [ref=e160]:
+            - generic [ref=e161]: Professional PLAN
+            - generic [ref=e162]: AI Usage
+          - generic [ref=e163]:
+            - generic [ref=e164]:
+              - text: "12"
+              - generic [ref=e165]: / 1000
+            - generic [ref=e166]: 1%
+          - button "Manage Subscription" [ref=e169] [cursor=pointer]
+        - generic [ref=e170]:
+          - button "데이터 연동 및 이관" [ref=e171] [cursor=pointer]:
+            - img [ref=e172]
+            - generic [ref=e176]: 데이터 연동 및 이관
+          - button "자동 테마" [ref=e177] [cursor=pointer]:
+            - generic [ref=e178]:
+              - img [ref=e179]
+              - generic [ref=e182]: 자동 테마
+          - button "시스템 설정" [ref=e183] [cursor=pointer]:
+            - img [ref=e184]
+            - generic [ref=e187]: 시스템 설정
+          - button "로그아웃" [ref=e188] [cursor=pointer]:
+            - img [ref=e189]
+            - generic [ref=e192]: 로그아웃
+    - main [ref=e193]:
+      - generic [ref=e194]:
+        - img "AccountingFlow Logo" [ref=e197]
+        - generic [ref=e199]:
+          - generic [ref=e200]:
+            - img [ref=e201]
+            - generic [ref=e204]: "World Check: Active"
+          - generic [ref=e206]:
+            - generic [ref=e207]: "Dimension Time:"
+            - generic [ref=e209]: 2028-12-31
+        - generic [ref=e210]:
+          - generic [ref=e212]: Powered by
+          - img "Insightrix Logo" [ref=e214]
+      - generic [ref=e217]:
+        - generic [ref=e218]:
+          - generic [ref=e219]:
+            - img [ref=e221] [cursor=pointer]
+            - generic [ref=e223]:
+              - heading "경영 대시보드 (Dashboard)" [level=1] [ref=e224]
+              - paragraph [ref=e225]:
+                - text: "마지막 결산 확정일:"
+                - generic [ref=e226]: 내역 없음
+          - generic [ref=e227]:
+            - generic [ref=e229] [cursor=pointer]:
+              - generic [ref=e230]: "기준일:"
+              - generic [ref=e231]: 2028-12-31
+              - img [ref=e232]
+            - generic [ref=e234]:
+              - button "주간 (7일)" [ref=e235] [cursor=pointer]
+              - button "단기 (14일)" [ref=e236] [cursor=pointer]
+              - button "월간" [ref=e237] [cursor=pointer]
+              - button "연간" [ref=e238] [cursor=pointer]
+            - button "Phase 2 엔진 검증" [ref=e239] [cursor=pointer]:
+              - img [ref=e240]
+              - text: Phase 2 엔진 검증
+            - 'button "SIT: 시스템 정합성 테스트 (v9)" [ref=e242] [cursor=pointer]':
+              - img [ref=e243]
+              - text: "SIT: 시스템 정합성 테스트 (v9)"
+            - button "Phase 3 엔진 검증 (BvA)" [ref=e245] [cursor=pointer]:
+              - img [ref=e246]
+              - text: Phase 3 엔진 검증 (BvA)
+            - button "실시간 월마감 실행" [ref=e250] [cursor=pointer]:
+              - img [ref=e251]
+              - text: 실시간 월마감 실행
+          - generic [ref=e254]:
+            - generic [ref=e255]:
+              - generic [ref=e256]: "Scenario Mode:"
+              - button "생존 모드(Survival)" [ref=e257] [cursor=pointer]
+              - button "표준 성장(Grant)" [ref=e258] [cursor=pointer]
+              - button "공격 확장(Growth)" [ref=e259] [cursor=pointer]
+            - generic [ref=e260]:
+              - button "Run 2026 Pack" [ref=e261] [cursor=pointer]:
+                - img [ref=e262]
+                - text: Run 2026 Pack
+              - button "Run 2027 Pack" [ref=e264] [cursor=pointer]:
+                - img [ref=e265]
+                - text: Run 2027 Pack
+              - button "Run 2028 Pack" [ref=e268] [cursor=pointer]:
+                - img [ref=e269]
+                - text: Run 2028 Pack
+            - button "Risk Briefing (Phase 4.5)" [ref=e273] [cursor=pointer]:
+              - img [ref=e274]
+              - text: Risk Briefing (Phase 4.5)
+        - generic [ref=e278]:
+          - button "Net Income (14 Days) -₩20,916,200 당기순이익 (법인세 차감 전)" [ref=e279] [cursor=pointer]:
+            - img [ref=e281]
+            - generic [ref=e284]:
+              - generic [ref=e285]:
+                - img [ref=e287]
+                - generic [ref=e289]: Net Income (14 Days)
+                - img [ref=e292]
+              - heading "-₩20,916,200" [level=3] [ref=e295]
+              - paragraph [ref=e296]: 당기순이익 (법인세 차감 전)
+          - button "Current Cash (2028-12-31) ₩1,609,691,976 Inflow (Dr) +₩0 Outflow (Cr) -₩11,735,360" [ref=e297] [cursor=pointer]:
+            - img [ref=e299]
+            - generic [ref=e302]:
+              - generic [ref=e303]:
+                - img [ref=e305]
+                - generic [ref=e309]:
+                  - text: Current Cash
+                  - generic [ref=e310]: (2028-12-31)
+                - img [ref=e313]
+              - heading "₩1,609,691,976" [level=3] [ref=e316]
+              - generic [ref=e317]:
+                - generic [ref=e318]:
+                  - generic [ref=e319]: Inflow (Dr)
+                  - generic [ref=e320]: +₩0
+                - generic [ref=e321]:
+                  - generic [ref=e322]: Outflow (Cr)
+                  - generic [ref=e323]: "-₩11,735,360"
+          - button "Avg. Monthly Burn ₩25,209,678 최근 30일 기준 평균 지출액" [ref=e324] [cursor=pointer]:
+            - generic [ref=e325]:
+              - generic [ref=e326]:
+                - img [ref=e328]
+                - generic [ref=e330]: Avg. Monthly Burn
+                - img [ref=e333]
+              - heading "₩25,209,678" [level=3] [ref=e336]
+              - paragraph [ref=e337]: 최근 30일 기준 평균 지출액
+          - generic [ref=e339]:
+            - generic [ref=e340]:
+              - img [ref=e342]
+              - generic [ref=e344]: Efficiency & Runway
+              - img [ref=e347]
+            - generic [ref=e350]:
+              - generic [ref=e351]:
+                - generic [ref=e352]:
+                  - generic [ref=e353]: 현금 소진 기간
+                  - img [ref=e356]
+                - generic [ref=e359]: 99개월
+              - generic [ref=e360]:
+                - generic [ref=e361]:
+                  - generic [ref=e362]: 순이익률
+                  - img [ref=e365]
+                - generic [ref=e368]: 0%
+        - generic [ref=e369]:
+          - generic [ref=e370]:
+            - generic [ref=e371]:
+              - img [ref=e373]
+              - generic [ref=e376]:
+                - heading "AI 현금 흐름 예측" [level=3] [ref=e377]
+                - paragraph [ref=e378]:
+                  - text: "자동화 예측 엔진:"
+                  - generic [ref=e379]: 기본 (Baseline)
+            - generic [ref=e380]:
+              - generic [ref=e381]:
+                - button "REALITY" [ref=e382] [cursor=pointer]
+                - button "ROSE-COLORED" [ref=e383] [cursor=pointer]
+              - generic [ref=e384]:
+                - button "기본" [ref=e385] [cursor=pointer]
+                - button "낙관적" [ref=e386] [cursor=pointer]
+                - button "보수적" [ref=e387] [cursor=pointer]
+          - generic [ref=e388]: ⚠️ 이 차이는 데이터가 아니라 가정(Assumptions)에서 나온다
+          - generic [ref=e389]:
+            - generic [ref=e390]:
+              - generic:
+                - img
+              - paragraph [ref=e391]: 예상 현금 잔액 (2029-01)
+              - paragraph [ref=e392]: ₩1,716,862,469
+              - generic [ref=e393]: +₩107,170,493 (순현금흐름)
+            - generic [ref=e394]:
+              - paragraph [ref=e395]:
+                - img [ref=e396]
+                - text: 런웨이(Runway) 분석
+              - paragraph [ref=e399]: 안정적
+              - generic [ref=e400]:
+                - paragraph [ref=e401]:
+                  - generic [ref=e402]: "순 현금 소진액:"
+                  - generic [ref=e403]: ₩11,494,731
+                - paragraph [ref=e404]:
+                  - generic [ref=e405]: "총 지출액:"
+                  - generic [ref=e406]: ₩21,922,554
+            - generic [ref=e407]:
+              - paragraph [ref=e409]:
+                - img [ref=e410]
+                - text: 자동 감지된 고정비
+              - generic [ref=e415]:
+                - generic [ref=e416]:
+                  - generic [ref=e417]: 인건비 (4대보험/급여)
+                  - generic [ref=e418]: ₩11,292,480
+                - generic [ref=e419]:
+                  - generic [ref=e420]: "[개발] 코어 엔진 OCR 연동 외주 용역비"
+                  - generic [ref=e421]: ₩10,000,000
+                - generic [ref=e423]: "+3"
+          - generic [ref=e424]:
+            - generic [ref=e426]:
+              - list [ref=e428]:
+                - listitem [ref=e429]:
+                  - img "유입 (Inflow) legend icon" [ref=e430]
+                  - text: 유입 (Inflow)
+                - listitem [ref=e432]:
+                  - img "유출 (Outflow) legend icon" [ref=e433]
+                  - text: 유출 (Outflow)
+                - listitem [ref=e435]:
+                  - img "현금 잔액 (Global Simulation) legend icon" [ref=e436]
+                  - text: 현금 잔액 (Global Simulation)
+              - application [ref=e438]:
+                - generic [ref=e450]:
+                  - img [ref=e455]
+                  - img [ref=e457]
+                  - img [ref=e459]
+                  - img [ref=e461]
+                  - img [ref=e463]
+                  - img [ref=e465]
+                  - img [ref=e467]
+                  - img [ref=e469]
+                  - img [ref=e471]
+                  - img [ref=e473]
+                  - img [ref=e475]
+                  - img [ref=e477]
+                - generic [ref=e480]:
+                  - generic [ref=e482]: 2028-09
+                  - generic [ref=e484]: 2028-11
+                  - generic [ref=e486]: 2029-01
+                  - generic [ref=e488]: 2029-03
+                  - generic [ref=e490]: 2029-05
+                  - generic [ref=e492]: 2029-07
+                  - generic [ref=e494]: 2029-09
+                  - generic [ref=e496]: 2029-11
+            - generic [ref=e497]:
+              - img [ref=e498]
+              - text: GOLDEN CROSS DETECTED
+          - generic [ref=e501]:
+            - img [ref=e502]
+            - generic [ref=e504]:
+              - paragraph [ref=e505]: "가정: 성장이 정체되고 운영 비용이 상승하는 현실적 가디언 시나리오입니다."
+              - paragraph [ref=e506]: "분석 결과: 성장 궤도 진입 (GROWTH) (Runway: 99 개월)"
+        - generic [ref=e507]:
+          - generic [ref=e508]:
+            - generic [ref=e509]:
+              - generic [ref=e510]:
+                - generic [ref=e511]:
+                  - img [ref=e513]
+                  - generic [ref=e516]: 대기 상태 (Pending)
+                  - img [ref=e519]
+                - heading "미결제 현황" [level=2] [ref=e522]
+                - paragraph [ref=e523]: 현재 장부상 회수/지급되지 않은 건수입니다.
+              - button [ref=e524] [cursor=pointer]:
+                - img [ref=e525]
+            - generic [ref=e527]:
+              - generic [ref=e528]:
+                - generic [ref=e529]:
+                  - img [ref=e530]
+                  - generic [ref=e533]: 수금 예정 (AR)
+                  - img [ref=e536]
+                - paragraph [ref=e539]: 미수금 (받을 돈)
+                - paragraph [ref=e540]: ₩0
+              - generic [ref=e541]:
+                - generic [ref=e542]:
+                  - img [ref=e543]
+                  - generic [ref=e546]: 지급 예정 (AP)
+                  - img [ref=e549]
+                - paragraph [ref=e552]: 미지급금 (줄 돈)
+                - paragraph [ref=e553]: ₩182,868,228
+          - generic [ref=e554]:
+            - generic [ref=e555]:
+              - button "성장 전략" [ref=e556] [cursor=pointer]
+              - button "운영 효율" [ref=e557] [cursor=pointer]
+              - button "리스크 관리" [ref=e558] [cursor=pointer]
+            - generic [ref=e559]:
+              - generic [ref=e560]:
+                - generic [ref=e561]:
+                  - generic [ref=e562]:
+                    - img [ref=e564]
+                    - generic [ref=e566]:
+                      - 'heading "경영 전략 리포트: 성장 포커스" [level=3] [ref=e568]'
+                      - generic [ref=e569]:
+                        - paragraph [ref=e570]: "생성일: 2/6/2026"
+                        - generic [ref=e571]: "|"
+                        - paragraph [ref=e572]: Gemini 2.0 분석
+                  - button "PDF 저장" [ref=e573] [cursor=pointer]:
+                    - img [ref=e574]
+                    - text: PDF 저장
+                - generic [ref=e577]:
+                  - heading "경영 요약" [level=4] [ref=e578]
+                  - paragraph [ref=e579]: "\"매출이 안정적인 보합세를 유지하고 있습니다. 새로운 성장 동력(Product Market Fit) 탐색이 필요합니다.\""
+              - generic [ref=e580]:
+                - generic [ref=e581]:
+                  - generic [ref=e582]:
+                    - heading "주요 관측 데이터" [level=4] [ref=e583]: 주요 관측 데이터
+                    - list
+                  - generic [ref=e585]:
+                    - heading "경영 시사점" [level=4] [ref=e586]: 경영 시사점
+                    - list
+                - generic [ref=e588]:
+                  - generic [ref=e589]:
+                    - heading "제안된 의사결정" [level=4] [ref=e590]:
+                      - img [ref=e591]
+                      - text: 제안된 의사결정
+                    - generic [ref=e594]:
+                      - generic [ref=e595]:
+                        - img [ref=e596]
+                        - generic [ref=e599]: 마케팅 예산 ROI 분석 및 채널 재배정
+                      - generic [ref=e600]:
+                        - img [ref=e601]
+                        - generic [ref=e604]: 공격적인 신규 인력 채용 검토 (개발/영업)
+                  - generic [ref=e605]:
+                    - heading "잠재 리스크" [level=4] [ref=e606]:
+                      - img [ref=e607]
+                      - text: 잠재 리스크
+                    - generic [ref=e610]:
+                      - img [ref=e611]
+                      - generic [ref=e613]: 식별된 특이 리스크 없음
+        - generic [ref=e614]:
+          - generic [ref=e615]:
+            - generic [ref=e616]:
+              - generic [ref=e617]:
+                - generic [ref=e618]:
+                  - heading "현금 흐름 및 매출 추세" [level=3] [ref=e619]
+                  - img [ref=e622]
+                - paragraph [ref=e625]: 실제 자금 유출입(Area)과 매출 추세(Line) 분석
+              - generic [ref=e626]:
+                - button "day" [ref=e627] [cursor=pointer]
+                - button "week" [ref=e628] [cursor=pointer]
+                - button "month" [ref=e629] [cursor=pointer]
+                - button "year" [ref=e630] [cursor=pointer]
+            - application [ref=e634]:
+              - generic [ref=e652]:
+                - generic [ref=e653]:
+                  - generic [ref=e655]: 12/18
+                  - generic [ref=e657]: 12/20
+                  - generic [ref=e659]: 12/22
+                  - generic [ref=e661]: 12/24
+                  - generic [ref=e663]: 12/26
+                  - generic [ref=e665]: 12/28
+                  - generic [ref=e667]: 12/31
+                - generic [ref=e668]:
+                  - generic [ref=e670]: 0 만
+                  - generic [ref=e672]: 300 만
+                  - generic [ref=e674]: 600 만
+                  - generic [ref=e676]: 900 만
+                  - generic [ref=e678]: 1200 만
+          - generic [ref=e680]:
+            - img [ref=e682]
+            - heading "대기 중인 결산 정보가 없습니다" [level=3] [ref=e685]
+            - paragraph [ref=e686]: 시스템의 신뢰도를 높이기 위해 월간 결산을 진행하고 확정된 재무 상태를 확인하세요.
+            - button "결산 관리로 이동" [ref=e687] [cursor=pointer]
+        - generic [ref=e689]:
+          - generic [ref=e690]:
+            - generic [ref=e691]:
+              - img [ref=e693]
+              - generic [ref=e695]:
+                - heading "트랜잭션 피드" [level=3] [ref=e696]
+                - generic [ref=e697]: (Displaying 50 / 438 items)
+                - img [ref=e700]
+            - generic [ref=e703]:
+              - generic [ref=e704]:
+                - button "전체" [ref=e705] [cursor=pointer]
+                - button "대기" [ref=e706] [cursor=pointer]
+                - button "승인" [ref=e707] [cursor=pointer]
+                - button "거절" [ref=e708] [cursor=pointer]
+              - generic [ref=e709]:
+                - img [ref=e710]
+                - textbox [ref=e712]
+                - generic [ref=e713]: ~
+                - textbox [ref=e714]
+              - button "전체 장부" [ref=e715] [cursor=pointer]:
+                - text: 전체 장부
+                - img [ref=e716]
+          - table [ref=e719]:
+            - rowgroup [ref=e720]:
+              - row "거래일자 거래 내용 / 적요 금액 (원) 상태" [ref=e721]:
+                - columnheader [ref=e722]:
+                  - button [ref=e723] [cursor=pointer]:
+                    - img [ref=e724]
+                - columnheader "거래일자" [ref=e727]
+                - columnheader "거래 내용 / 적요" [ref=e728]
+                - columnheader "금액 (원)" [ref=e729]
+                - columnheader "상태" [ref=e730]
+            - rowgroup [ref=e731]:
+              - row "2028-12-28 [인프라] Cloud Compute & Storage 12월 JE-202812-0011 | 인프라 원가 - 1,605,690 승인됨" [ref=e732] [cursor=pointer]:
+                - cell [ref=e733]:
+                  - button [ref=e734]:
+                    - img [ref=e735]
+                - cell "2028-12-28" [ref=e737]
+                - cell "[인프라] Cloud Compute & Storage 12월 JE-202812-0011 | 인프라 원가" [ref=e738]:
+                  - generic [ref=e739]:
+                    - generic [ref=e740]: "[인프라] Cloud Compute & Storage 12월"
+                    - generic [ref=e741]: JE-202812-0011 | 인프라 원가
+                - cell "- 1,605,690" [ref=e742]
+                - cell "승인됨" [ref=e743]:
+                  - generic [ref=e746]: 승인됨
+              - row "2028-12-28 [AI] Gemini API Usage Fee 12월 JE-202812-0012 | Gemini API 원가 - 4,330,350 승인됨" [ref=e747] [cursor=pointer]:
+                - cell [ref=e748]:
+                  - button [ref=e749]:
+                    - img [ref=e750]
+                - cell "2028-12-28" [ref=e752]
+                - cell "[AI] Gemini API Usage Fee 12월 JE-202812-0012 | Gemini API 원가" [ref=e753]:
+                  - generic [ref=e754]:
+                    - generic [ref=e755]: "[AI] Gemini API Usage Fee 12월"
+                    - generic [ref=e756]: JE-202812-0012 | Gemini API 원가
+                - cell "- 4,330,350" [ref=e757]
+                - cell "승인됨" [ref=e758]:
+                  - generic [ref=e761]: 승인됨
+              - row "2028-12-25 12월 임직원 급여 원천세 공제 JE-202812-0004 | 급여 - 648,960 승인됨" [ref=e762] [cursor=pointer]:
+                - cell [ref=e763]:
+                  - button [ref=e764]:
+                    - img [ref=e765]
+                - cell "2028-12-25" [ref=e767]
+                - cell "12월 임직원 급여 원천세 공제 JE-202812-0004 | 급여" [ref=e768]:
+                  - generic [ref=e769]:
+                    - generic [ref=e770]: 12월 임직원 급여 원천세 공제
+                    - generic [ref=e771]: JE-202812-0004 | 급여
+                - cell "- 648,960" [ref=e772]
+                - cell "승인됨" [ref=e773]:
+                  - generic [ref=e776]: 승인됨
+              - row "2028-12-25 12월 사회보험료 공제 (본인부담금) JE-202812-0005 | 급여 - 1,297,920 승인됨" [ref=e777] [cursor=pointer]:
+                - cell [ref=e778]:
+                  - button [ref=e779]:
+                    - img [ref=e780]
+                - cell "2028-12-25" [ref=e782]
+                - cell "12월 사회보험료 공제 (본인부담금) JE-202812-0005 | 급여" [ref=e783]:
+                  - generic [ref=e784]:
+                    - generic [ref=e785]: 12월 사회보험료 공제 (본인부담금)
+                    - generic [ref=e786]: JE-202812-0005 | 급여
+                - cell "- 1,297,920" [ref=e787]
+                - cell "승인됨" [ref=e788]:
+                  - generic [ref=e791]: 승인됨
+              - row "2028-12-25 12월 사회보험료 회사부담금 JE-202812-0006 | 복리후생비 - 1,297,920 승인됨" [ref=e792] [cursor=pointer]:
+                - cell [ref=e793]:
+                  - button [ref=e794]:
+                    - img [ref=e795]
+                - cell "2028-12-25" [ref=e797]
+                - cell "12월 사회보험료 회사부담금 JE-202812-0006 | 복리후생비" [ref=e798]:
+                  - generic [ref=e799]:
+                    - generic [ref=e800]: 12월 사회보험료 회사부담금
+                    - generic [ref=e801]: JE-202812-0006 | 복리후생비
+                - cell "- 1,297,920" [ref=e802]
+                - cell "승인됨" [ref=e803]:
+                  - generic [ref=e806]: 승인됨
+              - row "2028-12-25 12월 급여 실지급액 (Net Pay) JE-202812-0007 | 급여 - 11,032,320 승인됨" [ref=e807] [cursor=pointer]:
+                - cell [ref=e808]:
+                  - button [ref=e809]:
+                    - img [ref=e810]
+                - cell "2028-12-25" [ref=e812]
+                - cell "12월 급여 실지급액 (Net Pay) JE-202812-0007 | 급여" [ref=e813]:
+                  - generic [ref=e814]:
+                    - generic [ref=e815]: 12월 급여 실지급액 (Net Pay)
+                    - generic [ref=e816]: JE-202812-0007 | 급여
+                - cell "- 11,032,320" [ref=e817]
+                - cell "승인됨" [ref=e818]:
+                  - generic [ref=e821]: 승인됨
+              - row "2028-12-20 12월 복리후생비 (음료 및 석식) JE-202812-0001 | 복리후생비 - 540,800 승인됨" [ref=e822] [cursor=pointer]:
+                - cell [ref=e823]:
+                  - button [ref=e824]:
+                    - img [ref=e825]
+                - cell "2028-12-20" [ref=e827]
+                - cell "12월 복리후생비 (음료 및 석식) JE-202812-0001 | 복리후생비" [ref=e828]:
+                  - generic [ref=e829]:
+                    - generic [ref=e830]: 12월 복리후생비 (음료 및 석식)
+                    - generic [ref=e831]: JE-202812-0001 | 복리후생비
+                - cell "- 540,800" [ref=e832]
+                - cell "승인됨" [ref=e833]:
+                  - generic [ref=e836]: 승인됨
+              - row "2028-12-18 12월 여비교통비 (시내출장) JE-202812-0002 | 여비교통비 - 162,240 승인됨" [ref=e837] [cursor=pointer]:
+                - cell [ref=e838]:
+                  - button [ref=e839]:
+                    - img [ref=e840]
+                - cell "2028-12-18" [ref=e842]
+                - cell "12월 여비교통비 (시내출장) JE-202812-0002 | 여비교통비" [ref=e843]:
+                  - generic [ref=e844]:
+                    - generic [ref=e845]: 12월 여비교통비 (시내출장)
+                    - generic [ref=e846]: JE-202812-0002 | 여비교통비
+                - cell "- 162,240" [ref=e847]
+                - cell "승인됨" [ref=e848]:
+                  - generic [ref=e851]: 승인됨
+              - row "2028-12-15 12월 전략적 광고 집행 (CAC 대응) JE-202812-0014 | 광고선전비 - 3,244,800 승인됨" [ref=e852] [cursor=pointer]:
+                - cell [ref=e853]:
+                  - button [ref=e854]:
+                    - img [ref=e855]
+                - cell "2028-12-15" [ref=e857]
+                - cell "12월 전략적 광고 집행 (CAC 대응) JE-202812-0014 | 광고선전비" [ref=e858]:
+                  - generic [ref=e859]:
+                    - generic [ref=e860]: 12월 전략적 광고 집행 (CAC 대응)
+                    - generic [ref=e861]: JE-202812-0014 | 광고선전비
+                - cell "- 3,244,800" [ref=e862]
+                - cell "승인됨" [ref=e863]:
+                  - generic [ref=e866]: 승인됨
+              - row "2028-12-10 12월 통신 및 클라우드 유지비 JE-202812-0003 | 통신비 - 129,792 승인됨" [ref=e867] [cursor=pointer]:
+                - cell [ref=e868]:
+                  - button [ref=e869]:
+                    - img [ref=e870]
+                - cell "2028-12-10" [ref=e872]
+                - cell "12월 통신 및 클라우드 유지비 JE-202812-0003 | 통신비" [ref=e873]:
+                  - generic [ref=e874]:
+                    - generic [ref=e875]: 12월 통신 및 클라우드 유지비
+                    - generic [ref=e876]: JE-202812-0003 | 통신비
+                - cell "- 129,792" [ref=e877]
+                - cell "승인됨" [ref=e878]:
+                  - generic [ref=e881]: 승인됨
+              - row "2028-12-10 11월분 원천세 납부 JE-202812-0008 | 예수금(원천세) - 540,800 승인됨" [ref=e882] [cursor=pointer]:
+                - cell [ref=e883]:
+                  - button [ref=e884]:
+                    - img [ref=e885]
+                - cell "2028-12-10" [ref=e887]
+                - cell "11월분 원천세 납부 JE-202812-0008 | 예수금(원천세)" [ref=e888]:
+                  - generic [ref=e889]:
+                    - generic [ref=e890]: 11월분 원천세 납부
+                    - generic [ref=e891]: JE-202812-0008 | 예수금(원천세)
+                - cell "- 540,800" [ref=e892]
+                - cell "승인됨" [ref=e893]:
+                  - generic [ref=e896]: 승인됨
+              - row "2028-12-10 11월분 사회보험료 납부 JE-202812-0009 | 예수금(사회보험료) - 2,163,200 승인됨" [ref=e897] [cursor=pointer]:
+                - cell [ref=e898]:
+                  - button [ref=e899]:
+                    - img [ref=e900]
+                - cell "2028-12-10" [ref=e902]
+                - cell "11월분 사회보험료 납부 JE-202812-0009 | 예수금(사회보험료)" [ref=e903]:
+                  - generic [ref=e904]:
+                    - generic [ref=e905]: 11월분 사회보험료 납부
+                    - generic [ref=e906]: JE-202812-0009 | 예수금(사회보험료)
+                - cell "- 2,163,200" [ref=e907]
+                - cell "승인됨" [ref=e908]:
+                  - generic [ref=e911]: 승인됨
+              - row "2028-12-05 12월 사무실 임차료 JE-202812-0010 | 지급임차료 - 2,163,200 승인됨" [ref=e912] [cursor=pointer]:
+                - cell [ref=e913]:
+                  - button [ref=e914]:
+                    - img [ref=e915]
+                - cell "2028-12-05" [ref=e917]
+                - cell "12월 사무실 임차료 JE-202812-0010 | 지급임차료" [ref=e918]:
+                  - generic [ref=e919]:
+                    - generic [ref=e920]: 12월 사무실 임차료
+                    - generic [ref=e921]: JE-202812-0010 | 지급임차료
+                - cell "- 2,163,200" [ref=e922]
+                - cell "승인됨" [ref=e923]:
+                  - generic [ref=e926]: 승인됨
+              - row "2028-12-05 [매출] SaaS 구독 수익 12월 (9,623 유저) JE-202812-0013 | 보통예금 + 137,115,000 승인됨" [ref=e927] [cursor=pointer]:
+                - cell [ref=e928]:
+                  - button [ref=e929]:
+                    - img [ref=e930]
+                - cell "2028-12-05" [ref=e932]
+                - cell "[매출] SaaS 구독 수익 12월 (9,623 유저) JE-202812-0013 | 보통예금" [ref=e933]:
+                  - generic [ref=e934]:
+                    - generic [ref=e935]: "[매출] SaaS 구독 수익 12월 (9,623 유저)"
+                    - generic [ref=e936]: JE-202812-0013 | 보통예금
+                - cell "+ 137,115,000" [ref=e937]
+                - cell "승인됨" [ref=e938]:
+                  - generic [ref=e941]: 승인됨
+              - row "2028-11-28 [인프라] Cloud Compute & Storage 11월 JE-202811-0011 | 인프라 원가 - 1,518,840 승인됨" [ref=e942] [cursor=pointer]:
+                - cell [ref=e943]:
+                  - button [ref=e944]:
+                    - img [ref=e945]
+                - cell "2028-11-28" [ref=e947]
+                - cell "[인프라] Cloud Compute & Storage 11월 JE-202811-0011 | 인프라 원가" [ref=e948]:
+                  - generic [ref=e949]:
+                    - generic [ref=e950]: "[인프라] Cloud Compute & Storage 11월"
+                    - generic [ref=e951]: JE-202811-0011 | 인프라 원가
+                - cell "- 1,518,840" [ref=e952]
+                - cell "승인됨" [ref=e953]:
+                  - generic [ref=e956]: 승인됨
+              - row "2028-11-28 [AI] Gemini API Usage Fee 11월 JE-202811-0012 | Gemini API 원가 - 4,069,800 승인됨" [ref=e957] [cursor=pointer]:
+                - cell [ref=e958]:
+                  - button [ref=e959]:
+                    - img [ref=e960]
+                - cell "2028-11-28" [ref=e962]
+                - cell "[AI] Gemini API Usage Fee 11월 JE-202811-0012 | Gemini API 원가" [ref=e963]:
+                  - generic [ref=e964]:
+                    - generic [ref=e965]: "[AI] Gemini API Usage Fee 11월"
+                    - generic [ref=e966]: JE-202811-0012 | Gemini API 원가
+                - cell "- 4,069,800" [ref=e967]
+                - cell "승인됨" [ref=e968]:
+                  - generic [ref=e971]: 승인됨
+              - row "2028-11-25 11월 임직원 급여 원천세 공제 JE-202811-0004 | 급여 - 648,960 승인됨" [ref=e972] [cursor=pointer]:
+                - cell [ref=e973]:
+                  - button [ref=e974]:
+                    - img [ref=e975]
+                - cell "2028-11-25" [ref=e977]
+                - cell "11월 임직원 급여 원천세 공제 JE-202811-0004 | 급여" [ref=e978]:
+                  - generic [ref=e979]:
+                    - generic [ref=e980]: 11월 임직원 급여 원천세 공제
+                    - generic [ref=e981]: JE-202811-0004 | 급여
+                - cell "- 648,960" [ref=e982]
+                - cell "승인됨" [ref=e983]:
+                  - generic [ref=e986]: 승인됨
+              - row "2028-11-25 11월 사회보험료 공제 (본인부담금) JE-202811-0005 | 급여 - 1,297,920 승인됨" [ref=e987] [cursor=pointer]:
+                - cell [ref=e988]:
+                  - button [ref=e989]:
+                    - img [ref=e990]
+                - cell "2028-11-25" [ref=e992]
+                - cell "11월 사회보험료 공제 (본인부담금) JE-202811-0005 | 급여" [ref=e993]:
+                  - generic [ref=e994]:
+                    - generic [ref=e995]: 11월 사회보험료 공제 (본인부담금)
+                    - generic [ref=e996]: JE-202811-0005 | 급여
+                - cell "- 1,297,920" [ref=e997]
+                - cell "승인됨" [ref=e998]:
+                  - generic [ref=e1001]: 승인됨
+              - row "2028-11-25 11월 사회보험료 회사부담금 JE-202811-0006 | 복리후생비 - 1,297,920 승인됨" [ref=e1002] [cursor=pointer]:
+                - cell [ref=e1003]:
+                  - button [ref=e1004]:
+                    - img [ref=e1005]
+                - cell "2028-11-25" [ref=e1007]
+                - cell "11월 사회보험료 회사부담금 JE-202811-0006 | 복리후생비" [ref=e1008]:
+                  - generic [ref=e1009]:
+                    - generic [ref=e1010]: 11월 사회보험료 회사부담금
+                    - generic [ref=e1011]: JE-202811-0006 | 복리후생비
+                - cell "- 1,297,920" [ref=e1012]
+                - cell "승인됨" [ref=e1013]:
+                  - generic [ref=e1016]: 승인됨
+              - row "2028-11-25 11월 급여 실지급액 (Net Pay) JE-202811-0007 | 급여 - 11,032,320 승인됨" [ref=e1017] [cursor=pointer]:
+                - cell [ref=e1018]:
+                  - button [ref=e1019]:
+                    - img [ref=e1020]
+                - cell "2028-11-25" [ref=e1022]
+                - cell "11월 급여 실지급액 (Net Pay) JE-202811-0007 | 급여" [ref=e1023]:
+                  - generic [ref=e1024]:
+                    - generic [ref=e1025]: 11월 급여 실지급액 (Net Pay)
+                    - generic [ref=e1026]: JE-202811-0007 | 급여
+                - cell "- 11,032,320" [ref=e1027]
+                - cell "승인됨" [ref=e1028]:
+                  - generic [ref=e1031]: 승인됨
+              - row "2028-11-20 11월 복리후생비 (음료 및 석식) JE-202811-0001 | 복리후생비 - 540,800 승인됨" [ref=e1032] [cursor=pointer]:
+                - cell [ref=e1033]:
+                  - button [ref=e1034]:
+                    - img [ref=e1035]
+                - cell "2028-11-20" [ref=e1037]
+                - cell "11월 복리후생비 (음료 및 석식) JE-202811-0001 | 복리후생비" [ref=e1038]:
+                  - generic [ref=e1039]:
+                    - generic [ref=e1040]: 11월 복리후생비 (음료 및 석식)
+                    - generic [ref=e1041]: JE-202811-0001 | 복리후생비
+                - cell "- 540,800" [ref=e1042]
+                - cell "승인됨" [ref=e1043]:
+                  - generic [ref=e1046]: 승인됨
+              - row "2028-11-18 11월 여비교통비 (시내출장) JE-202811-0002 | 여비교통비 - 162,240 승인됨" [ref=e1047] [cursor=pointer]:
+                - cell [ref=e1048]:
+                  - button [ref=e1049]:
+                    - img [ref=e1050]
+                - cell "2028-11-18" [ref=e1052]
+                - cell "11월 여비교통비 (시내출장) JE-202811-0002 | 여비교통비" [ref=e1053]:
+                  - generic [ref=e1054]:
+                    - generic [ref=e1055]: 11월 여비교통비 (시내출장)
+                    - generic [ref=e1056]: JE-202811-0002 | 여비교통비
+                - cell "- 162,240" [ref=e1057]
+                - cell "승인됨" [ref=e1058]:
+                  - generic [ref=e1061]: 승인됨
+              - row "2028-11-15 11월 전략적 광고 집행 (CAC 대응) JE-202811-0014 | 광고선전비 - 3,244,800 승인됨" [ref=e1062] [cursor=pointer]:
+                - cell [ref=e1063]:
+                  - button [ref=e1064]:
+                    - img [ref=e1065]
+                - cell "2028-11-15" [ref=e1067]
+                - cell "11월 전략적 광고 집행 (CAC 대응) JE-202811-0014 | 광고선전비" [ref=e1068]:
+                  - generic [ref=e1069]:
+                    - generic [ref=e1070]: 11월 전략적 광고 집행 (CAC 대응)
+                    - generic [ref=e1071]: JE-202811-0014 | 광고선전비
+                - cell "- 3,244,800" [ref=e1072]
+                - cell "승인됨" [ref=e1073]:
+                  - generic [ref=e1076]: 승인됨
+              - row "2028-11-10 11월 통신 및 클라우드 유지비 JE-202811-0003 | 통신비 - 129,792 승인됨" [ref=e1077] [cursor=pointer]:
+                - cell [ref=e1078]:
+                  - button [ref=e1079]:
+                    - img [ref=e1080]
+                - cell "2028-11-10" [ref=e1082]
+                - cell "11월 통신 및 클라우드 유지비 JE-202811-0003 | 통신비" [ref=e1083]:
+                  - generic [ref=e1084]:
+                    - generic [ref=e1085]: 11월 통신 및 클라우드 유지비
+                    - generic [ref=e1086]: JE-202811-0003 | 통신비
+                - cell "- 129,792" [ref=e1087]
+                - cell "승인됨" [ref=e1088]:
+                  - generic [ref=e1091]: 승인됨
+              - row "2028-11-10 10월분 원천세 납부 JE-202811-0008 | 예수금(원천세) - 540,800 승인됨" [ref=e1092] [cursor=pointer]:
+                - cell [ref=e1093]:
+                  - button [ref=e1094]:
+                    - img [ref=e1095]
+                - cell "2028-11-10" [ref=e1097]
+                - cell "10월분 원천세 납부 JE-202811-0008 | 예수금(원천세)" [ref=e1098]:
+                  - generic [ref=e1099]:
+                    - generic [ref=e1100]: 10월분 원천세 납부
+                    - generic [ref=e1101]: JE-202811-0008 | 예수금(원천세)
+                - cell "- 540,800" [ref=e1102]
+                - cell "승인됨" [ref=e1103]:
+                  - generic [ref=e1106]: 승인됨
+              - row "2028-11-10 10월분 사회보험료 납부 JE-202811-0009 | 예수금(사회보험료) - 2,163,200 승인됨" [ref=e1107] [cursor=pointer]:
+                - cell [ref=e1108]:
+                  - button [ref=e1109]:
+                    - img [ref=e1110]
+                - cell "2028-11-10" [ref=e1112]
+                - cell "10월분 사회보험료 납부 JE-202811-0009 | 예수금(사회보험료)" [ref=e1113]:
+                  - generic [ref=e1114]:
+                    - generic [ref=e1115]: 10월분 사회보험료 납부
+                    - generic [ref=e1116]: JE-202811-0009 | 예수금(사회보험료)
+                - cell "- 2,163,200" [ref=e1117]
+                - cell "승인됨" [ref=e1118]:
+                  - generic [ref=e1121]: 승인됨
+              - row "2028-11-05 11월 사무실 임차료 JE-202811-0010 | 지급임차료 - 2,163,200 승인됨" [ref=e1122] [cursor=pointer]:
+                - cell [ref=e1123]:
+                  - button [ref=e1124]:
+                    - img [ref=e1125]
+                - cell "2028-11-05" [ref=e1127]
+                - cell "11월 사무실 임차료 JE-202811-0010 | 지급임차료" [ref=e1128]:
+                  - generic [ref=e1129]:
+                    - generic [ref=e1130]: 11월 사무실 임차료
+                    - generic [ref=e1131]: JE-202811-0010 | 지급임차료
+                - cell "- 2,163,200" [ref=e1132]
+                - cell "승인됨" [ref=e1133]:
+                  - generic [ref=e1136]: 승인됨
+              - row "2028-11-05 [매출] SaaS 구독 수익 11월 (9,044 유저) JE-202811-0013 | 보통예금 + 128,865,000 승인됨" [ref=e1137] [cursor=pointer]:
+                - cell [ref=e1138]:
+                  - button [ref=e1139]:
+                    - img [ref=e1140]
+                - cell "2028-11-05" [ref=e1142]
+                - cell "[매출] SaaS 구독 수익 11월 (9,044 유저) JE-202811-0013 | 보통예금" [ref=e1143]:
+                  - generic [ref=e1144]:
+                    - generic [ref=e1145]: "[매출] SaaS 구독 수익 11월 (9,044 유저)"
+                    - generic [ref=e1146]: JE-202811-0013 | 보통예금
+                - cell "+ 128,865,000" [ref=e1147]
+                - cell "승인됨" [ref=e1148]:
+                  - generic [ref=e1151]: 승인됨
+              - row "2028-10-28 [인프라] Cloud Compute & Storage 10월 JE-202810-0011 | 인프라 원가 - 1,432,440 승인됨" [ref=e1152] [cursor=pointer]:
+                - cell [ref=e1153]:
+                  - button [ref=e1154]:
+                    - img [ref=e1155]
+                - cell "2028-10-28" [ref=e1157]
+                - cell "[인프라] Cloud Compute & Storage 10월 JE-202810-0011 | 인프라 원가" [ref=e1158]:
+                  - generic [ref=e1159]:
+                    - generic [ref=e1160]: "[인프라] Cloud Compute & Storage 10월"
+                    - generic [ref=e1161]: JE-202810-0011 | 인프라 원가
+                - cell "- 1,432,440" [ref=e1162]
+                - cell "승인됨" [ref=e1163]:
+                  - generic [ref=e1166]: 승인됨
+              - row "2028-10-28 [AI] Gemini API Usage Fee 10월 JE-202810-0012 | Gemini API 원가 - 3,810,600 승인됨" [ref=e1167] [cursor=pointer]:
+                - cell [ref=e1168]:
+                  - button [ref=e1169]:
+                    - img [ref=e1170]
+                - cell "2028-10-28" [ref=e1172]
+                - cell "[AI] Gemini API Usage Fee 10월 JE-202810-0012 | Gemini API 원가" [ref=e1173]:
+                  - generic [ref=e1174]:
+                    - generic [ref=e1175]: "[AI] Gemini API Usage Fee 10월"
+                    - generic [ref=e1176]: JE-202810-0012 | Gemini API 원가
+                - cell "- 3,810,600" [ref=e1177]
+                - cell "승인됨" [ref=e1178]:
+                  - generic [ref=e1181]: 승인됨
+              - row "2028-10-25 10월 임직원 급여 원천세 공제 JE-202810-0004 | 급여 - 648,960 승인됨" [ref=e1182] [cursor=pointer]:
+                - cell [ref=e1183]:
+                  - button [ref=e1184]:
+                    - img [ref=e1185]
+                - cell "2028-10-25" [ref=e1187]
+                - cell "10월 임직원 급여 원천세 공제 JE-202810-0004 | 급여" [ref=e1188]:
+                  - generic [ref=e1189]:
+                    - generic [ref=e1190]: 10월 임직원 급여 원천세 공제
+                    - generic [ref=e1191]: JE-202810-0004 | 급여
+                - cell "- 648,960" [ref=e1192]
+                - cell "승인됨" [ref=e1193]:
+                  - generic [ref=e1196]: 승인됨
+              - row "2028-10-25 10월 사회보험료 공제 (본인부담금) JE-202810-0005 | 급여 - 1,297,920 승인됨" [ref=e1197] [cursor=pointer]:
+                - cell [ref=e1198]:
+                  - button [ref=e1199]:
+                    - img [ref=e1200]
+                - cell "2028-10-25" [ref=e1202]
+                - cell "10월 사회보험료 공제 (본인부담금) JE-202810-0005 | 급여" [ref=e1203]:
+                  - generic [ref=e1204]:
+                    - generic [ref=e1205]: 10월 사회보험료 공제 (본인부담금)
+                    - generic [ref=e1206]: JE-202810-0005 | 급여
+                - cell "- 1,297,920" [ref=e1207]
+                - cell "승인됨" [ref=e1208]:
+                  - generic [ref=e1211]: 승인됨
+              - row "2028-10-25 10월 사회보험료 회사부담금 JE-202810-0006 | 복리후생비 - 1,297,920 승인됨" [ref=e1212] [cursor=pointer]:
+                - cell [ref=e1213]:
+                  - button [ref=e1214]:
+                    - img [ref=e1215]
+                - cell "2028-10-25" [ref=e1217]
+                - cell "10월 사회보험료 회사부담금 JE-202810-0006 | 복리후생비" [ref=e1218]:
+                  - generic [ref=e1219]:
+                    - generic [ref=e1220]: 10월 사회보험료 회사부담금
+                    - generic [ref=e1221]: JE-202810-0006 | 복리후생비
+                - cell "- 1,297,920" [ref=e1222]
+                - cell "승인됨" [ref=e1223]:
+                  - generic [ref=e1226]: 승인됨
+              - row "2028-10-25 10월 급여 실지급액 (Net Pay) JE-202810-0007 | 급여 - 11,032,320 승인됨" [ref=e1227] [cursor=pointer]:
+                - cell [ref=e1228]:
+                  - button [ref=e1229]:
+                    - img [ref=e1230]
+                - cell "2028-10-25" [ref=e1232]
+                - cell "10월 급여 실지급액 (Net Pay) JE-202810-0007 | 급여" [ref=e1233]:
+                  - generic [ref=e1234]:
+                    - generic [ref=e1235]: 10월 급여 실지급액 (Net Pay)
+                    - generic [ref=e1236]: JE-202810-0007 | 급여
+                - cell "- 11,032,320" [ref=e1237]
+                - cell "승인됨" [ref=e1238]:
+                  - generic [ref=e1241]: 승인됨
+              - row "2028-10-20 10월 복리후생비 (음료 및 석식) JE-202810-0001 | 복리후생비 - 540,800 승인됨" [ref=e1242] [cursor=pointer]:
+                - cell [ref=e1243]:
+                  - button [ref=e1244]:
+                    - img [ref=e1245]
+                - cell "2028-10-20" [ref=e1247]
+                - cell "10월 복리후생비 (음료 및 석식) JE-202810-0001 | 복리후생비" [ref=e1248]:
+                  - generic [ref=e1249]:
+                    - generic [ref=e1250]: 10월 복리후생비 (음료 및 석식)
+                    - generic [ref=e1251]: JE-202810-0001 | 복리후생비
+                - cell "- 540,800" [ref=e1252]
+                - cell "승인됨" [ref=e1253]:
+                  - generic [ref=e1256]: 승인됨
+              - row "2028-10-18 10월 여비교통비 (시내출장) JE-202810-0002 | 여비교통비 - 162,240 승인됨" [ref=e1257] [cursor=pointer]:
+                - cell [ref=e1258]:
+                  - button [ref=e1259]:
+                    - img [ref=e1260]
+                - cell "2028-10-18" [ref=e1262]
+                - cell "10월 여비교통비 (시내출장) JE-202810-0002 | 여비교통비" [ref=e1263]:
+                  - generic [ref=e1264]:
+                    - generic [ref=e1265]: 10월 여비교통비 (시내출장)
+                    - generic [ref=e1266]: JE-202810-0002 | 여비교통비
+                - cell "- 162,240" [ref=e1267]
+                - cell "승인됨" [ref=e1268]:
+                  - generic [ref=e1271]: 승인됨
+              - row "2028-10-15 10월 전략적 광고 집행 (CAC 대응) JE-202810-0014 | 광고선전비 - 3,244,800 승인됨" [ref=e1272] [cursor=pointer]:
+                - cell [ref=e1273]:
+                  - button [ref=e1274]:
+                    - img [ref=e1275]
+                - cell "2028-10-15" [ref=e1277]
+                - cell "10월 전략적 광고 집행 (CAC 대응) JE-202810-0014 | 광고선전비" [ref=e1278]:
+                  - generic [ref=e1279]:
+                    - generic [ref=e1280]: 10월 전략적 광고 집행 (CAC 대응)
+                    - generic [ref=e1281]: JE-202810-0014 | 광고선전비
+                - cell "- 3,244,800" [ref=e1282]
+                - cell "승인됨" [ref=e1283]:
+                  - generic [ref=e1286]: 승인됨
+              - row "2028-10-10 10월 통신 및 클라우드 유지비 JE-202810-0003 | 통신비 - 129,792 승인됨" [ref=e1287] [cursor=pointer]:
+                - cell [ref=e1288]:
+                  - button [ref=e1289]:
+                    - img [ref=e1290]
+                - cell "2028-10-10" [ref=e1292]
+                - cell "10월 통신 및 클라우드 유지비 JE-202810-0003 | 통신비" [ref=e1293]:
+                  - generic [ref=e1294]:
+                    - generic [ref=e1295]: 10월 통신 및 클라우드 유지비
+                    - generic [ref=e1296]: JE-202810-0003 | 통신비
+                - cell "- 129,792" [ref=e1297]
+                - cell "승인됨" [ref=e1298]:
+                  - generic [ref=e1301]: 승인됨
+              - row "2028-10-10 9월분 원천세 납부 JE-202810-0008 | 예수금(원천세) - 540,800 승인됨" [ref=e1302] [cursor=pointer]:
+                - cell [ref=e1303]:
+                  - button [ref=e1304]:
+                    - img [ref=e1305]
+                - cell "2028-10-10" [ref=e1307]
+                - cell "9월분 원천세 납부 JE-202810-0008 | 예수금(원천세)" [ref=e1308]:
+                  - generic [ref=e1309]:
+                    - generic [ref=e1310]: 9월분 원천세 납부
+                    - generic [ref=e1311]: JE-202810-0008 | 예수금(원천세)
+                - cell "- 540,800" [ref=e1312]
+                - cell "승인됨" [ref=e1313]:
+                  - generic [ref=e1316]: 승인됨
+              - row "2028-10-10 9월분 사회보험료 납부 JE-202810-0009 | 예수금(사회보험료) - 2,163,200 승인됨" [ref=e1317] [cursor=pointer]:
+                - cell [ref=e1318]:
+                  - button [ref=e1319]:
+                    - img [ref=e1320]
+                - cell "2028-10-10" [ref=e1322]
+                - cell "9월분 사회보험료 납부 JE-202810-0009 | 예수금(사회보험료)" [ref=e1323]:
+                  - generic [ref=e1324]:
+                    - generic [ref=e1325]: 9월분 사회보험료 납부
+                    - generic [ref=e1326]: JE-202810-0009 | 예수금(사회보험료)
+                - cell "- 2,163,200" [ref=e1327]
+                - cell "승인됨" [ref=e1328]:
+                  - generic [ref=e1331]: 승인됨
+              - row "2028-10-05 10월 사무실 임차료 JE-202810-0010 | 지급임차료 - 2,163,200 승인됨" [ref=e1332] [cursor=pointer]:
+                - cell [ref=e1333]:
+                  - button [ref=e1334]:
+                    - img [ref=e1335]
+                - cell "2028-10-05" [ref=e1337]
+                - cell "10월 사무실 임차료 JE-202810-0010 | 지급임차료" [ref=e1338]:
+                  - generic [ref=e1339]:
+                    - generic [ref=e1340]: 10월 사무실 임차료
+                    - generic [ref=e1341]: JE-202810-0010 | 지급임차료
+                - cell "- 2,163,200" [ref=e1342]
+                - cell "승인됨" [ref=e1343]:
+                  - generic [ref=e1346]: 승인됨
+              - row "2028-10-05 [매출] SaaS 구독 수익 10월 (8,468 유저) JE-202810-0013 | 보통예금 + 120,660,000 승인됨" [ref=e1347] [cursor=pointer]:
+                - cell [ref=e1348]:
+                  - button [ref=e1349]:
+                    - img [ref=e1350]
+                - cell "2028-10-05" [ref=e1352]
+                - cell "[매출] SaaS 구독 수익 10월 (8,468 유저) JE-202810-0013 | 보통예금" [ref=e1353]:
+                  - generic [ref=e1354]:
+                    - generic [ref=e1355]: "[매출] SaaS 구독 수익 10월 (8,468 유저)"
+                    - generic [ref=e1356]: JE-202810-0013 | 보통예금
+                - cell "+ 120,660,000" [ref=e1357]
+                - cell "승인됨" [ref=e1358]:
+                  - generic [ref=e1361]: 승인됨
+              - row "2028-09-28 [인프라] Cloud Compute & Storage 9월 JE-202809-0011 | 인프라 원가 - 1,346,340 승인됨" [ref=e1362] [cursor=pointer]:
+                - cell [ref=e1363]:
+                  - button [ref=e1364]:
+                    - img [ref=e1365]
+                - cell "2028-09-28" [ref=e1367]
+                - cell "[인프라] Cloud Compute & Storage 9월 JE-202809-0011 | 인프라 원가" [ref=e1368]:
+                  - generic [ref=e1369]:
+                    - generic [ref=e1370]: "[인프라] Cloud Compute & Storage 9월"
+                    - generic [ref=e1371]: JE-202809-0011 | 인프라 원가
+                - cell "- 1,346,340" [ref=e1372]
+                - cell "승인됨" [ref=e1373]:
+                  - generic [ref=e1376]: 승인됨
+              - row "2028-09-28 [AI] Gemini API Usage Fee 9월 JE-202809-0012 | Gemini API 원가 - 3,552,300 승인됨" [ref=e1377] [cursor=pointer]:
+                - cell [ref=e1378]:
+                  - button [ref=e1379]:
+                    - img [ref=e1380]
+                - cell "2028-09-28" [ref=e1382]
+                - cell "[AI] Gemini API Usage Fee 9월 JE-202809-0012 | Gemini API 원가" [ref=e1383]:
+                  - generic [ref=e1384]:
+                    - generic [ref=e1385]: "[AI] Gemini API Usage Fee 9월"
+                    - generic [ref=e1386]: JE-202809-0012 | Gemini API 원가
+                - cell "- 3,552,300" [ref=e1387]
+                - cell "승인됨" [ref=e1388]:
+                  - generic [ref=e1391]: 승인됨
+              - row "2028-09-25 9월 임직원 급여 원천세 공제 JE-202809-0004 | 급여 - 648,960 승인됨" [ref=e1392] [cursor=pointer]:
+                - cell [ref=e1393]:
+                  - button [ref=e1394]:
+                    - img [ref=e1395]
+                - cell "2028-09-25" [ref=e1397]
+                - cell "9월 임직원 급여 원천세 공제 JE-202809-0004 | 급여" [ref=e1398]:
+                  - generic [ref=e1399]:
+                    - generic [ref=e1400]: 9월 임직원 급여 원천세 공제
+                    - generic [ref=e1401]: JE-202809-0004 | 급여
+                - cell "- 648,960" [ref=e1402]
+                - cell "승인됨" [ref=e1403]:
+                  - generic [ref=e1406]: 승인됨
+              - row "2028-09-25 9월 사회보험료 공제 (본인부담금) JE-202809-0005 | 급여 - 1,297,920 승인됨" [ref=e1407] [cursor=pointer]:
+                - cell [ref=e1408]:
+                  - button [ref=e1409]:
+                    - img [ref=e1410]
+                - cell "2028-09-25" [ref=e1412]
+                - cell "9월 사회보험료 공제 (본인부담금) JE-202809-0005 | 급여" [ref=e1413]:
+                  - generic [ref=e1414]:
+                    - generic [ref=e1415]: 9월 사회보험료 공제 (본인부담금)
+                    - generic [ref=e1416]: JE-202809-0005 | 급여
+                - cell "- 1,297,920" [ref=e1417]
+                - cell "승인됨" [ref=e1418]:
+                  - generic [ref=e1421]: 승인됨
+              - row "2028-09-25 9월 사회보험료 회사부담금 JE-202809-0006 | 복리후생비 - 1,297,920 승인됨" [ref=e1422] [cursor=pointer]:
+                - cell [ref=e1423]:
+                  - button [ref=e1424]:
+                    - img [ref=e1425]
+                - cell "2028-09-25" [ref=e1427]
+                - cell "9월 사회보험료 회사부담금 JE-202809-0006 | 복리후생비" [ref=e1428]:
+                  - generic [ref=e1429]:
+                    - generic [ref=e1430]: 9월 사회보험료 회사부담금
+                    - generic [ref=e1431]: JE-202809-0006 | 복리후생비
+                - cell "- 1,297,920" [ref=e1432]
+                - cell "승인됨" [ref=e1433]:
+                  - generic [ref=e1436]: 승인됨
+              - row "2028-09-25 9월 급여 실지급액 (Net Pay) JE-202809-0007 | 급여 - 11,032,320 승인됨" [ref=e1437] [cursor=pointer]:
+                - cell [ref=e1438]:
+                  - button [ref=e1439]:
+                    - img [ref=e1440]
+                - cell "2028-09-25" [ref=e1442]
+                - cell "9월 급여 실지급액 (Net Pay) JE-202809-0007 | 급여" [ref=e1443]:
+                  - generic [ref=e1444]:
+                    - generic [ref=e1445]: 9월 급여 실지급액 (Net Pay)
+                    - generic [ref=e1446]: JE-202809-0007 | 급여
+                - cell "- 11,032,320" [ref=e1447]
+                - cell "승인됨" [ref=e1448]:
+                  - generic [ref=e1451]: 승인됨
+              - row "2028-09-20 9월 복리후생비 (음료 및 석식) JE-202809-0001 | 복리후생비 - 540,800 승인됨" [ref=e1452] [cursor=pointer]:
+                - cell [ref=e1453]:
+                  - button [ref=e1454]:
+                    - img [ref=e1455]
+                - cell "2028-09-20" [ref=e1457]
+                - cell "9월 복리후생비 (음료 및 석식) JE-202809-0001 | 복리후생비" [ref=e1458]:
+                  - generic [ref=e1459]:
+                    - generic [ref=e1460]: 9월 복리후생비 (음료 및 석식)
+                    - generic [ref=e1461]: JE-202809-0001 | 복리후생비
+                - cell "- 540,800" [ref=e1462]
+                - cell "승인됨" [ref=e1463]:
+                  - generic [ref=e1466]: 승인됨
+              - row "2028-09-18 9월 여비교통비 (시내출장) JE-202809-0002 | 여비교통비 - 162,240 승인됨" [ref=e1467] [cursor=pointer]:
+                - cell [ref=e1468]:
+                  - button [ref=e1469]:
+                    - img [ref=e1470]
+                - cell "2028-09-18" [ref=e1472]
+                - cell "9월 여비교통비 (시내출장) JE-202809-0002 | 여비교통비" [ref=e1473]:
+                  - generic [ref=e1474]:
+                    - generic [ref=e1475]: 9월 여비교통비 (시내출장)
+                    - generic [ref=e1476]: JE-202809-0002 | 여비교통비
+                - cell "- 162,240" [ref=e1477]
+                - cell "승인됨" [ref=e1478]:
+                  - generic [ref=e1481]: 승인됨
+    - button [ref=e1484] [cursor=pointer]:
+      - img [ref=e1486]
+  - generic [ref=e1490]: 2029-11
+```

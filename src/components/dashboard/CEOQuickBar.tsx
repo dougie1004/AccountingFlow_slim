@@ -5,15 +5,17 @@ import { InfoTooltip } from '../ui/InfoTooltip';
 interface CEOQuickBarProps {
     financials: any;
     avgMonthlyBurn: number;
+    runwayMonths?: number;
     isProfitable?: boolean;
     hasActivity?: boolean;
     onNavigate?: (tab: string) => void;
     timeRange?: 'day' | 'week' | 'month' | 'year';
 }
 
-export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthlyBurn, isProfitable, hasActivity, onNavigate, timeRange = 'day' }) => {
-    const runway = avgMonthlyBurn > 0 ? Math.floor(financials.cash / avgMonthlyBurn) : 0;
-    const margin = financials.revenue > 0 ? Math.round((financials.netIncome / financials.revenue) * 100) : 0;
+export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthlyBurn, runwayMonths, isProfitable, hasActivity, onNavigate, timeRange = 'day' }) => {
+    const cashBalance = financials.currentCash !== undefined ? financials.currentCash : financials.cash;
+    const runway = runwayMonths !== undefined ? runwayMonths : (avgMonthlyBurn > 0 ? Math.floor((cashBalance || 0) / avgMonthlyBurn) : 0);
+    const margin = financials.revenue > 0 ? Math.round(((financials.netIncome || 0) / financials.revenue) * 100) : 0;
 
     const rangeLabel = timeRange === 'day' ? '14 Days' : timeRange === 'week' ? 'Weekly' : timeRange === 'month' ? 'Monthly' : 'Yearly';
 
@@ -21,7 +23,12 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in slide-in-from-top-4 duration-700">
             {/* 1. Net Income (Profitability) */}
             <button
-                onClick={() => onNavigate?.('financial-statements')}
+                onClick={() => {
+                    localStorage.setItem('fs_initial_tab', 'pl');
+                    if (financials.startDate) localStorage.setItem('fs_start_date', financials.startDate);
+                    if (financials.endDate) localStorage.setItem('fs_end_date', financials.endDate);
+                    onNavigate?.('trial-balance');
+                }}
                 className="text-left bg-gradient-to-br from-[#1E293B] to-[#0F172A] p-6 rounded-[2rem] border border-white/5 shadow-2xl relative overflow-hidden group hover:scale-[1.02] transition-all"
             >
                 <div className="absolute top-0 right-0 p-8 opacity-[0.03] rotate-12 transition-transform group-hover:scale-110 group-hover:rotate-0 duration-700"><Activity size={120} /></div>
@@ -59,23 +66,23 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
                         <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400">
                             <Wallet size={18} />
                         </div>
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Current Cash</span>
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Current Cash {financials.endDate && <span className="text-slate-600">({financials.endDate})</span>}</span>
                         <InfoTooltip
                             title="Current Cash (가용 현금)"
                             content="현재 즉시 사용 가능한 모든 현금 및 예금 계좌의 잔액 합계입니다."
                             contextualTip="일간 현금 보고서의 기말 잔액과 일치해야 합니다."
                         />
                     </div>
-                    <h3 className="text-3xl font-black text-white tracking-tight">{financials.displayCash || '-'}</h3>
+                    <h3 className="text-3xl font-black text-white tracking-tight">₩{(cashBalance || 0).toLocaleString()}</h3>
                     {/* Breakdown by Dr/Cr as requested */}
                     <div className="flex flex-col gap-1 mt-2 w-full pr-2">
                         <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 border-b border-white/5 pb-1">
                             <span>Inflow (Dr)</span>
-                            <span className="text-emerald-400 font-mono tracking-tight">+₩{financials.cashInflow?.toLocaleString()}</span>
+                            <span className="text-emerald-400 font-mono tracking-tight">+₩{(financials.cashInflow || 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 pt-0.5">
                             <span>Outflow (Cr)</span>
-                            <span className="text-rose-400 font-mono tracking-tight">-₩{financials.cashOutflow?.toLocaleString()}</span>
+                            <span className="text-rose-400 font-mono tracking-tight">-₩{(financials.cashOutflow || 0).toLocaleString()}</span>
                         </div>
                     </div>
                 </div>
@@ -83,7 +90,14 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
 
             {/* 3. Monthly Burn Rate */}
             <button
-                onClick={() => onNavigate?.('ledger-view')}
+                onClick={() => {
+                    localStorage.setItem('fs_initial_tab', 'pl');
+                    localStorage.setItem('fs_selected_account', 'GROUP:BURN_RATE');
+                    // Burn rate is calculated over a longer baseline, show 'All' time to see the reference
+                    localStorage.setItem('fs_start_date', '2023-01-01');
+                    localStorage.setItem('fs_end_date', financials.endDate || new Date().toISOString().split('T')[0]);
+                    onNavigate?.('trial-balance');
+                }}
                 className="text-left bg-[#151D2E] p-6 rounded-[2rem] border border-white/5 shadow-xl relative overflow-hidden group hover:scale-[1.02] transition-all"
             >
                 <div className="relative z-10">

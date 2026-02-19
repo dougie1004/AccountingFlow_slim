@@ -72,7 +72,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ 
                             </div>
                             <div>
                                 <h2 className="text-lg font-black text-white tracking-tight">전표 상세 (Journal Detail)</h2>
-                                <p className="text-[10px] text-slate-400 font-mono">SLIP ID: {entry.slipNumber}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">SLIP ID: {entry.journalNumber || 'N/A'}</p>
                             </div>
                         </div>
                         <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-colors">

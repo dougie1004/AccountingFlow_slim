@@ -14,12 +14,15 @@ import { VatOptimizationReport } from '../components/tax/VatOptimizationReport';
 import { toLocalIsoDate } from '../utils/formatUtils';
 
 const Journal: React.FC = () => {
-    const { ledger, addEntry, partners, stagingTransactions, setStagingTransactions } = useAccounting();
+    const { ledger, addEntry, partners, stagingTransactions, setStagingTransactions, bulkApprove } = useAccounting();
 
     // Filtering state
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [selectedVendor, setSelectedVendor] = useState('');
+    const [selectedQuarter, setSelectedQuarter] = useState<number>(0);
+
+    // View & Tab state
 
     // View & Tab state
     const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
@@ -30,6 +33,25 @@ const Journal: React.FC = () => {
     const [externalFile, setExternalFile] = useState<File | null>(null);
 
     const { addEntries } = useContext(AccountingContext)!;
+
+    // [Phase 11] Auto-apply filter hint from Dashboard liability alert
+    React.useEffect(() => {
+        const hint = localStorage.getItem('journal_filter_hint');
+        if (hint) {
+            try {
+                const { startDate: hintStart, endDate: hintEnd, reason } = JSON.parse(hint);
+                if (reason === 'liability_review') {
+                    setStartDate(hintStart);
+                    setEndDate(hintEnd);
+                    setViewMode('table'); // Ensure table view
+                }
+            } catch (e) {
+                console.error('Failed to parse journal filter hint:', e);
+            }
+            // Clear the hint after applying
+            localStorage.removeItem('journal_filter_hint');
+        }
+    }, []);
 
     // Extract unique vendors for dropdown
     const vendors = useMemo(() => {
@@ -46,6 +68,10 @@ const Journal: React.FC = () => {
         });
         return result.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }, [ledger, startDate, endDate, selectedVendor]);
+
+    const unconfirmedFiltered = useMemo(() => {
+        return filteredLedger.filter(e => e.status !== 'Approved');
+    }, [filteredLedger]);
 
     const handleExportCSV = () => {
         if (filteredLedger.length === 0) return;
@@ -226,10 +252,24 @@ const Journal: React.FC = () => {
                         VAT 최적화 리포트
                     </button>
 
+                    {unconfirmedFiltered.length > 0 && (
+                        <button
+                            onClick={() => {
+                                if (window.confirm(`선택된 기간 내의 미확정 전표 ${unconfirmedFiltered.length}건을 모두 확정하시겠습니까?`)) {
+                                    bulkApprove(unconfirmedFiltered.map(e => e.id));
+                                }
+                            }}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 rounded-xl text-sm font-bold text-white hover:bg-indigo-700 transition-all shadow-lg active:scale-95 animate-in zoom-in-95"
+                        >
+                            <Sparkles size={16} />
+                            {unconfirmedFiltered.length}건 일괄 확정
+                        </button>
+                    )}
+
                     <button
                         onClick={handleExportCSV}
                         disabled={filteredLedger.length === 0}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 rounded-xl text-sm font-bold text-white hover:bg-indigo-700 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Download size={16} />
                         엑셀(CSV) 저장
@@ -274,13 +314,15 @@ const Journal: React.FC = () => {
                                     </select>
 
                                     <select
+                                        data-testid="quarter-select"
+                                        value={selectedQuarter}
                                         onChange={(e) => {
                                             const q = parseInt(e.target.value);
+                                            setSelectedQuarter(q);
                                             if (q === 0) return;
                                             const year = startDate ? new Date(startDate).getFullYear() : 2026;
                                             const startMonth = (q - 1) * 3;
                                             setStartDate(toLocalIsoDate(new Date(year, startMonth, 1)));
-                                            setEndDate(toLocalIsoDate(new Date(year, startMonth + 3, 0)));
                                             setEndDate(toLocalIsoDate(new Date(year, startMonth + 3, 0)));
                                         }}
                                         className="bg-transparent text-slate-400 text-[11px] font-black outline-none cursor-pointer hover:text-indigo-400 transition-colors px-2 border-r border-white/5"

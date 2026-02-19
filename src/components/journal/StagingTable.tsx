@@ -1,10 +1,11 @@
 import React, { useState, useContext } from 'react';
-import { Loader2, Database, CheckCircle2, AlertTriangle, Zap, Trash2, X, ExternalLink } from 'lucide-react';
+import { Loader2, Database, CheckCircle2, AlertTriangle, Zap, Trash2, X, ExternalLink, ShieldCheck, User, Clock } from 'lucide-react';
 import { useAI } from '../../hooks/useAI';
 import { JournalEntry, Partner, ParsedTransaction } from '../../types';
 import { AccountingContext } from '../../context/AccountingContext';
 import { ALL_ACCOUNTS } from '../../constants/accounts';
 import { cleanMarkdown } from '../../utils/textUtils';
+import { getResponsibilityRoute } from '../../bridge/StrategicBridge';
 
 interface StagingTableProps {
     data: ParsedTransaction[];
@@ -97,6 +98,8 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                         onClick={() => {
                             const entries: JournalEntry[] = stagedData.map(d => ({
                                 id: d.id || Math.random().toString(36).substr(2, 9),
+                                journalNumber: 'PENDING',
+                                sequenceNumber: 0,
                                 date: d.date || new Date().toISOString().split('T')[0],
                                 description: d.description || '',
                                 vendor: d.vendor,
@@ -106,6 +109,9 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                 vat: d.vat,
                                 type: d.entryType || 'Expense',
                                 status: 'Unconfirmed',
+                                createdAt: new Date().toISOString(),
+                                confidence: d.confidence === 'High' ? 0.95 : d.confidence === 'Medium' ? 0.7 : 0.5,
+                                classificationStatus: 'AUTO_CLASSIFIED',
                                 attachments: d.attachmentUrl ? [{
                                     id: Math.random().toString(36).substr(2, 9),
                                     fileName: 'evidence.jpg',
@@ -140,7 +146,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                     <tr
                                         key={idx}
                                         onClick={() => setSelectedRow(idx)}
-                                        className={`transition-all cursor-pointer ${selectedRow === idx ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'}`}
+                                        className={`transition-all cursor-pointer ${selectedRow === idx ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'} ${!row.accountName ? 'opacity-60 saturate-50' : ''}`}
                                     >
                                         <td className="px-6 py-4 font-mono text-xs">{row.date}</td>
                                         <td className="px-6 py-4">
@@ -149,12 +155,34 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                         </td>
                                         <td className="px-6 py-4 text-right font-black text-white">₩{row.amount.toLocaleString()}</td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-3 py-1 rounded-lg font-black text-xs ${row.accountName ? 'bg-indigo-500/10 text-indigo-400' : 'bg-white/5 text-slate-600'}`}>
-                                                {row.accountName || '대기 중'}
-                                            </span>
+                                            <div className="flex flex-col gap-1.5">
+                                                <span className={`px-3 py-1 rounded-lg font-black text-[10px] uppercase text-center ${row.accountName ? 'bg-indigo-500/10 text-indigo-400' : 'bg-[#1E293B] border border-white/10 text-slate-400'}`}>
+                                                    {row.accountName || 'Unclassified (권한)'}
+                                                </span>
+                                                {!row.accountName && (
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-md border text-[8px] font-black uppercase tracking-tighter ${row.amount >= 10000000 ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : 'bg-indigo-500/5 text-indigo-400/80 border-indigo-500/10'}`}>
+                                                            <User size={8} /> Next: {getResponsibilityRoute(row).currentOwner}
+                                                        </span>
+                                                        {getResponsibilityRoute(row).nextEscalation && (
+                                                            <span className="text-[7px] font-bold text-amber-500/60 text-center italic tracking-tighter">
+                                                                * 3일 후 {getResponsibilityRoute(row).nextEscalation} 자동 이관
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <button onClick={() => setStagedData(prev => prev.filter((_, i) => i !== idx))} className="text-slate-500 hover:text-rose-500">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setStagedData(prev => prev.filter((_, i) => i !== idx));
+                                                    if (selectedRow === idx) setSelectedRow(null);
+                                                    else if (selectedRow !== null && idx < selectedRow) setSelectedRow(selectedRow - 1);
+                                                }}
+                                                className="text-slate-500 hover:text-rose-500"
+                                            >
                                                 <Trash2 size={14} />
                                             </button>
                                         </td>
@@ -166,22 +194,22 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                 </div>
 
                 <div className="space-y-6">
-                    {selectedRow !== null && (
+                    {selectedRow !== null && stagedData[selectedRow] && (
                         <div className="professional-card p-6 space-y-6 animate-in slide-in-from-right-4 duration-300">
                             <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Detail View</h4>
 
-                            {stagedData[selectedRow].attachmentUrl && (
+                            {stagedData[selectedRow]?.attachmentUrl && (
                                 <div className="rounded-xl overflow-hidden border border-white/10 relative group">
                                     <div className="absolute top-2 right-2 px-2 py-1 bg-black/50 backdrop-blur-md rounded text-[10px] text-white font-bold">
                                         원본 증빙
                                     </div>
                                     <img
-                                        src={stagedData[selectedRow].attachmentUrl}
+                                        src={stagedData[selectedRow]?.attachmentUrl}
                                         alt="Evidence"
                                         className="w-full h-auto object-contain max-h-[300px] bg-white/5"
                                     />
                                     <button
-                                        onClick={() => setPreviewUrl(stagedData[selectedRow].attachmentUrl || null)}
+                                        onClick={() => setPreviewUrl(stagedData[selectedRow]?.attachmentUrl || null)}
                                         className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white font-bold transition-opacity"
                                     >
                                         크게 보기
@@ -209,10 +237,65 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                     </datalist>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">Reasoning</label>
-                                    <p className="text-sm text-slate-400 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
-                                        {stagedData[selectedRow].reasoning}
-                                    </p>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase block">AI 판단 근거 및 정책 준수</label>
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-indigo-500/10 rounded border border-indigo-500/20">
+                                            <ShieldCheck size={8} className="text-indigo-400" />
+                                            <span className="text-[8px] font-black text-indigo-400 uppercase tracking-tighter">Verified by Rule #7</span>
+                                        </div>
+                                    </div>
+                                    <div className="relative group">
+                                        <p className={`text-sm leading-relaxed p-4 rounded-xl border ${stagedData[selectedRow].accountName ? 'text-slate-400 bg-white/5 border-white/5' : 'text-[#94A3B8] bg-[#1E293B]/50 border-white/10'}`}>
+                                            {stagedData[selectedRow].accountName ? (
+                                                stagedData[selectedRow].reasoning
+                                            ) : (
+                                                <div className="flex flex-col gap-3">
+                                                    <div className="flex items-center gap-2 text-white/60 uppercase tracking-widest text-[10px] font-black">
+                                                        <ShieldCheck size={12} />
+                                                        <span>Trust Surface: Grey Zone</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="block text-lg font-black text-white mb-1">AI가 판단하지 않은 영역입니다.</span>
+                                                        <span className="block text-sm text-slate-400 font-medium">이 판단은 당신의 권한입니다.</span>
+                                                    </div>
+                                                    <div className="h-px bg-white/10 w-full my-1" />
+                                                    <span className="text-xs text-slate-500 italic">
+                                                        * 시스템 회계 헌법 제7조에 의거, 불확실한 판단을 내리는 대신 침묵(Silence)을 선택했습니다.
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </p>
+                                        {/* Responsibility Routing Badge in Detail */}
+                                        {!stagedData[selectedRow].accountName && (
+                                            <div className="mt-3 flex flex-col gap-2">
+                                                <div className="flex items-center justify-between px-3 py-2 bg-rose-500/10 rounded-xl border border-rose-500/20">
+                                                    <div className="flex items-center gap-2">
+                                                        <Database size={12} className="text-rose-400" />
+                                                        <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Responsibility Path</span>
+                                                    </div>
+                                                    <span className="text-[10px] font-black text-white bg-rose-600 px-2 py-0.5 rounded shadow-lg uppercase">Next: {getResponsibilityRoute(stagedData[selectedRow]).currentOwner}</span>
+                                                </div>
+                                                <div className="px-3 py-2 bg-white/5 rounded-lg border border-white/5">
+                                                    <p className="text-[10px] text-slate-400 font-bold leading-tight">
+                                                        {getResponsibilityRoute(stagedData[selectedRow]).description}
+                                                    </p>
+                                                </div>
+                                                {getResponsibilityRoute(stagedData[selectedRow]).nextEscalation && (
+                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/5 rounded-lg border border-amber-500/10">
+                                                        <Clock size={10} className="text-amber-500" />
+                                                        <span className="text-[9px] font-bold text-amber-500/80">
+                                                            {getResponsibilityRoute(stagedData[selectedRow]).escalationAfterDays}일 후 {getResponsibilityRoute(stagedData[selectedRow]).nextEscalation} 검토로 자동 이관됩니다.
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {/* CBT Observer Tooltip */}
+                                        <div className="absolute -top-10 left-0 w-max px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl border border-white/10 z-10">
+                                            [CBT_OBSERVER] STARTUP_V1 규격: 1인~소규모 조직을 위한 지연 방지 라우팅이 적용되었습니다.
+                                        </div>
+                                    </div>
+                                    {/* Footer Disclaimer Removed (Integrated above) */}
                                 </div>
                             </div>
                         </div>

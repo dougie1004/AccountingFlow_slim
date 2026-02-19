@@ -111,6 +111,10 @@ export const LedgerView: React.FC = () => {
             else credit += row.amount;
         });
 
+        if (selectedAccount === '전체 계정') {
+            return { debit, credit, balance: debit - credit }; // Default to Dr-Cr or just 0
+        }
+
         const category = getAccountCategory(selectedAccount);
         const isCreditNature = ['Liability', 'Equity', 'Revenue'].includes(category);
         const balance = isCreditNature ? credit - debit : debit - credit;

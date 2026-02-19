@@ -8,6 +8,7 @@ import {
     ShieldAlert, ShieldCheck, Search, ChevronDown, Terminal
 } from 'lucide-react';
 import { useApp } from '../App';
+import { useAccounting } from '../hooks/useAccounting';
 
 interface AnalysisResult {
     findings_count: number;
@@ -28,6 +29,7 @@ export default function AuditWorkspace() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { activeProject, setActiveProject } = useApp();
+    const { systemNow } = useAccounting();
 
     const [projects, setProjects] = useState<any[]>([]);
     const [step, setStep] = useState(1);
@@ -241,13 +243,13 @@ export default function AuditWorkspace() {
                 )}
                 {thoughts.map((t, i) => (
                     <div key={i} className={`flex gap-3 animate-in slide-in-from-left-2 duration-300 ${t.type === 'insight' ? 'text-emerald-400 border-l-2 border-emerald-500/40 pl-3' : t.type === 'security' ? 'text-amber-400' : 'text-blue-400'}`}>
-                        <span className="opacity-40 italic font-black">[{new Date().toLocaleTimeString('ko-KR', { hour12: false })}]</span>
+                        <span className="opacity-40 italic font-black">[{systemNow}]</span>
                         <span className="leading-relaxed font-bold tracking-tight">{t.thought}</span>
                     </div>
                 ))}
                 {isAnalyzing && (
                     <div className="flex gap-3 text-blue-500/50 animate-pulse">
-                        <span className="opacity-40 italic font-black">[{new Date().toLocaleTimeString('ko-KR', { hour12: false })}]</span>
+                        <span className="opacity-40 italic font-black">[{systemNow}]</span>
                         <span className="leading-relaxed font-bold tracking-tight">{">>>"} Decoding data vectors... Cross-referencing 170+ scenarios...</span>
                     </div>
                 )}

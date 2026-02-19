@@ -26,6 +26,7 @@ import {
 } from 'recharts';
 import { useAccounting } from '../hooks/useAccounting';
 import { invoke } from '@tauri-apps/api/core';
+import { getAccountNature } from '../constants/accounts';
 
 export const SCM: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab }) => {
     const context = useAccounting() as any;
@@ -45,7 +46,7 @@ export const SCM: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab }) =>
         // C. 매출 원가 (COGS) - G/L에서 추출 또는 산식 계산 (매입 - 기말재고)
         const cogsResult = ledger?.filter((e: any) =>
             e.status === 'Approved' &&
-            (e.debitAccount.includes('매출원가') || e.debitAccount.includes('COGS'))
+            getAccountNature(e.debitAccount) === 'COGS'
         ).reduce((acc: any, curr: any) => acc + curr.amount, 0) || Math.max(0, purchaseCost - inventoryCost);
 
         // D. 예상 판매 가치 (마진 40% 가정)

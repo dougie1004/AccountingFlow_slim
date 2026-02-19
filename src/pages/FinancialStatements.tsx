@@ -1,27 +1,70 @@
 import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../hooks/useAccounting';
+import { useConfig } from '../context/ConfigContext';
 import { Download, FileText, Printer, FileSpreadsheet, File, TrendingUp, TrendingDown, Zap, Calculator, Lock, Calendar } from 'lucide-react';
 import * as XLSX from 'xlsx'; // Import sheetjs
 import { toLocalIsoDate } from '../utils/formatUtils';
 
-type Tab = 'bs' | 'pl' | 'cf' | 'ce';
+type Tab = 'bs' | 'pl' | 'cf' | 'ce' | 'tb';
 
-import { STANDARD_ACCOUNTS, getAccountCategory, isArAccount } from '../constants/accounts';
+import { STANDARD_ACCOUNTS, getAccountCategory, getAccountNature, isArAccount, CashPolicy } from '../constants/accounts';
+import { calculateFinancials } from '../bridge/StrategicBridge';
 
 const FinancialStatements: React.FC = () => {
-    const { subLedger, config, periods } = useAccounting();
-    const [activeTab, setActiveTab] = useState<Tab>('bs');
+    const { subLedger, config, periods, ledger, systemNow, initialCashBalance } = useAccounting();
+    const { tenantInfo } = useConfig();
+
+    // Intelligent Initialization from Context
+    const [activeTab, setActiveTab] = useState<Tab>(() =>
+        (localStorage.getItem('fs_initial_tab') as Tab) || 'bs'
+    );
+
+    // Auto-clear the intent so it doesn't persist forever
+    // Clear context after consumption
+    React.useEffect(() => {
+        localStorage.removeItem('fs_initial_tab');
+        localStorage.removeItem('fs_start_date');
+        localStorage.removeItem('fs_end_date');
+        localStorage.removeItem('fs_selected_account');
+    }, []);
+
     const [reportMode, setReportMode] = useState<'provisional' | 'finalized'>('provisional');
-    const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
+    const [selectedAccount, setSelectedAccount] = useState<string | null>(() =>
+        localStorage.getItem('fs_selected_account')
+    );
     const [selectedCostCenter, setSelectedCostCenter] = useState<string>('All');
 
-    // Date Range State (Default: This Year)
-    const today = new Date();
-    const [startDate, setStartDate] = useState<string>(`${today.getFullYear()}-01-01`);
-    const [endDate, setEndDate] = useState<string>(toLocalIsoDate(today));
+    // Date Range State (Context or Smart Default)
+    const smartDates = useMemo(() => {
+        const contextStart = localStorage.getItem('fs_start_date');
+        const contextEnd = localStorage.getItem('fs_end_date');
+
+        if (contextStart && contextEnd) {
+            return { start: contextStart, end: contextEnd };
+        }
+
+        // CONSTITUTION v2.1: The system clock IS local reality.
+        const currentSystemDate = systemNow ? new Date(systemNow) : new Date();
+
+        // Default: If systemNow is set (e.g. 2026-04-30), range is 2026-01-01 ~ 2026-04-30
+        return {
+            start: `${currentSystemDate.getFullYear()}-01-01`,
+            end: systemNow || toLocalIsoDate(currentSystemDate)
+        };
+    }, [systemNow]);
+
+    const [startDate, setStartDate] = useState<string>(smartDates.start);
+    const [endDate, setEndDate] = useState<string>(smartDates.end);
+
+    // [Sync Engine] Ensure reports follow the global system timeline
+    React.useEffect(() => {
+        setStartDate(smartDates.start);
+        setEndDate(smartDates.end);
+    }, [smartDates]);
 
     const setPeriod = (type: 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'thisYear' | 'all') => {
-        const now = new Date();
+        // CONSTITUTION v2.1: Use systemNow as base for relative periods
+        const now = new Date(systemNow);
         let start = new Date(now.getFullYear(), now.getMonth(), 1);
         let end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
@@ -36,8 +79,10 @@ const FinancialStatements: React.FC = () => {
             start = new Date(now.getFullYear(), 0, 1);
             end = new Date(now.getFullYear(), 11, 31);
         } else if (type === 'all') {
-            start = new Date(2020, 0, 1);
-            end = new Date(2029, 11, 31);
+            // Use first/last known ledger dates or a wide range relative to now
+            const sorted = ledger.map(e => e.date).sort();
+            start = new Date(sorted[0] || '2023-01-01');
+            end = new Date(sorted[sorted.length - 1] || '2029-12-31');
         }
 
         setStartDate(start.toISOString().split('T')[0]);
@@ -60,12 +105,18 @@ const FinancialStatements: React.FC = () => {
     }, [periods]);
 
     const effectiveLedger = useMemo(() => {
+        // CONSTITUTION v2.1: systemNow is the absolute barrier.
+        // Nothing that happens after systemNow exists in this world view.
+        const worldBarrier = systemNow ? systemNow : '9999-12-31';
+
+        let data = subLedger.filter(e => e.date <= worldBarrier);
+
         if (reportMode === 'finalized') {
             if (!latestClosedPeriod) return [];
-            return subLedger.filter(e => e.date <= `${latestClosedPeriod}-31`);
+            data = data.filter(e => e.date <= `${latestClosedPeriod}-31`);
         }
-        return subLedger;
-    }, [subLedger, reportMode, latestClosedPeriod]);
+        return data;
+    }, [subLedger, reportMode, latestClosedPeriod, systemNow]);
 
     // --- Core Accounting Engine: Movement TB for Reports ---
     const movementMap = useMemo(() => {
@@ -81,7 +132,7 @@ const FinancialStatements: React.FC = () => {
             if (target === 'opening' && ['Revenue', 'Expense'].includes(cat)) {
                 // If it's a Debit (Expense), it decreases Equity (Credit Nature).
                 // If it's a Credit (Revenue), it increases Equity.
-                process('이익잉여금 (Retained Earnings)', amt, isDebit, 'opening');
+                process('이익잉여금', amt, isDebit, 'opening');
                 return;
             }
 
@@ -112,40 +163,33 @@ const FinancialStatements: React.FC = () => {
             }
         });
 
-        // 1. Initial Balances (Conditional)
-        if (config.initialBalances) {
-            if (selectedCostCenter === 'All' || selectedCostCenter === 'HQ') {
-                config.initialBalances.forEach(ib => {
-                    // SMART LOGIC: If ledger has history, trust ledger over static initial balance.
-                    if (accountsWithTransactions.has(ib.account)) return;
-
-                    const cat = getAccountCategory(ib.account);
-                    const d = map.get(ib.account) || { name: ib.account, category: cat, opening: 0, debit: 0, credit: 0, closing: 0 };
-
-                    const isDebitNature = ['Asset', 'Expense'].includes(cat);
-                    if (isDebitNature) d.opening += ib.amount; else d.opening -= ib.amount;
-                    map.set(ib.account, d);
-                });
-            }
+        // 1. Initial Balances (Unconditional)
+        if (config.initialBalances && (selectedCostCenter === 'All' || selectedCostCenter === 'HQ')) {
+            config.initialBalances.forEach(ib => {
+                const cat = getAccountCategory(ib.account);
+                const d = map.get(ib.account) || { name: ib.account, category: cat, opening: 0, debit: 0, credit: 0, closing: 0 };
+                // [FIX] opening should always accumulate the base balance
+                d.opening += ib.amount;
+                map.set(ib.account, d);
+            });
         }
 
-        // 2. Process Transactions
+        // 2. Process Transactions (Unified Decomposition Logic)
         effectiveLedger.forEach(entry => {
             if (selectedCostCenter !== 'All' && (entry.costCenter || 'HQ') !== selectedCostCenter) return;
-            if (entry.date > endDate) return; // Ignore Future
+            // Note: effectiveLedger is already filtered by systemNow.
+            // We only need to check against the REPORTING PERIOD (endDate) here.
+            if (entry.date > endDate) return;
 
-            // If date < startDate, it contributes to Opening Balance.
-            // If startDate <= date <= endDate, it contributes to Period Movement (Debit/Credit).
             const targetMode = entry.date < startDate ? 'opening' : 'movement';
-
-            const amount = entry.amount;
+            const amount = entry.amount || 0;
             const vat = entry.vat || 0;
             const total = amount + vat;
 
             const catD = getAccountCategory(entry.debitAccount);
             const catC = getAccountCategory(entry.creditAccount);
 
-            // 1. Payroll Logic
+            // [CONSTITUTION] The core engine logic must be mirrored here
             if (entry.type === 'Payroll' || (catD === 'Expense' && entry.debitAccount.includes('급여'))) {
                 process(entry.debitAccount, amount, true, targetMode);
                 if (vat > 0) {
@@ -154,21 +198,15 @@ const FinancialStatements: React.FC = () => {
                 } else {
                     process(entry.creditAccount, amount, false, targetMode);
                 }
-            }
-            // 2. Sales Logic
-            else if (catC === 'Revenue') {
+            } else if (catC === 'Revenue') {
                 process(entry.creditAccount, amount, false, targetMode);
                 if (vat > 0) process('부가가치세예수금', vat, false, targetMode);
                 process(entry.debitAccount, total, true, targetMode);
-            }
-            // 3. Purchase Logic
-            else if (catD === 'Expense' || catD === 'Asset') {
+            } else if (catD === 'Expense' || catD === 'Asset') {
                 process(entry.debitAccount, amount, true, targetMode);
                 if (vat > 0) process('부가가치세대급금', vat, true, targetMode);
                 process(entry.creditAccount, total, false, targetMode);
-            }
-            // 4. General Logic
-            else {
+            } else {
                 process(entry.debitAccount, amount, true, targetMode);
                 process(entry.creditAccount, amount, false, targetMode);
             }
@@ -256,20 +294,41 @@ const FinancialStatements: React.FC = () => {
 
     // --- Financial Metrics Aggregation ---
     const plMetrics = useMemo(() => {
-        const revenue = accounts.filter(a => a.category === 'Revenue').reduce((s, a) => s + Math.abs(a.closing - a.opening), 0);
-        const cogs = accounts.filter(a => a.name === '매출원가').reduce((s, a) => s + (a.closing - a.opening), 0);
-        const sga = accounts.filter(a => a.category === 'Expense' && a.name !== '매출원가').reduce((s, a) => s + (a.closing - a.opening), 0);
-        const grossProfit = revenue - cogs;
-        const netIncome = grossProfit - sga;
-        return { revenue, cogs, sga, grossProfit, netIncome };
-    }, [accounts]);
+        // [SYNC] Use the same logic as Dashboard for 100% consistency
+        const rangeTransactions = (effectiveLedger || []).filter(e => e.date >= startDate && e.date <= endDate);
+        const stats = calculateFinancials(rangeTransactions);
+
+        const rev = stats.revenue || 0;
+        const exp = stats.expenses || 0;
+
+        return {
+            revenue: rev,
+            cogs: 0,
+            sga: exp,
+            grossProfit: rev,
+            operatingIncome: rev - exp,
+            nonOpNet: 0,
+            netIncome: rev - exp
+        };
+    }, [effectiveLedger, startDate, endDate]);
 
     const bsMetrics = useMemo(() => {
-        const totalAssets = accounts.filter(a => a.category === 'Asset').reduce((s, a) => s + a.closing, 0);
-        const totalLiabilities = accounts.filter(a => a.category === 'Liability').reduce((s, a) => s + a.closing, 0);
-        const totalEquity = accounts.filter(a => a.category === 'Equity').reduce((s, a) => s + a.closing, 0) + plMetrics.netIncome;
-        return { totalAssets, totalLiabilities, totalEquity };
-    }, [accounts, plMetrics]);
+        // [SYNC] Core cumulative calculation at the report's end date
+        // cumulativeAtEnd represents the WHOLE financial state at the snapshot moment.
+        const cumulativeAtEnd = calculateFinancials(effectiveLedger, endDate, initialCashBalance);
+
+        const totalAssets = cumulativeAtEnd.totalAssets;
+        const totalLiabilities = cumulativeAtEnd.totalLiabilities;
+        const totalEquity = totalAssets - totalLiabilities;
+
+        return {
+            totalAssets,
+            totalLiabilities,
+            totalEquity,
+            actualCashDelta: accounts.filter(a => CashPolicy.includes(a.name)).reduce((s, a) => s + (a.closing - a.opening), 0),
+            actualCashBalance: cumulativeAtEnd.cash // Guaranteed to match Dashboard
+        };
+    }, [accounts, plMetrics, effectiveLedger, endDate, initialCashBalance]);
 
     // --- Improved Indirect Method Cash Flow (Exhaustive) ---
     const cfMetrics = useMemo(() => {
@@ -315,7 +374,7 @@ const FinancialStatements: React.FC = () => {
             ...accounts.filter(a => a.name.includes('선수')).map(a => a.name),
             ...accounts.filter(a => a.category === 'Asset' && ['비품', '기계', '차량', '건물'].some(k => a.name.includes(k))).map(a => a.name),
             ...accounts.filter(a => (a.category === 'Equity' || a.category === 'Liability') && ['자본', '차입'].some(k => a.name.includes(k))).map(a => a.name),
-            ...accounts.filter(a => ['예금', '현금', 'Cash', 'Bank'].some(k => a.name.includes(k))).map(a => a.name)
+            ...accounts.filter(a => CashPolicy.includes(a.name)).map(a => a.name)
         ]);
 
         const otherBSChange = accounts
@@ -353,7 +412,7 @@ const FinancialStatements: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/5">
                 <div>
                     <h1 className="text-3xl font-black text-white tracking-tight">재무제표 (Financial Statements)</h1>
-                    <p className="text-slate-400 font-bold mt-1">Movement TB 기반의 정밀 경영 보고서입니다.</p>
+                    <p className="text-slate-400 font-bold mt-1">회사의 재무 상태와 경영 실적을 분석하는 공식 보고서입니다.</p>
                 </div>
                 <div className="flex gap-2 items-center">
                     <div className={`px-4 py-2 rounded-xl text-xs font-black border flex items-center gap-2 ${isBalanced ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse'}`}>
@@ -389,17 +448,22 @@ const FinancialStatements: React.FC = () => {
                                 }}
                                 className="bg-transparent text-white text-[11px] font-black outline-none cursor-pointer hover:text-indigo-400 transition-colors px-2 border-r border-white/5"
                             >
-                                {[2023, 2024, 2025, 2026].map(y => <option key={y} value={y} className="bg-[#0B1221]">{y}년</option>)}
+                                {[2023, 2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y} className="bg-[#0B1221]">{y}년</option>)}
                             </select>
 
                             <select
                                 onChange={(e) => {
                                     const q = parseInt(e.target.value);
-                                    if (q === 0) return;
-                                    const year = new Date(startDate).getFullYear();
-                                    const startMonth = (q - 1) * 3;
-                                    setStartDate(toLocalIsoDate(new Date(year, startMonth, 1)));
-                                    setEndDate(toLocalIsoDate(new Date(year, startMonth + 3, 0)));
+                                    if (q === 0) {
+                                        const year = new Date(startDate).getFullYear();
+                                        setStartDate(`${year}-01-01`);
+                                        setEndDate(`${year}-12-31`);
+                                    } else {
+                                        const year = new Date(startDate).getFullYear();
+                                        const startMonth = (q - 1) * 3;
+                                        setStartDate(toLocalIsoDate(new Date(year, startMonth, 1)));
+                                        setEndDate(toLocalIsoDate(new Date(year, startMonth + 3, 0)));
+                                    }
                                 }}
                                 className="bg-transparent text-slate-400 text-[11px] font-black outline-none cursor-pointer hover:text-indigo-400 transition-colors px-2 border-r border-white/5"
                             >
@@ -413,10 +477,14 @@ const FinancialStatements: React.FC = () => {
                             <select
                                 onChange={(e) => {
                                     const m = parseInt(e.target.value);
-                                    if (m === 0) return;
                                     const year = new Date(startDate).getFullYear();
-                                    setStartDate(toLocalIsoDate(new Date(year, m - 1, 1)));
-                                    setEndDate(toLocalIsoDate(new Date(year, m, 0)));
+                                    if (m === 0) {
+                                        setStartDate(`${year}-01-01`);
+                                        setEndDate(`${year}-12-31`);
+                                    } else {
+                                        setStartDate(toLocalIsoDate(new Date(year, m - 1, 1)));
+                                        setEndDate(toLocalIsoDate(new Date(year, m, 0)));
+                                    }
                                 }}
                                 className="bg-transparent text-slate-400 text-[11px] font-black outline-none cursor-pointer hover:text-indigo-400 transition-colors px-2"
                             >
@@ -467,13 +535,13 @@ const FinancialStatements: React.FC = () => {
 
             {/* Tabs */}
             <div className="flex gap-2 bg-[#151D2E] p-1.5 rounded-xl border border-white/5 w-fit">
-                {['bs', 'pl', 'cf', 'ce'].map(tabId => (
+                {['bs', 'pl', 'tb', 'cf', 'ce'].map(tabId => (
                     <button
                         key={tabId}
                         onClick={() => setActiveTab(tabId as Tab)}
                         className={`px-6 py-2.5 rounded-lg text-xs font-black transition-all ${activeTab === tabId ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                     >
-                        {tabId.toUpperCase()}
+                        {tabId === 'tb' ? '합계잔액시산표' : tabId.toUpperCase()}
                     </button>
                 ))}
             </div>
@@ -487,6 +555,7 @@ const FinancialStatements: React.FC = () => {
                         <h2 className="text-3xl font-black text-gray-900 mb-2">
                             {activeTab === 'bs' && '재무상태표 (B/S)'}
                             {activeTab === 'pl' && '손익계산서 (P/L)'}
+                            {activeTab === 'tb' && '합계잔액시산표 (T/B)'}
                             {activeTab === 'cf' && '현금흐름표 (C/F)'}
                             {activeTab === 'ce' && '자본변동표 (C/E)'}
                         </h2>
@@ -494,7 +563,7 @@ const FinancialStatements: React.FC = () => {
                             {activeTab === 'bs'
                                 ? `${endDate} 현재`
                                 : `${startDate} ~ ${endDate}`
-                            } 기준 | (주) 한국 전자 정밀
+                            } 기준 | {tenantInfo?.name || '(주) Insightrix-AI'}
                             {reportMode === 'finalized' && (
                                 <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] uppercase font-black">
                                     <Lock size={10} /> Finalized
@@ -615,16 +684,22 @@ const FinancialStatements: React.FC = () => {
                             <h3 className="text-xl font-black text-center mb-6 border-b-2 border-black pb-2">손익계산서 (Income Statement)</h3>
                             <table className="w-full text-sm font-medium">
                                 <tbody className="divide-y divide-gray-200">
-                                    <tr className="bg-gray-50/50">
+                                    <tr onClick={() => setSelectedAccount('GROUP:REVENUE')} className="bg-gray-50/50 cursor-pointer hover:bg-indigo-50 transition-colors">
                                         <td className="p-3 font-black">I. 매출액 (Sales)</td>
                                         <td className="p-3 text-right font-bold w-40">₩{plMetrics.revenue.toLocaleString()}</td>
                                     </tr>
+                                    {accounts.filter(a => (getAccountNature(a.name) === 'NON_OPERATING' && (a.category === 'Revenue' || a.name.includes('매출'))) && (a.closing - a.opening) !== 0).map(a => (
+                                        <tr key={a.name} onClick={() => setSelectedAccount(a.name)} className="cursor-pointer hover:bg-slate-50 transition-colors">
+                                            <td className="p-2 pl-10 text-gray-500 font-medium">{a.name}</td>
+                                            <td className="p-2 text-right text-gray-600 font-mono italic">₩{Math.abs(a.closing - a.opening).toLocaleString()}</td>
+                                        </tr>
+                                    ))}
 
-                                    <tr className="bg-gray-50/50">
+                                    <tr onClick={() => setSelectedAccount('GROUP:COGS')} className="bg-gray-50/50 cursor-pointer hover:bg-rose-50 transition-colors">
                                         <td className="p-3 font-black">II. 매출원가 (COGS)</td>
                                         <td className="p-3 text-right font-bold w-40">₩{plMetrics.cogs.toLocaleString()}</td>
                                     </tr>
-                                    {accounts.filter(a => a.name === '매출원가' && (a.closing - a.opening) !== 0).map(a => (
+                                    {accounts.filter(a => getAccountNature(a.name) === 'COGS' && (a.closing - a.opening) !== 0).map(a => (
                                         <tr key={a.name} onClick={() => setSelectedAccount(a.name)} className="cursor-pointer hover:bg-slate-50 transition-colors">
                                             <td className="p-2 pl-10 text-gray-500 font-medium">{a.name}</td>
                                             <td className="p-2 text-right text-gray-600 font-mono italic">₩{(a.closing - a.opening).toLocaleString()}</td>
@@ -641,7 +716,7 @@ const FinancialStatements: React.FC = () => {
                                         <td className="p-3 text-right font-bold w-40">₩{plMetrics.sga.toLocaleString()}</td>
                                     </tr>
                                     {accounts
-                                        .filter(a => a.category === 'Expense' && a.name !== '매출원가')
+                                        .filter(a => getAccountNature(a.name) === 'SG&A' && (a.closing - a.opening) !== 0)
                                         .sort((a, b) => {
                                             const sA = STANDARD_ACCOUNTS.find(s => s.name === a.name)?.sortOrder || 999;
                                             const sB = STANDARD_ACCOUNTS.find(s => s.name === b.name)?.sortOrder || 999;
@@ -701,8 +776,8 @@ const FinancialStatements: React.FC = () => {
                                     <tr>
                                         <td className="p-3 font-bold text-emerald-600">3. 당기순이익 (Net Income)</td>
                                         <td className="p-3 text-right text-gray-400">-</td>
-                                        <td className="p-3 text-right text-emerald-600">₩{plMetrics.netIncome.toLocaleString()}</td>
-                                        <td className="p-3 text-right font-bold text-emerald-600">₩{plMetrics.netIncome.toLocaleString()}</td>
+                                        <td onClick={() => setSelectedAccount('GROUP:NET_INCOME')} className="p-3 text-right text-emerald-600 cursor-pointer hover:bg-emerald-50 rounded">₩{plMetrics.netIncome.toLocaleString()}</td>
+                                        <td onClick={() => setSelectedAccount('GROUP:NET_INCOME')} className="p-3 text-right font-bold text-emerald-600 cursor-pointer hover:bg-emerald-50 rounded">₩{plMetrics.netIncome.toLocaleString()}</td>
                                     </tr>
                                     <tr className="bg-gray-900 text-white border-t-2 border-black">
                                         <td className="p-4 font-black">4. 기말잔액 (Ending Balance)</td>
@@ -711,6 +786,86 @@ const FinancialStatements: React.FC = () => {
                                         <td className="p-4 text-right font-black text-lg">₩{bsMetrics.totalEquity.toLocaleString()}</td>
                                     </tr>
                                 </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* TB Content - Summation Trial Balance (합계잔액시산표) */}
+                    {activeTab === 'tb' && (
+                        <div className="space-y-6 overflow-x-auto">
+                            <table className="w-full text-xs border-collapse border border-gray-300">
+                                <thead>
+                                    <tr className="bg-gray-100 font-black text-center border-b-2 border-black">
+                                        <th className="p-3 border-x border-gray-300 w-1/5" colSpan={2}>차변 (Debit)</th>
+                                        <th className="p-3 border-x border-gray-300 w-1/5 bg-white" rowSpan={2}>계정과목</th>
+                                        <th className="p-3 border-x border-gray-300 w-1/5" colSpan={2}>대변 (Credit)</th>
+                                    </tr>
+                                    <tr className="bg-gray-50 font-bold text-center border-b border-gray-300">
+                                        <th className="p-2 border-x border-gray-300">잔액</th>
+                                        <th className="p-2 border-x border-gray-300">합계</th>
+                                        <th className="p-2 border-x border-gray-300">합계</th>
+                                        <th className="p-2 border-x border-gray-300">잔액</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {accounts
+                                        .sort((a, b) => {
+                                            const sA = STANDARD_ACCOUNTS.find(s => s.name === a.name)?.sortOrder || 999;
+                                            const sB = STANDARD_ACCOUNTS.find(s => s.name === b.name)?.sortOrder || 999;
+                                            return sA - sB;
+                                        })
+                                        .map(a => {
+                                            const isDr = ['Asset', 'Expense'].includes(a.category);
+                                            // Dr Sum = (Opening if Dr) + Debit
+                                            // Cr Sum = (Opening if Cr) + Credit
+                                            const sumDr = (isDr && a.opening > 0 ? a.opening : 0) + a.debit;
+                                            const sumCr = (!isDr && a.opening > 0 ? a.opening : 0) + a.credit;
+                                            const bal = sumDr - sumCr;
+
+                                            return (
+                                                <tr key={a.name} onClick={() => setSelectedAccount(a.name)} className="cursor-pointer hover:bg-indigo-50 transition-colors group text-center">
+                                                    <td className="p-2 border-x border-gray-200 text-right font-mono font-bold text-indigo-700">
+                                                        {bal > 0 ? `₩${bal.toLocaleString()}` : ''}
+                                                    </td>
+                                                    <td className="p-2 border-x border-gray-200 text-right font-mono text-gray-500">
+                                                        {sumDr > 0 ? `₩${sumDr.toLocaleString()}` : ''}
+                                                    </td>
+                                                    <td className="p-2 border-x border-gray-200 font-bold text-gray-900 bg-gray-50/30">
+                                                        {a.name}
+                                                    </td>
+                                                    <td className="p-2 border-x border-gray-200 text-right font-mono text-gray-500">
+                                                        {sumCr > 0 ? `₩${sumCr.toLocaleString()}` : ''}
+                                                    </td>
+                                                    <td className="p-2 border-x border-gray-200 text-right font-mono font-bold text-rose-700">
+                                                        {bal < 0 ? `₩${Math.abs(bal).toLocaleString()}` : ''}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                </tbody>
+                                <tfoot>
+                                    <tr className="bg-gray-900 text-white font-black text-center">
+                                        <td className="p-3 border-x border-white/10 text-right">₩{accounts.reduce((s, a) => {
+                                            const isDr = ['Asset', 'Expense'].includes(a.category);
+                                            const bal = ((isDr && a.opening > 0 ? a.opening : 0) + a.debit) - ((!isDr && a.opening > 0 ? a.opening : 0) + a.credit);
+                                            return s + (bal > 0 ? bal : 0);
+                                        }, 0).toLocaleString()}</td>
+                                        <td className="p-3 border-x border-white/10 text-right">₩{accounts.reduce((s, a) => {
+                                            const isDr = ['Asset', 'Expense'].includes(a.category);
+                                            return s + ((isDr && a.opening > 0 ? a.opening : 0) + a.debit);
+                                        }, 0).toLocaleString()}</td>
+                                        <td className="p-3 border-x border-white/10">합계 (Total)</td>
+                                        <td className="p-3 border-x border-white/10 text-right">₩{accounts.reduce((s, a) => {
+                                            const isDr = ['Asset', 'Expense'].includes(a.category);
+                                            return s + ((!isDr && a.opening > 0 ? a.opening : 0) + a.credit);
+                                        }, 0).toLocaleString()}</td>
+                                        <td className="p-3 border-x border-white/10 text-right">₩{accounts.reduce((s, a) => {
+                                            const isDr = ['Asset', 'Expense'].includes(a.category);
+                                            const bal = ((isDr && a.opening > 0 ? a.opening : 0) + a.debit) - ((!isDr && a.opening > 0 ? a.opening : 0) + a.credit);
+                                            return s + (bal < 0 ? Math.abs(bal) : 0);
+                                        }, 0).toLocaleString()}</td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                     )}
@@ -724,32 +879,39 @@ const FinancialStatements: React.FC = () => {
                                     <tbody>
                                         <tr className="bg-gray-900 text-white rounded-lg">
                                             <td className="p-3 font-black rounded-l-lg">I. 영업활동으로 인한 현금흐름</td>
-                                            <td className="p-3 text-right font-black rounded-r-lg">₩{cfMetrics.opCashFlow.toLocaleString()}</td>
+                                            <td className="p-3 text-right font-black rounded-r-lg">₩{(cfMetrics.opCashFlow || 0).toLocaleString()}</td>
                                         </tr>
-                                        <tr className="text-gray-600 cursor-pointer hover:bg-indigo-50 transition-colors rounded" onClick={() => setSelectedAccount('GROUP:NET_INCOME')}><td className="pl-6">1. 당기순이익 (Net Income)</td><td className="text-right font-bold">₩{cfMetrics.netIncome.toLocaleString()}</td></tr>
-                                        <tr className="text-emerald-600 cursor-pointer hover:bg-emerald-50 transition-colors rounded" onClick={() => setSelectedAccount('GROUP:DEPRECIATION')}><td className="pl-6">2. 현금유출이 없는 비용 가산 (감가상각비 등)</td><td className="text-right font-bold text-emerald-600">+₩{cfMetrics.depreciation.toLocaleString()}</td></tr>
-                                        <tr className="text-rose-600 cursor-pointer hover:bg-rose-50 transition-colors rounded" onClick={() => setSelectedAccount('GROUP:WORKING_CAPITAL')}><td className="pl-6">3. 영업자산/부채의 변동 (Working Capital)</td><td className="text-right font-bold text-rose-600">₩{cfMetrics.workingCapital.toLocaleString()}</td></tr>
-                                        <tr className="text-slate-400 hover:bg-slate-50 transition-colors rounded"><td className="pl-6">4. 기타 자산/부채 변동 (Other Adjustments)</td><td className="text-right font-bold">₩{cfMetrics.otherBSChange.toLocaleString()}</td></tr>
+                                        <tr className="text-gray-600 cursor-pointer hover:bg-indigo-50 transition-colors rounded" onClick={() => setSelectedAccount('GROUP:NET_INCOME')}><td className="pl-6">1. 당기순이익 (Net Income)</td><td className="text-right font-bold">₩{(cfMetrics.netIncome || 0).toLocaleString()}</td></tr>
+                                        <tr className="text-emerald-600 cursor-pointer hover:bg-emerald-50 transition-colors rounded" onClick={() => setSelectedAccount('GROUP:DEPRECIATION')}><td className="pl-6">2. 현금유출이 없는 비용 가산 (감가상각비 등)</td><td className="text-right font-bold text-emerald-600">+₩{(cfMetrics.depreciation || 0).toLocaleString()}</td></tr>
+                                        <tr className="text-rose-600 cursor-pointer hover:bg-rose-50 transition-colors rounded" onClick={() => setSelectedAccount('GROUP:WORKING_CAPITAL')}><td className="pl-6">3. 영업자산/부채의 변동 (Working Capital)</td><td className="text-right font-bold text-rose-600">₩{(cfMetrics.workingCapital || 0).toLocaleString()}</td></tr>
+                                        <tr className="text-slate-400 hover:bg-slate-50 transition-colors rounded"><td className="pl-6">4. 기타 자산/부채 변동 (Other Adjustments)</td><td className="text-right font-bold">₩{(cfMetrics.otherBSChange || 0).toLocaleString()}</td></tr>
 
-                                        <tr className="bg-gray-100"><td className="p-3 font-black">II. 투자활동으로 인한 현금흐름</td><td className="p-3 text-right font-black">₩{cfMetrics.invCashFlow.toLocaleString()}</td></tr>
+                                        <tr className="bg-gray-100"><td className="p-3 font-black">II. 투자활동으로 인한 현금흐름</td><td className="p-3 text-right font-black">₩{(cfMetrics.invCashFlow || 0).toLocaleString()}</td></tr>
                                         <tr
-                                            onClick={() => setSelectedAccount('비품 (Equipment)')}
+                                            onClick={() => setSelectedAccount('GROUP:INVESTING')}
                                             className="cursor-pointer hover:bg-indigo-100 transition-colors text-gray-500 rounded"
                                         >
-                                            <td className="pl-6 py-1">유형자산 취득 등</td>
-                                            <td className="text-right pr-1">₩{cfMetrics.invCashFlow.toLocaleString()}</td>
+                                            <td className="pl-6 py-1">유형자산 취득 등 (Investments)</td>
+                                            <td className="text-right pr-1">₩{(cfMetrics.invCashFlow || 0).toLocaleString()}</td>
                                         </tr>
-
-                                        <tr className="bg-gray-100"><td className="p-3 font-black">III. 재무활동으로 인한 현금흐름</td><td className="p-3 text-right font-black">₩{cfMetrics.finCashFlow.toLocaleString()}</td></tr>
+                                        <tr className="bg-gray-100"><td className="p-3 font-black">III. 재무활동으로 인한 현금흐름</td><td className="p-3 text-right font-black">₩{(cfMetrics.finCashFlow || 0).toLocaleString()}</td></tr>
                                         <tr
-                                            onClick={() => setSelectedAccount('자본금 (Capital)')}
+                                            onClick={() => setSelectedAccount('GROUP:FINANCING')}
                                             className="cursor-pointer hover:bg-indigo-100 transition-colors text-gray-500 rounded"
                                         >
-                                            <td className="pl-6 py-1">자본금 증감/차입금 상환 등</td>
-                                            <td className="text-right pr-1">₩{cfMetrics.finCashFlow.toLocaleString()}</td>
+                                            <td className="pl-6 py-1">자본금 증감/차입금 상환 등 (Financing)</td>
+                                            <td className="text-right pr-1">₩{(cfMetrics.finCashFlow || 0).toLocaleString()}</td>
                                         </tr>
 
-                                        <tr className="border-t-4 border-double border-black bg-gray-200"><td className="p-4 font-black text-lg">IV. 당기 현금의 순증감</td><td className="p-4 text-right font-black text-xl">₩{cfMetrics.totalCashFlow.toLocaleString()}</td></tr>
+                                        <tr className="border-t-4 border-double border-black bg-gray-200">
+                                            <td className="p-4 font-black text-lg flex items-center gap-2">
+                                                IV. 당기 현금의 순증감
+                                                {Math.abs((cfMetrics.totalCashFlow || 0) - (bsMetrics.actualCashDelta || 0)) < 100 && (
+                                                    <span className="px-2 py-0.5 bg-emerald-500 text-white text-[10px] rounded font-black uppercase">Reconciled</span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-right font-black text-xl">₩{(cfMetrics.totalCashFlow || 0).toLocaleString()}</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -794,10 +956,30 @@ const FinancialStatements: React.FC = () => {
                         // [Fix] Broadened scope to include Deposits and Accrued items
                         modalTitle = '영업자산/부채의 변동 (Working Capital Changes)';
                         modalCategory = 'Operating Activity';
+                    } else if (selectedAccount === 'GROUP:BURN_RATE') {
+                        targetAccounts = accounts.filter(a => a.category === 'Expense');
+                        modalTitle = '월간 지출 상세 (Burn Rate Reference)';
+                        modalCategory = 'Cash Outflow';
                     } else if (selectedAccount === 'GROUP:NET_INCOME') {
-                        targetAccounts = accounts.filter(a => ['Revenue', 'Expense'].includes(a.category));
+                        targetAccounts = accounts.filter(a => ['Revenue', 'Expense'].includes(a.category) || a.name.includes('매출') || a.name.includes('원가'));
                         modalTitle = '당기순이익 상세 (Net Income Breakdown)';
                         modalCategory = 'P/L';
+                    } else if (selectedAccount === 'GROUP:REVENUE') {
+                        targetAccounts = accounts.filter(a => a.category === 'Revenue' || a.name.includes('매출'));
+                        modalTitle = '매출액 총계 상세 (Total Revenue)';
+                        modalCategory = 'P/L Revenue';
+                    } else if (selectedAccount === 'GROUP:COGS') {
+                        targetAccounts = accounts.filter(a => a.name.includes('원가'));
+                        modalTitle = '매출원가 총계 상세 (Total COGS)';
+                        modalCategory = 'P/L COGS';
+                    } else if (selectedAccount === 'GROUP:INVESTING') {
+                        targetAccounts = accounts.filter(a => a.category === 'Asset' && ['비품', '기계', '차량', '건물'].some(k => a.name.includes(k)));
+                        modalTitle = '투자활동 현금흐름 상세 (Investing CF)';
+                        modalCategory = 'Investing';
+                    } else if (selectedAccount === 'GROUP:FINANCING') {
+                        targetAccounts = accounts.filter(a => (a.category === 'Equity' || a.category === 'Liability') && ['자본', '차입'].some(k => a.name.includes(k)));
+                        modalTitle = '재무활동 현금흐름 상세 (Financing CF)';
+                        modalCategory = 'Financing';
                     }
                 } else {
                     const acc = accounts.find(a => a.name === selectedAccount);
@@ -830,6 +1012,10 @@ const FinancialStatements: React.FC = () => {
                     if (selectedCostCenter !== 'All' && (e.costCenter || 'HQ') !== selectedCostCenter) return false;
 
                     if (isGroupMode) {
+                        if (selectedAccount === 'GROUP:BURN_RATE') {
+                            // Burn Rate reference includes all Expenses and Payroll
+                            return e.type === 'Expense' || e.type === 'Payroll';
+                        }
                         const targetNames = new Set(targetAccounts.map(a => a.name));
                         // Check if ANY side of the transaction touches the target accounts
                         // Note: Complex logic for VAT/Split is simplified here to "Does it touch?"
@@ -849,53 +1035,34 @@ const FinancialStatements: React.FC = () => {
                     }
                 }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-                // [Audit Logic] Flatten transactions into individual accounting lines for transparency
+                // [Audit Logic] Standardized Row Decomposition for Drill-down
                 const flattenedRows: any[] = [];
                 filteredTransactions.forEach(t => {
                     const targetNames = new Set(targetAccounts.map(a => a.name));
+                    const amt = t.amount || 0;
+                    const vat = t.vat || 0;
+                    const total = amt + vat;
 
-                    // 1. Debit Line
-                    if (targetNames.has(t.debitAccount)) {
-                        flattenedRows.push({
-                            ...t,
-                            displayAccount: t.debitAccount,
-                            displayDesc: t.description,
-                            dr: t.amount,
-                            cr: 0
-                        });
+                    const catD = getAccountCategory(t.debitAccount);
+                    const catC = getAccountCategory(t.creditAccount);
+
+                    // Reconstruct exactly how movementMap processed this entry
+                    if (t.type === 'Payroll' || (catD === 'Expense' && t.debitAccount.includes('급여'))) {
+                        if (targetNames.has(t.debitAccount)) flattenedRows.push({ ...t, displayAccount: t.debitAccount, displayDesc: t.description, dr: amt, cr: 0 });
+                        if (vat > 0 && targetNames.has('예수금(원천세)')) flattenedRows.push({ ...t, displayAccount: '예수금(원천세)', displayDesc: `[원천세] ${t.description}`, dr: 0, cr: vat });
+                        if (targetNames.has(t.creditAccount)) flattenedRows.push({ ...t, displayAccount: t.creditAccount, displayDesc: t.description, dr: 0, cr: amt - vat });
+                    } else if (catC === 'Revenue') {
+                        if (targetNames.has(t.creditAccount)) flattenedRows.push({ ...t, displayAccount: t.creditAccount, displayDesc: t.description, dr: 0, cr: amt });
+                        if (vat > 0 && targetNames.has('부가가치세예수금')) flattenedRows.push({ ...t, displayAccount: '부가가치세예수금', displayDesc: `[부가세] ${t.description}`, dr: 0, cr: vat });
+                        if (targetNames.has(t.debitAccount)) flattenedRows.push({ ...t, displayAccount: t.debitAccount, displayDesc: t.description, dr: total, cr: 0 });
+                    } else if (catD === 'Expense' || catD === 'Asset') {
+                        if (targetNames.has(t.debitAccount)) flattenedRows.push({ ...t, displayAccount: t.debitAccount, displayDesc: t.description, dr: amt, cr: 0 });
+                        if (vat > 0 && targetNames.has('부가가치세대급금')) flattenedRows.push({ ...t, displayAccount: '부가가치세대급금', displayDesc: `[부가세] ${t.description}`, dr: vat, cr: 0 });
+                        if (targetNames.has(t.creditAccount)) flattenedRows.push({ ...t, displayAccount: t.creditAccount, displayDesc: t.description, dr: 0, cr: total });
+                    } else {
+                        if (targetNames.has(t.debitAccount)) flattenedRows.push({ ...t, displayAccount: t.debitAccount, displayDesc: t.description, dr: amt, cr: 0 });
+                        if (targetNames.has(t.creditAccount)) flattenedRows.push({ ...t, displayAccount: t.creditAccount, displayDesc: t.description, dr: 0, cr: amt });
                     }
-
-                    // 2. Credit Line
-                    if (targetNames.has(t.creditAccount)) {
-                        flattenedRows.push({
-                            ...t,
-                            displayAccount: t.creditAccount,
-                            displayDesc: t.description,
-                            dr: 0,
-                            cr: t.amount
-                        });
-                    }
-
-                    // 3. VAT Line
-                    if (t.vat) {
-                        const vatAcc = (t.type === 'Revenue' ? '부가가치세예수금' : (t.type === 'Expense' || t.type === 'Asset') ? '부가가치세대급금' : (t.type === 'Payroll' ? '예수금(원천세)' : null));
-                        if (vatAcc && targetNames.has(vatAcc)) {
-                            // Revenue VAT (Liability) increases with Credit. Expense VAT (Asset) increases with Debit.
-                            const vatIsDr = (t.type === 'Expense' || t.type === 'Asset');
-                            flattenedRows.push({
-                                ...t,
-                                displayAccount: vatAcc,
-                                displayDesc: `[부가세] ${t.description}`,
-                                dr: vatIsDr ? t.vat : 0,
-                                cr: vatIsDr ? 0 : t.vat
-                            });
-                        }
-                    }
-
-                    // 4. Special AR/AP Gross Entry Logic (Optional but helpful for visibility)
-                    // If the user is looking at AR/AP specifically, they usually expect to see the Gross Amount (Amount + VAT).
-                    // In our engine, AR/AP is often handled as a single side.
-                    // However, to keep it simple and consistent with TB, we show lines.
                 });
 
                 let runningBalance = opening;
@@ -917,8 +1084,9 @@ const FinancialStatements: React.FC = () => {
                 const overallCr = finalRows.reduce((s, r) => s + r.cr, 0);
 
                 // [Fix] Corrected net impact calculation to be point-in-time vs delta aware
+                const isCashDrilldown = !isGroupMode && CashPolicy.includes(selectedAccount);
                 const overallNetImpact = finalRows.reduce((acc, t) => {
-                    const rowEffect = (selectedAccount === 'GROUP:DEPRECIATION')
+                    const rowEffect = (isCashDrilldown || selectedAccount === 'GROUP:DEPRECIATION')
                         ? (t.dr - t.cr)
                         : (t.cr - t.dr);
                     return acc + rowEffect;
@@ -1020,7 +1188,7 @@ const FinancialStatements: React.FC = () => {
                                                         // Liability Increase (Cr) -> (+) Cash Inflow (NI adjustment)
                                                         // Universal formula for BS items: (Credit - Debit)
                                                         // Exception: Depreciation (Non-cash Expense) adjustment is (Debit - Credit)
-                                                        const rowCashEffect = (selectedAccount === 'GROUP:DEPRECIATION')
+                                                        const rowCashEffect = (isCashDrilldown || selectedAccount === 'GROUP:DEPRECIATION')
                                                             ? (t.dr - t.cr)
                                                             : (t.cr - t.dr);
 

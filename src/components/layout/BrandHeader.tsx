@@ -2,10 +2,13 @@ import { useAccounting } from '../../hooks/useAccounting';
 import { Lock, ShieldCheck } from 'lucide-react';
 
 const BrandHeader: React.FC = () => {
-    const { periods } = useAccounting();
+    const { periods, systemNow } = useAccounting();
 
     const lastClosed = periods
-        .filter(p => p.status === 'CLOSED')
+        .filter(p => {
+            const viewMonth = systemNow ? systemNow.substring(0, 7) : '9999-12';
+            return p.status === 'CLOSED' && p.period <= viewMonth;
+        })
         .sort((a, b) => b.period.localeCompare(a.period))[0];
 
     return (
@@ -24,24 +27,20 @@ const BrandHeader: React.FC = () => {
             {/* Center: Global Viewing Context */}
             <div className="hidden lg:flex items-center justify-center flex-1">
                 <div className="bg-[#151D2E] px-4 py-2 rounded-2xl border border-white/5 flex items-center gap-3 shadow-2xl animate-in fade-in zoom-in duration-1000">
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20 group hover:bg-indigo-500/20 transition-all cursor-help">
                         <ShieldCheck size={12} />
-                        <span className="text-[10px] font-black uppercase tracking-tight">System Live</span>
+                        <span className="text-[10px] font-black uppercase tracking-tight">World Check: Active</span>
                     </div>
                     <div className="h-4 w-[1px] bg-white/10"></div>
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Context:</span>
-                        <div className="flex items-center gap-1.5 text-indigo-400 font-black text-xs">
-                            {lastClosed ? (
-                                <>
-                                    <span>{lastClosed.period}</span>
-                                    <span className="flex items-center gap-1 px-1.5 py-0.5 bg-indigo-500/10 rounded text-[9px] uppercase">
-                                        <Lock size={10} />
-                                        Closed
-                                    </span>
-                                </>
-                            ) : (
-                                <span className="text-slate-600 italic">No Periods Closed</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Dimension Time:</span>
+                        <div className="flex items-center gap-1.5 text-white font-black text-xs">
+                            <span className="bg-white/5 px-2 py-0.5 rounded-lg border border-white/10">{systemNow}</span>
+                            {lastClosed && (
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[9px] uppercase border border-emerald-500/20">
+                                    <Lock size={10} />
+                                    Last Closed: {lastClosed.period}
+                                </span>
                             )}
                         </div>
                     </div>

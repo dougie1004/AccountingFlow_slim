@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useAccounting } from '../../hooks/useAccounting';
 import { ShieldAlert, AlertTriangle, Eye, CheckCircle2, Siren, ArrowRight, Activity, Ban, MessageSquare, FileText, Download, X, Copy } from 'lucide-react';
 import { ManagementReport, BusinessRisk, DecisionCandidate, RiskLevel } from '../../types';
-import { generateManagementReport, generateNarrativeBriefing } from '../../core/riskEngine';
+import { generateManagementReport, generateNarrativeBriefing } from '../../bridge/StrategicBridge';
 import ReactMarkdown from 'react-markdown';
 
 interface ManagementRiskReportProps {
@@ -11,19 +11,19 @@ interface ManagementRiskReportProps {
 }
 
 export const ManagementRiskReport: React.FC<ManagementRiskReportProps> = ({ period = 'All Time', onClose }) => {
-    const { subLedger, riskDecisions, addRiskDecision } = useAccounting();
+    const { subLedger, riskDecisions, addRiskDecision, systemNow } = useAccounting();
     const [selectedRisk, setSelectedRisk] = useState<BusinessRisk | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     // 1. Generate Report on Mount/Update
     const report: ManagementReport = useMemo(() => {
-        // Filter ledger by period if needed, currently using full ledger for demo
-        return generateManagementReport(subLedger, period);
-    }, [subLedger, period]);
+        // CONSTITUTION: Use systemNow for judgment
+        return generateManagementReport(subLedger, period, systemNow);
+    }, [subLedger, period, systemNow]);
 
     const reportMarkdown = useMemo(() => {
-        return generateNarrativeBriefing(report, riskDecisions);
-    }, [report, riskDecisions]);
+        return generateNarrativeBriefing(report, riskDecisions, systemNow);
+    }, [report, riskDecisions, systemNow]);
 
     const handleDownloadReport = () => {
         const blob = new Blob([reportMarkdown], { type: 'text/markdown' });

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, Loader2, FileUp, AlertTriangle } from 'lucide-react';
+import { Upload, Loader2, FileUp, AlertTriangle, User, Database } from 'lucide-react';
 import { useAccounting } from '../../hooks/useAccounting';
 import { invoke } from '@tauri-apps/api/core';
 import { ParsedTransaction } from '../../types';
@@ -142,7 +142,9 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
                             // Fix: Use bytes.buffer for Blob to ensure correct binary format
                             const blob = new Blob([bytes.buffer as any], { type: 'image/jpeg' });
                             const attachmentUrl = URL.createObjectURL(blob);
-                            apiResults.forEach(tx => { tx.attachmentUrl = attachmentUrl; });
+                            apiResults.filter(Boolean).forEach(tx => {
+                                if (tx) tx.attachmentUrl = attachmentUrl;
+                            });
                         }
                         allAiResults.push(...apiResults);
                     }

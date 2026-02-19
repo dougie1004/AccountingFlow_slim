@@ -20,13 +20,14 @@ import { formatCurrency } from '../utils/formatUtils';
 
 import { isArAccount, isApAccount, isSuspenseAccount } from '../constants/accounts';
 
-const EntryRow = React.memo(({ e, view, onAction, formatCurrency }: {
+const EntryRow = React.memo(({ e, view, onAction, formatCurrency, currentDate }: {
     e: JournalEntry,
     view: 'AR' | 'AP' | 'SUS',
     onAction: (e: JournalEntry) => void,
-    formatCurrency: (v: number) => string
+    formatCurrency: (v: number) => string,
+    currentDate: string
 }) => {
-    const today = new Date();
+    const today = new Date(currentDate);
     today.setHours(0, 0, 0, 0);
 
     const refDateStr = (view === 'SUS' || !e.dueDate) ? e.date : e.dueDate;
@@ -106,14 +107,23 @@ const EntryRow = React.memo(({ e, view, onAction, formatCurrency }: {
 });
 
 export const ArApManagement: React.FC = () => {
-    const { ledger, financials, addEntry, updateEntry, performClearing } = useAccounting();
+    const { ledger, financials, addEntry, updateEntry, performClearing, systemNow } = useAccounting();
     const [view, setView] = useState<'AR' | 'AP' | 'SUS'>('AR');
     const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
     const [displayCount, setDisplayCount] = useState(100);
 
+    const effectiveDateStr = systemNow || new Date().toISOString().split('T')[0];
+
     const unsettledEntries = useMemo(() => {
         return ledger.filter(e => {
-            if (e.isSettled) return false;
+            // Point-in-time: Hide future entries
+            if (e.date > effectiveDateStr) return false;
+
+            // Point-in-time: Check settlement status relative to effective date
+            // If it was settled AFTER the effective date, it is still "Unsettled" in the past view
+            const isSettledByThen = e.isSettled && (e.settledDate ? e.settledDate <= effectiveDateStr : true);
+            if (isSettledByThen) return false;
+
             // Include both Approved and Unconfirmed for a full view of obligations
             if (e.status !== 'Approved' && e.status !== 'Unconfirmed') return false;
 
@@ -125,11 +135,11 @@ export const ArApManagement: React.FC = () => {
             if (view === 'AP') return isAp;
             return isSus;
         }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    }, [ledger, view]);
+    }, [ledger, view, effectiveDateStr]);
 
     const stats = useMemo(() => {
         const total = unsettledEntries.reduce((s, e) => s + ((e.amount || 0) + (e.vat || 0)), 0);
-        const today = new Date();
+        const today = new Date(effectiveDateStr);
         today.setHours(0, 0, 0, 0);
 
         const overdue = unsettledEntries.filter(e => {
@@ -233,6 +243,40 @@ export const ArApManagement: React.FC = () => {
                 <div className="p-8 border-b border-white/5 flex justify-between items-center">
                     <h3 className="text-xl font-black text-white">미결제 상세 리스트</h3>
                     <div className="flex items-center gap-4">
+                        {unsettledEntries.length > 0 && (
+                            <button
+                                onClick={() => {
+                                    if (window.confirm(`현재 리스트의 ${unsettledEntries.length}건을 모두 일괄 ${view === 'AR' ? '수금' : '지급'} 처리하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 모든 항목에 대한 개별 현금 전표가 생성됩니다.`)) {
+                                        unsettledEntries.forEach(entry => {
+                                            updateEntry(entry.id, { isSettled: true, settledDate: effectiveDateStr });
+                                            addEntry({
+                                                id: crypto.randomUUID(),
+                                                date: effectiveDateStr,
+                                                description: `[일괄${view === 'AR' ? '수금' : '지급'}] ${entry.description}`,
+                                                vendor: entry.vendor || '',
+                                                debitAccount: view === 'AR' ? '보통예금' : entry.creditAccount,
+                                                creditAccount: view === 'AR' ? entry.debitAccount : '보통예금',
+                                                amount: entry.amount + (entry.vat || 0),
+                                                vat: 0,
+                                                type: view === 'AR' ? 'Asset' : 'Liability',
+                                                status: 'Approved',
+                                                createdAt: new Date().toISOString(),
+                                                journalNumber: 'TEST-BATCH',
+                                                sequenceNumber: 0
+                                            });
+                                        });
+                                        alert(`${unsettledEntries.length}건의 일괄 처리가 완료되었습니다.`);
+                                    }
+                                }}
+                                className={`px-4 py-2 border rounded-xl text-xs font-black transition-all active:scale-95 flex items-center gap-2 ${view === 'AR'
+                                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500 hover:text-white shadow-lg shadow-emerald-500/10'
+                                    : 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500 hover:text-white shadow-lg shadow-rose-500/10'
+                                    }`}
+                            >
+                                <CheckCircle2 size={14} />
+                                전체 일괄 {view === 'AR' ? '수금' : '지급'} 승인 (TEST)
+                            </button>
+                        )}
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                             <input
@@ -265,6 +309,7 @@ export const ArApManagement: React.FC = () => {
                                     e={e}
                                     view={view}
                                     formatCurrency={formatCurrency}
+                                    currentDate={effectiveDateStr}
                                     onAction={(entry) => {
                                         if (view === 'AR') {
                                             if (window.confirm(`'${entry.description}' 건에 대한 수금 처리를 진행하시겠습니까?`)) {
@@ -279,7 +324,10 @@ export const ArApManagement: React.FC = () => {
                                                     amount: entry.amount + (entry.vat || 0),
                                                     vat: 0,
                                                     type: 'Asset',
-                                                    status: 'Approved'
+                                                    status: 'Approved',
+                                                    createdAt: new Date().toISOString(),
+                                                    journalNumber: 'TEST-AR',
+                                                    sequenceNumber: 0
                                                 });
                                             }
                                         } else if (view === 'AP') {
@@ -295,7 +343,10 @@ export const ArApManagement: React.FC = () => {
                                                     amount: entry.amount + (entry.vat || 0),
                                                     vat: 0,
                                                     type: 'Liability',
-                                                    status: 'Approved'
+                                                    status: 'Approved',
+                                                    createdAt: new Date().toISOString(),
+                                                    journalNumber: 'TEST-AP',
+                                                    sequenceNumber: 0
                                                 });
                                             }
                                         } else {

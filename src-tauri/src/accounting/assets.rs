@@ -1,4 +1,50 @@
+use serde::{Deserialize, Serialize};
 use crate::core::models::{Asset, JournalEntry};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DepreciationSchedule {
+    pub items: Vec<DepreciationItem>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DepreciationItem {
+    pub year: u32,
+    pub depreciation_expense: f64,
+    pub accumulated_depreciation: f64,
+    pub book_value: f64,
+}
+
+pub fn generate_depreciation_schedule(asset: &Asset) -> DepreciationSchedule {
+    let mut items = Vec::new();
+    let mut accumulated = asset.accumulated_depreciation;
+    let yearly_depreciation = if asset.useful_life > 0 {
+        (asset.cost - asset.residual_value) / asset.useful_life as f64
+    } else {
+        0.0
+    };
+
+    // Generate simplified schedule for 20 years max or useful life
+    let limit = asset.useful_life.min(20);
+
+    for i in 1..=limit {
+        accumulated += yearly_depreciation;
+        if accumulated > asset.cost {
+            accumulated = asset.cost;
+        }
+        
+        let book_value = (asset.cost - accumulated).max(0.0);
+        let expense = if book_value == 0.0 && i > 1 { 0.0 } else { yearly_depreciation };
+
+        items.push(DepreciationItem {
+            year: i,
+            depreciation_expense: expense,
+            accumulated_depreciation: accumulated,
+            book_value,
+        });
+    }
+
+    DepreciationSchedule { items }
+}
 
 pub fn generate_closing_entries(
     assets: &mut Vec<Asset>,

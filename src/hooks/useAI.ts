@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Partner, AnalysisResponse } from '../types';
+import { useConfig } from '../context/ConfigContext';
 
 // Check if running in Tauri environment (Desktop App)
 const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
@@ -58,6 +59,16 @@ const compressImageForWeb = async (bytes: number[], mime: string): Promise<{ byt
 export function useAI() {
     const [isParsing, setIsParsing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { checkPermission, tenantInfo, updateTenantInfo } = useConfig();
+
+    const incrementUsage = (count: number = 1) => {
+        if (tenantInfo) {
+            updateTenantInfo({
+                ...tenantInfo,
+                aiUsageCurrent: tenantInfo.aiUsageCurrent + count
+            });
+        }
+    };
 
     const parseTransaction = async (
         input: string,
@@ -68,6 +79,11 @@ export function useAI() {
         imageBytes?: number[],
         imageMime?: string
     ): Promise<AnalysisResponse | null> => {
+        if (!checkPermission('AICall')) {
+            setError(`AI 호출 한도를 초과했습니다. (${tenantInfo?.aiUsageCurrent}/${tenantInfo?.aiUsageLimit}) 플랜 업그레이드가 필요합니다.`);
+            return null;
+        }
+
         setIsParsing(true);
         setError(null);
 
@@ -120,6 +136,7 @@ export function useAI() {
                     }
                 };
 
+                incrementUsage();
                 return result;
             } catch (err: any) {
                 console.error('AI Hook Error:', err);
@@ -153,7 +170,7 @@ export function useAI() {
                         result.transaction.entryType = 'Equity';
                         result.transaction.accountName = '자본금';
                         result.transaction.confidence = 'High';
-                        result.transaction.reasoning = `[Antigravity Cortex] 'Initial Capital' Context Detected -> Auto-corrected to Equity (Confidence: 99.9%). Original AI Assessment: ${result.transaction.reasoning}`;
+                        result.transaction.reasoning = `[Antigravity Cortex] 'Initial Capital' Context Detected -> Auto-corrected to Equity.`;
                         result.transaction.creditAccount = '자본금'; // Ensure Pairing
                         result.transaction.debitAccount = '보통예금'; // Ensure Pairing
                     }
@@ -208,6 +225,7 @@ export function useAI() {
                 // but we trust the parser's numeric extraction for now unless it breaks.
             }
 
+            incrementUsage();
             return result;
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
@@ -223,6 +241,11 @@ export function useAI() {
         currentTx: any,
         policy: string
     ): Promise<AnalysisResponse | null> => {
+        if (!checkPermission('AICall')) {
+            setError('AI 상담 한도를 초과했습니다.');
+            return null;
+        }
+
         setIsParsing(true);
         setError(null);
 
@@ -243,6 +266,7 @@ export function useAI() {
                 }
 
                 const result = await response.json();
+                incrementUsage();
                 return result;
             } catch (err: any) {
                 setError(err.message || '상담 중 오류가 발생했습니다.');
@@ -258,6 +282,7 @@ export function useAI() {
                 currentTx,
                 policy
             });
+            incrementUsage();
             return result;
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
@@ -272,6 +297,11 @@ export function useAI() {
         rows: any[],
         policy: string
     ): Promise<AnalysisResponse[]> => {
+        if (!checkPermission('AICall')) {
+            setError('일괄 분석 한도가 부족합니다.');
+            return [];
+        }
+
         setIsParsing(true);
         setError(null);
 
@@ -289,6 +319,7 @@ export function useAI() {
                 if (!response.ok) throw new Error('Batch analysis failed');
                 const results = await response.json();
 
+                incrementUsage(results.length);
                 return results.map((tx: any) => ({
                     transaction: tx,
                     vendorStatus: 'Matched',

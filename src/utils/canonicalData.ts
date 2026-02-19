@@ -26,6 +26,9 @@ export const generateCanonicalData = (): JournalEntry[] => {
             type,
             status: 'Approved',
             isSettled: true,
+            createdAt: extra.createdAt || date,
+            journalNumber: extra.journalNumber || 'DEMO-DATA',
+            sequenceNumber: extra.sequenceNumber || 0,
             ...extra
         });
     };
@@ -97,7 +100,7 @@ export const generateCanonicalData = (): JournalEntry[] => {
     // E16. 손익 대체 (Closing Entry)
     // Net Income = 3M (Rev) - 8.2M (Exp) = -5.2M (Loss)
     // Loss means Debit Retained Earnings, Credit Income Summary
-    add('2025-12-31', '손익 대체 (결산)', '이익잉여금 (Retained Earnings)', '집합손익 (Income Summary)', 5200000, 'Closing');
+    add('2025-12-31', '손익 대체 (결산)', '이익잉여금', '집합손익 (Income Summary)', 5200000, 'Closing');
 
     return entries;
 };

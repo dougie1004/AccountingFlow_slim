@@ -4,19 +4,27 @@ import { Building, Search, Download, FileText } from 'lucide-react';
 import { JournalEntry } from '../types';
 
 const VendorLedger: React.FC = () => {
-    const { ledger } = useAccounting();
+    const { ledger, systemNow } = useAccounting();
     const [selectedVendor, setSelectedVendor] = useState<string>('All');
     const [searchTerm, setSearchTerm] = useState('');
 
+    // Pre-filter ledger by systemNow
+    const effectiveLedger = useMemo(() => {
+        return ledger.filter(e =>
+            e.status === 'Approved' &&
+            (!systemNow || e.date <= systemNow)
+        );
+    }, [ledger, systemNow]);
+
     // 1. Extract Unique Vendors
     const vendors = useMemo(() => {
-        const set = new Set(ledger.map(e => e.vendor).filter(Boolean));
+        const set = new Set(effectiveLedger.map(e => e.vendor).filter(Boolean));
         return Array.from(set).sort();
-    }, [ledger]);
+    }, [effectiveLedger]);
 
     // 2. Filter Transactions
     const filteredTransactions = useMemo(() => {
-        let data = ledger.filter(e => e.status === 'Approved');
+        let data = [...effectiveLedger];
 
         if (selectedVendor !== 'All') {
             data = data.filter(e => e.vendor === selectedVendor);
@@ -31,7 +39,7 @@ const VendorLedger: React.FC = () => {
         }
 
         return data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [ledger, selectedVendor, searchTerm]);
+    }, [effectiveLedger, selectedVendor, searchTerm]);
 
     // 3. Calculate Summary per Vendor (Simple Aggregation)
     const summary = useMemo(() => {
@@ -76,7 +84,7 @@ const VendorLedger: React.FC = () => {
                             className={`w-full text-left p-3 rounded-xl transition-all text-sm font-bold flex justify-between group ${selectedVendor === 'All' ? 'bg-pink-600 text-white' : 'text-slate-400 hover:bg-white/5'}`}
                         >
                             <span>전체 거래처</span>
-                            <span className="opacity-50">{ledger.filter(e => e.status === 'Approved').length}</span>
+                            <span className="opacity-50">{effectiveLedger.length}</span>
                         </button>
 
                         {vendors.map(vendor => (

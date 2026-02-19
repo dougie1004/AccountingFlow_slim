@@ -5,7 +5,12 @@
 
 export const cleanMarkdown = (text: string | null | undefined): string => {
     if (!text) return '';
-    return text.replace(/\*\*/g, '').replace(/### /g, '').replace(/## /g, '').replace(/# /g, '');
+    return text
+        .replace(/\*\*/g, '')
+        .replace(/\*/g, '')
+        .replace(/### /g, '')
+        .replace(/## /g, '')
+        .replace(/# /g, '');
 };
 
 export const parseAIList = (text: string | null | undefined): string[] => {

@@ -1,4 +1,4 @@
-import { calculateFinancials, validateTransaction } from './accountingEngine';
+import { calculateFinancials, validateTransaction } from './StrategicBridge';
 import { JournalEntry } from '../types';
 
 // Mock Entry Factory

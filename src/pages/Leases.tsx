@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../hooks/useAccounting';
 import { Asset, LeaseContract } from '../types';
 import { formatCurrency } from '../utils/formatUtils';
-import { calculateLeaseSchedule } from '../core/accountingEngine';
+import { calculateLeaseSchedule } from '../bridge/StrategicBridge';
 import {
     Building2,
     Plus,

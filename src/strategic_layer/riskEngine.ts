@@ -9,36 +9,36 @@ import { JournalEntry, BusinessRisk, ManagementReport, RiskLevel, RiskType, Deci
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(amount);
 
-export const generateNarrativeBriefing = (report: ManagementReport, decisions: RiskDecisionLog[]): string => {
+export const generateNarrativeBriefing = (report: ManagementReport, decisions: RiskDecisionLog[], systemNow: string): string => {
     const { summary, actionItems } = report;
-    const now = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+    const now = systemNow;
 
-    let markdown = `# 📢 경영 리스크 감사 보고서 (Executive Audit Briefing)\n`;
-    markdown += `**발행일:** ${now}\n`;
-    markdown += `**분석 대상:** ${report.period}\n\n`;
+    let markdown = `📢 경영 리스크 감사 보고서 (Executive Audit Briefing)\n`;
+    markdown += `발행일: ${now}\n`;
+    markdown += `분석 대상: ${report.period}\n\n`;
 
-    markdown += `## 1. Executive Summary (요약)\n`;
-    markdown += `당월 경영 활동 분석 결과, 총 **${summary.totalRisks}건**의 리스크 시그널이 감지되었습니다.\n`;
-    markdown += `- 🔴 **Critical/High Risk:** ${summary.criticalCount + summary.highCount}건 (즉시 조치 필요)\n`;
-    markdown += `- 🟡 **Monitoring Required:** ${actionItems.monitoring}건\n\n`;
+    markdown += `1. Executive Summary (요약)\n`;
+    markdown += `당월 경영 활동 분석 결과, 총 ${summary.totalRisks}건의 리스크 시그널이 감지되었습니다.\n`;
+    markdown += `- 🔴 Critical/High Risk: ${summary.criticalCount + summary.highCount}건 (즉시 조치 필요)\n`;
+    markdown += `- 🟡 Monitoring Required: ${actionItems.monitoring}건\n\n`;
 
     // Decisions Section
     const relevantDecisions = decisions.filter(d => report.risks.some(r => r.id === d.riskId));
 
     if (relevantDecisions.length > 0) {
-        markdown += `## 2. Key Decisions (의사결정 현황)\n`;
-        markdown += `경영진에 의해 현재까지 **${relevantDecisions.length}건**의 주요 의사결정이 완료되었습니다.\n\n`;
+        markdown += `2. Key Decisions (의사결정 현황)\n`;
+        markdown += `경영진에 의해 현재까지 ${relevantDecisions.length}건의 주요 의사결정이 완료되었습니다.\n\n`;
 
         relevantDecisions.forEach((d, idx) => {
             const risk = report.risks.find(r => r.id === d.riskId);
-            markdown += `### ${idx + 1}. ${risk?.title || 'Unknown Risk'}\n`;
-            markdown += `- **Decision:** ${d.decisionLabel} (by ${d.decidedBy})\n`;
-            markdown += `- **Reasoning:** "${d.comment || 'N/A'}"\n`;
-            markdown += `- **Status:** ✅ Action Taken\n\n`;
+            markdown += `${idx + 1}. ${risk?.title || 'Unknown Risk'}\n`;
+            markdown += `- Decision: ${d.decisionLabel} (by ${d.decidedBy})\n`;
+            markdown += `- Reasoning: "${d.comment || 'N/A'}"\n`;
+            markdown += `- Status: ✅ Action Taken\n\n`;
         });
     } else {
-        markdown += `## 2. Key Decisions (의사결정 현황)\n`;
-        markdown += `_현재 기록된 경영진의 의사결정 사항이 없습니다. 아래 주요 리스크에 대한 판단이 필요합니다._\n\n`;
+        markdown += `2. Key Decisions (의사결정 현황)\n`;
+        markdown += `현재 기록된 경영진의 의사결정 사항이 없습니다. 아래 주요 리스크에 대한 판단이 필요합니다.\n\n`;
     }
 
     // Pending Critical Risks
@@ -48,13 +48,13 @@ export const generateNarrativeBriefing = (report: ManagementReport, decisions: R
     );
 
     if (pendingCritical.length > 0) {
-        markdown += `## 3. Pending Critical Actions (미결 중요 사안)\n`;
+        markdown += `3. Pending Critical Actions (미결 중요 사안)\n`;
         markdown += `다음 항목들은 경영상의 심각한 영향을 줄 수 있어 즉각적인 의사결정이 요구됩니다.\n\n`;
 
         pendingCritical.forEach((r) => {
-            markdown += `> **⚠️ ${r.title}**\n`;
-            markdown += `> - **Impact:** ${r.impact}\n`;
-            markdown += `> - **Action Required:** ${r.decisionCandidates[0]?.label || 'Review needed'}\n\n`;
+            markdown += `> ⚠️ ${r.title}\n`;
+            markdown += `> - Impact: ${r.impact}\n`;
+            markdown += `> - Action Required: ${r.decisionCandidates[0]?.label || 'Review needed'}\n\n`;
         });
     }
 
@@ -70,9 +70,9 @@ const createDecision = (type: DecisionCandidate['type'], label: string, desc: st
     description: desc
 });
 
-export const analyzeManagementRisks = (ledger: JournalEntry[]): BusinessRisk[] => {
+export const analyzeManagementRisks = (ledger: JournalEntry[], systemNow: string): BusinessRisk[] => {
     const risks: BusinessRisk[] = [];
-    const now = new Date().toISOString();
+    const now = systemNow;
 
     // 1. Split Payment Detection (Internal Control Risk)
     // Logic: Same vendor, same date, multiple transactions within short time (or just count > 3)
@@ -198,9 +198,9 @@ export const analyzeManagementRisks = (ledger: JournalEntry[]): BusinessRisk[] =
     return risks;
 };
 
-export const generateManagementReport = (ledger: JournalEntry[], period: string): ManagementReport => {
+export const generateManagementReport = (ledger: JournalEntry[], period: string, systemNow: string): ManagementReport => {
     // 1. Analyze Risks
-    const allRisks = analyzeManagementRisks(ledger);
+    const allRisks = analyzeManagementRisks(ledger, systemNow);
 
     // 2. Sort by Severity
     const severityMap: Record<RiskLevel, number> = { 'Critical': 4, 'High': 3, 'Medium': 2, 'Low': 1 };
@@ -216,7 +216,7 @@ export const generateManagementReport = (ledger: JournalEntry[], period: string)
     const monitoring = allRisks.filter(r => r.level === 'Medium' || r.level === 'Low').length;
 
     return {
-        generatedAt: new Date().toISOString(),
+        generatedAt: systemNow,
         period,
         summary: {
             totalRisks: allRisks.length,

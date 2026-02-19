@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../hooks/useAccounting';
-import { runClosingPrecheck } from '../core/accountingEngine';
+import { runClosingPrecheck } from '../bridge/StrategicBridge';
 import {
     Lock,
     Unlock,
@@ -19,12 +19,11 @@ import {
 import { formatCurrency } from '../utils/formatUtils';
 
 export const ClosingManager: React.FC = () => {
-    const { ledger, periods, closingRecords, performClosing, runAutoDepreciation } = useAccounting();
+    const { ledger, periods, closingRecords, performClosing, runAutoDepreciation, systemNow } = useAccounting();
 
-    // Default to the current month for selection
+    // CONSTITUTION v2.1: Default to the system's current context month
     const [selectedPeriod, setSelectedPeriod] = useState(() => {
-        const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        return systemNow.substring(0, 7);
     });
     const [closingNote, setClosingNote] = useState('');
 
@@ -61,13 +60,22 @@ export const ClosingManager: React.FC = () => {
                     </h2>
                     <p className="text-slate-500 font-bold mt-1">회계 기간을 공식적으로 확정하고 데이터 수정을 차단합니다.</p>
                 </div>
-                <div className="flex bg-[#151D2E] p-1 rounded-2xl border border-white/5">
-                    <input
-                        type="month"
-                        value={selectedPeriod}
-                        onChange={(e) => setSelectedPeriod(e.target.value)}
-                        className="bg-transparent text-white font-black px-4 py-2 border-none focus:ring-0 outline-none"
-                    />
+                <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-3 px-4 py-2 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+                        <div className="flex flex-col items-end">
+                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Dimension Time</span>
+                            <span className="text-white font-mono text-xs font-bold">{systemNow}</span>
+                        </div>
+                        <Clock className="text-indigo-400" size={18} />
+                    </div>
+                    <div className="flex bg-[#151D2E] p-1 rounded-2xl border border-white/5 shadow-inner">
+                        <input
+                            type="month"
+                            value={selectedPeriod}
+                            onChange={(e) => setSelectedPeriod(e.target.value)}
+                            className="bg-transparent text-white font-black px-4 py-2 border-none focus:ring-0 outline-none cursor-pointer"
+                        />
+                    </div>
                 </div>
             </header>
 
@@ -96,10 +104,18 @@ export const ClosingManager: React.FC = () => {
 
                 {/* Pre-check & Action */}
                 <div className="lg:col-span-2 bg-[#151D2E] p-8 rounded-[2.5rem] border border-white/5 flex flex-col">
-                    <h3 className="text-xl font-black text-white flex items-center gap-2 mb-6">
-                        <ShieldAlert className="text-amber-400" size={24} />
-                        결산 Pre-check 분석 결과
-                    </h3>
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-black text-white flex items-center gap-2">
+                            <ShieldAlert className="text-amber-400" size={24} />
+                            결산 Pre-check 분석 결과
+                        </h3>
+                        {precheckResult && precheckResult.errors.length === 0 && (
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                                <CheckCircle2 size={12} className="text-emerald-500" />
+                                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Trust Index High</span>
+                            </div>
+                        )}
+                    </div>
 
                     {periodStatus === 'CLOSED' ? (
                         <div className="flex-1 flex flex-col items-center justify-center opacity-60">
@@ -256,9 +272,12 @@ export const ClosingManager: React.FC = () => {
                                             </p>
                                         </div>
                                         {record.aiBriefing && (
-                                            <div className="mt-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3">
-                                                <div className="flex items-center gap-2 mb-1 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
-                                                    <RefreshCw size={10} className="animate-pulse" /> AI Closing Intelligence
+                                            <div className="mt-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3 relative group">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <div className="flex items-center gap-2 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                                                        <RefreshCw size={10} className="animate-pulse" /> AI Closing Intelligence
+                                                    </div>
+                                                    <span className="text-[8px] text-indigo-500/60 font-black">Ref: Rule #7, #8</span>
                                                 </div>
                                                 <p className="text-indigo-200/80 text-[11px] font-bold leading-relaxed whitespace-pre-wrap">
                                                     {record.aiBriefing.replace(/###/g, '').replace(/\*\*/g, '')}

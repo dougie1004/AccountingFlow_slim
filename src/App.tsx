@@ -20,10 +20,13 @@ import { RiskDashboard } from './pages/RiskDashboard';
 import { ClosingManager } from './pages/ClosingManager';
 import { Leases } from './pages/Leases';
 import { OperationPlan } from './pages/OperationPlan';
+import { SimulationReport } from './pages/SimulationReport';
+import ProcessMonitoring from './pages/ProcessMonitoring';
 
 import { AccountingProvider } from './context/AccountingContext';
 import { ConfigProvider } from './context/ConfigContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ConstitutionErrorBoundary } from './constitution/ConstitutionErrorBoundary';
 
 
 interface AppContextType {
@@ -56,27 +59,26 @@ const AppContent = () => {
                 <div className="flex-1 overflow-y-auto scroll-smooth custom-scrollbar pt-16 lg:pt-0">
                     <div className="w-full max-w-full p-4 md:p-6 lg:p-8">
                         {activeTab === 'dashboard' && <Dashboard setTab={setActiveTab} />}
-                        {activeTab === 'tax-report' && <TaxReport />}
-                        {activeTab === 'financial-statements' && <FinancialStatements />}
+                        {activeTab === 'journal' && <Journal />}
+                        {activeTab === 'general-ledger' && <LedgerView />}
+                        {activeTab === 'trial-balance' && <FinancialStatements />}
                         {activeTab === 'daily-cash' && <DailyCashReport />}
-                        <div style={{ display: activeTab === 'ledger' ? 'block' : 'none' }}>
-                            <Journal />
-                        </div>
-                        <div style={{ display: activeTab === 'ledger-view' ? 'block' : 'none' }}>
-                            <LedgerView />
-                        </div>
+                        {activeTab === 'arap-management' && <ArApManagement />}
+                        {activeTab === 'closing-manager' && <ClosingManager />}
                         {activeTab === 'assets' && <Assets />}
                         {activeTab === 'leases' && <Leases />}
-                        {activeTab === 'partners' && <Partners />}
                         {activeTab === 'vendor-ledger' && <VendorLedger />}
-                        {activeTab === 'approval-desk' && <ApprovalDesk />}
-                        {activeTab === 'migration' && <DataMigration setTab={setActiveTab} />}
-                        {activeTab === 'ai-performance' && <AiLab />}
-                        {activeTab === 'arap-management' && <ArApManagement />}
+                        {activeTab === 'partners' && <Partners />}
+                        {activeTab === 'tax-report' && <TaxReport />}
                         {activeTab === 'risk-dashboard' && <RiskDashboard setTab={setActiveTab} />}
-                        {activeTab === 'closing-manager' && <ClosingManager />}
                         {activeTab === 'operation-plan' && <OperationPlan />}
+                        {activeTab === 'operation-plan' && <OperationPlan />}
+                        {activeTab === 'simulation-report' && <SimulationReport />}
+                        {activeTab === 'migration' && <DataMigration setTab={setActiveTab} />}
                         {activeTab === 'settings' && <Settings />}
+                        {activeTab === 'approval-desk' && <ApprovalDesk />}
+                        {activeTab === 'ai-performance' && <AiLab />}
+                        {activeTab === 'process-monitoring' && <ProcessMonitoring />}
                     </div>
                 </div>
             </main>
@@ -89,15 +91,17 @@ function App() {
     const [activeProject, setActiveProject] = useState<string | null>(null);
 
     return (
-        <ThemeProvider>
-            <ConfigProvider>
-                <AccountingProvider>
-                    <AppContext.Provider value={{ activeProject, setActiveProject }}>
-                        <AppContent />
-                    </AppContext.Provider>
-                </AccountingProvider>
-            </ConfigProvider>
-        </ThemeProvider>
+        <ConstitutionErrorBoundary>
+            <ThemeProvider>
+                <ConfigProvider>
+                    <AccountingProvider>
+                        <AppContext.Provider value={{ activeProject, setActiveProject }}>
+                            <AppContent />
+                        </AppContext.Provider>
+                    </AccountingProvider>
+                </ConfigProvider>
+            </ThemeProvider>
+        </ConstitutionErrorBoundary>
     );
 }
 

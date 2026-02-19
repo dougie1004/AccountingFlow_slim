@@ -14,6 +14,15 @@ export const callAiService = async (
   payload: any,
   options: { speed?: 'fast' | 'pro' } = {}
 ): Promise<AiResponse> => {
+  // EMERGENCY KILL SWITCH: Do not burn API credits during E2E tests
+  if ((window as any).__TEST_MODE__ || (window as any).isTestMode) {
+    console.warn('[AI_SERVICE_MOCK] Test mode detected. Returning deterministic mock response.');
+    return {
+      response: "AI 분석 결과: 모든 지표가 시나리오 범위 내에 있습니다. (MOCK_RESPONSE)",
+      meta: { model_version: 'mock-engine', provider: 'internal' }
+    };
+  }
+
   try {
     // 1. Prepare global prompt based on action type
     let prompt = '';

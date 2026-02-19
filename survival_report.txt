@@ -1,0 +1,43 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90mC:/Projects/AccountingFlow[39m
+
+[90mstdout[2m | scripts/granular_audit.test.ts[2m > [22m[2mDetailed Audit: 2026 SURVIVAL[2m > [22m[2mshould track monthly cash flow for SURVIVAL and ensure liquidity
+[22m[39m🛡️ ConstitutionMonitor Initialized: System Integrity Protection Active
+[System Context Change] REAL_WORLD -> SIMULATION
+
+=== 📊 2026 SURVIVAL 월별 현금 흐름 정밀 보고서 ===
+(정부지원금 제외, 2인 체제, 지출 최소화)
+[2026-05]
+  유입: +5000만 원 | 유출: -2480만 원
+  월말 잔액: 2520만 원
+[2026-06]
+  유입: +0만 원 | 유출: -782만 원
+  월말 잔액: 1738만 원
+[2026-07]
+  유입: +3000만 원 | 유출: -1782만 원
+  월말 잔액: 2956만 원
+[2026-08]
+  유입: +0만 원 | 유출: -782만 원
+  월말 잔액: 2174만 원
+[2026-09]
+  유입: +0만 원 | 유출: -782만 원
+  월말 잔액: 1392만 원
+[2026-10]
+  유입: +291만 원 | 유출: -782만 원
+  월말 잔액: 901만 원
+[2026-11]
+  유입: +3329만 원 | 유출: -782만 원
+  월말 잔액: 3448만 원
+[2026-12]
+  유입: +368만 원 | 유출: -782만 원
+  월말 잔액: 3033만 원
+
+✅ 2026년 SURVIVAL 검증 완료: 기말 잔액 3033만 원
+
+ [32m✓[39m scripts/granular_audit.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 23[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 17:24:56
+[2m   Duration [22m 311ms[2m (transform 63ms, setup 0ms, import 82ms, tests 23ms, environment 0ms)[22m
+

@@ -160,3 +160,20 @@ pub async fn perform_audit_check(
 ) -> Result<Vec<ParsedTransaction>, String> {
     crate::ai::ai_service::perform_ai_audit(transactions, context).await
 }
+
+#[tauri::command]
+pub async fn generate_management_report(
+    ledger: Vec<JournalEntry>,
+    period_start: String,
+    period_end: String,
+    report_mode: String,
+) -> Result<crate::accounting::report_engine::ManagementReport, String> {
+    crate::accounting::report_engine::generate_management_report(
+        ledger, 
+        Vec::<crate::inventory::InventoryItem>::new(),
+        Vec::<crate::core::models::Asset>::new(),
+        period_start, 
+        period_end,
+        report_mode
+    ).await
+}

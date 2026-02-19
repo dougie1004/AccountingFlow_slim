@@ -38,10 +38,10 @@ export const generateClosingBriefing = (
         const revIcon = revGrowth > 0 ? '📈' : '📉';
         const profitIcon = profitGrowth > 0 ? '📈' : '📉';
 
-        lines.push(`- **매출**: 전월 대비 **${Math.abs(revGrowth).toFixed(1)}% ${revGrowth >= 0 ? '증가' : '감소'}** ${revIcon}`);
-        lines.push(`- **이익**: 전월 대비 **${Math.abs(profitGrowth).toFixed(1)}% ${profitGrowth >= 0 ? '증가' : '감소'}** ${profitIcon}`);
+        lines.push(`- 매출: 전월 대비 ${Math.abs(revGrowth).toFixed(1)}% ${revGrowth >= 0 ? '증가' : '감소'} ${revIcon}`);
+        lines.push(`- 이익: 전월 대비 ${Math.abs(profitGrowth).toFixed(1)}% ${profitGrowth >= 0 ? '증가' : '감소'} ${profitIcon}`);
     } else {
-        lines.push(`- *전월 데이터가 없어 비교 분석을 생략합니다.*`);
+        lines.push(`- 전월 데이터가 없어 비교 분석을 생략합니다.`);
     }
 
     // 3. Asset & Liability Health (Phase 2 Integration)
@@ -53,19 +53,19 @@ export const generateClosingBriefing = (
     // Fixed Assets & Depreciation
     if (s.fixedAssetsGross > 0) {
         const deprRatio = (s.fixedAssetsAccumDep / s.fixedAssetsGross) * 100;
-        lines.push(`- **고정자산**: 총 취득원가 ${formatCurrency(s.fixedAssetsGross)}원 중 **${deprRatio.toFixed(1)}%**가 상각되었습니다.`);
+        lines.push(`- 고정자산: 총 취득원가 ${formatCurrency(s.fixedAssetsGross)}원 중 ${deprRatio.toFixed(1)}%가 상각되었습니다.`);
     }
 
     // Leases (Key for Phase 2)
     if (s.leaseLiability > 0) {
         const debtRatio = (s.leaseLiability / s.totalLiabilities) * 100;
-        lines.push(`- **리스 부채**: 현재 리스 부채 잔액은 **${formatCurrency(s.leaseLiability)}원**이며, 전체 부채의 **${debtRatio.toFixed(1)}%**를 차지합니다.`);
+        lines.push(`- 리스 부채: 현재 리스 부채 잔액은 ${formatCurrency(s.leaseLiability)}원이며, 전체 부채의 ${debtRatio.toFixed(1)}%를 차지합니다.`);
 
         if (s.leaseInterestExp > 0) {
-            lines.push(`- **금융 비용**: 이번 달 리스 이자비용으로 **${formatCurrency(s.leaseInterestExp)}원**이 발생했습니다.`);
+            lines.push(`- 금융 비용: 이번 달 리스 이자비용으로 ${formatCurrency(s.leaseInterestExp)}원이 발생했습니다.`);
         }
     } else {
-        lines.push(`- *현재 인식된 리스 부채가 없습니다.*`);
+        lines.push(`- 현재 인식된 리스 부채가 없습니다.`);
     }
 
     // 4. Budget vs Actual Analysis (Phase 3)
@@ -87,9 +87,9 @@ export const generateClosingBriefing = (
 
             if (percentage > 100) {
                 hasOverBudget = true;
-                lines.push(`- ⚠️ **${item.accountCategory}**: 예산 ${formatCurrency(item.budgetAmount)}원 대비 **${percentage.toFixed(0)}%** 지출 (${formatCurrency(variance)}원 초과)`);
+                lines.push(`- ⚠️ ${item.accountCategory}: 예산 ${formatCurrency(item.budgetAmount)}원 대비 ${percentage.toFixed(0)}% 지출 (${formatCurrency(variance)}원 초과)`);
             } else if (percentage >= 80) {
-                lines.push(`- 🔸 ${item.accountCategory}: 예산의 **${percentage.toFixed(0)}%** 소진`);
+                lines.push(`- 🔸 ${item.accountCategory}: 예산의 ${percentage.toFixed(0)}% 소진`);
             }
         });
 

@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Database, Calculator, Plus, Trash2, Lock, List } from 'lucide-react';
+import { Database, Calculator, Plus, Trash2, Lock, List, Tag } from 'lucide-react';
 import { useAccounting } from '../hooks/useAccounting';
 import { STANDARD_ACCOUNTS } from '../constants/accounts';
+import { AccountNature } from '../types';
 
 const Settings: React.FC = () => {
     const { ledger, config, updateConfig, clearAllData, loadDemoData, customAccounts, addCustomAccount, removeCustomAccount } = useAccounting();
     const [newAccount, setNewAccount] = useState('');
     const [newAmount, setNewAmount] = useState('');
     const [newCustomAccount, setNewCustomAccount] = useState('');
+    const [newAccountNature, setNewAccountNature] = useState<AccountNature>(AccountNature.SG_AND_A);
 
     const handleAddInitialBalance = () => {
         if (!newAccount || !newAmount) return;
@@ -93,10 +95,19 @@ const Settings: React.FC = () => {
                                 onChange={(e) => setNewCustomAccount(e.target.value)}
                                 className="flex-1 bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white text-sm"
                             />
+                            <select
+                                value={newAccountNature}
+                                onChange={(e) => setNewAccountNature(e.target.value as AccountNature)}
+                                className="w-32 bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white text-xs font-bold"
+                            >
+                                {Object.values(AccountNature).map(n => (
+                                    <option key={n} value={n}>{n}</option>
+                                ))}
+                            </select>
                             <button
                                 onClick={() => {
                                     if (newCustomAccount.trim()) {
-                                        addCustomAccount(newCustomAccount.trim());
+                                        addCustomAccount(newCustomAccount.trim(), newAccountNature);
                                         setNewCustomAccount('');
                                     }
                                 }}
@@ -116,10 +127,15 @@ const Settings: React.FC = () => {
                         ) : (
                             <div className="space-y-2">
                                 {customAccounts.map(acc => (
-                                    <div key={acc} className="flex items-center justify-between group">
-                                        <span className="text-sm font-bold text-fuchsia-300">📌 {acc}</span>
-                                        <button onClick={() => removeCustomAccount(acc)} className="text-slate-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Trash2 size={14} />
+                                    <div key={acc.id} className="flex items-center justify-between group bg-white/5 p-3 rounded-xl border border-white/5">
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-fuchsia-300">📌 {acc.name}</span>
+                                            <span className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1 mt-1">
+                                                <Tag size={10} /> {acc.nature}
+                                            </span>
+                                        </div>
+                                        <button onClick={() => removeCustomAccount(acc.name)} className="text-slate-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity p-2">
+                                            <Trash2 size={16} />
                                         </button>
                                     </div>
                                 ))}
@@ -148,9 +164,9 @@ const Settings: React.FC = () => {
                             </div>
                         ) : (
                             <div className="space-y-1">
-                                <p className="text-emerald-400 font-black text-xl flex items-center gap-2">
+                                <div className="text-emerald-400 font-black text-xl flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div> Open (No Restrictions)
-                                </p>
+                                </div>
                                 <p className="text-slate-500 text-xs">모든 기간의 데이터 수정 가능</p>
                             </div>
                         )}

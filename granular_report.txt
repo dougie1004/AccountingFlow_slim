@@ -1,0 +1,56 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90mC:/Projects/AccountingFlow[39m
+
+[90mstdout[2m | scripts/granular_audit.test.ts[2m > [22m[2mGranular Audit: 2026 STANDARD[2m > [22m[2mshould track monthly cash flow and verify no minus bounce
+[22m[39m🛡️ ConstitutionMonitor Initialized: System Integrity Protection Active
+[System Context Change] REAL_WORLD -> SIMULATION
+
+=== 📊 2026 STANDARD 월별 현금 흐름 정밀 보고서 ===
+[2026-05]
+  유입: +5000만 원 | 유출: -3245만 원
+  월말 잔액: 1755만 원
+[2026-06]
+  유입: +5000만 원 | 유출: -1547만 원
+  월말 잔액: 5208만 원
+[2026-07]
+  유입: +3000만 원 | 유출: -2547만 원
+  월말 잔액: 5661만 원
+[2026-08]
+  유입: +0만 원 | 유출: -1547만 원
+  월말 잔액: 4114만 원
+[2026-09]
+  유입: +0만 원 | 유출: -1547만 원
+  월말 잔액: 2567만 원
+[2026-10]
+  유입: +624만 원 | 유출: -1547만 원
+  월말 잔액: 1644만 원
+[2026-11]
+  유입: +5873만 원 | 유출: -1547만 원
+  월말 잔액: 5970만 원
+[2026-12]
+  유입: +1127만 원 | 유출: -1547만 원
+  월말 잔액: 5550만 원
+
+ [31m❯[39m scripts/granular_audit.test.ts [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 27[2mms[22m[39m
+[31m     [31m×[31m should track monthly cash flow and verify no minus bounce[39m[32m 26[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m scripts/granular_audit.test.ts[2m > [22mGranular Audit: 2026 STANDARD[2m > [22mshould track monthly cash flow and verify no minus bounce
+[31m[1mReferenceError[22m: expect is not defined[39m
+[36m [2m❯[22m scripts/granular_audit.test.ts:[2m39:9[22m[39m
+    [90m 37| [39m
+    [90m 38| [39m        [90m// Final Status check[39m
+    [90m 39| [39m        [34mexpect[39m(cumulativeCash)[33m.[39m[34mtoBeGreaterThan[39m([34m0[39m)[33m;[39m
+    [90m   | [39m        [31m^[39m
+    [90m 40| [39m        console.log(`\n✅ 2026년 검증 완료: 기말 잔액 ${(cumulativeCash / 10000)…
+    [90m 41| [39m    })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m   Start at [22m 17:23:59
+[2m   Duration [22m 294ms[2m (transform 54ms, setup 0ms, import 72ms, tests 27ms, environment 0ms)[22m
+

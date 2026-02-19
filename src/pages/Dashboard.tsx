@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useAccounting } from '../hooks/useAccounting';
-import { runPhase2IntegrationTest, runPhase3BvATest } from '../utils/testScenarios';
+import { runPhase2IntegrationTest, runPhase3BvATest, runSystemIntegrityTest } from '../utils/testScenarios';
+import { PremiumDatePicker } from '../components/ui/PremiumDatePicker';
 import { ClosingInsightWidget } from '../components/dashboard/ClosingInsightWidget';
 import {
     Activity,
@@ -18,27 +19,55 @@ import {
     Calendar,
     Lock,
     RefreshCw,
-    Target
+    Target,
+    ChevronDown
 } from 'lucide-react';
-import { isArAccount, isApAccount, isCashAccount } from '../constants/accounts';
+import { JournalEntry, BusinessScenario } from '../types';
+import { isArAccount, isApAccount, isCashAccount, CashPolicy } from '../constants/accounts';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
-import { calculateFinancials } from '../core/accountingEngine';
+import { calculateFinancials } from '../bridge/StrategicBridge';
 import { RecentTransactions } from '../components/dashboard/RecentTransactions';
 import { CFOReportCard } from '../components/dashboard/CFOReportCard';
 import { ManagementReportPanel } from '../components/dashboard/ManagementReportPanel';
 import { CEOQuickBar } from '../components/dashboard/CEOQuickBar';
 import { AIForecastPanel } from '../components/dashboard/AIForecastPanel';
 import { ManagementRiskReport } from '../components/dashboard/ManagementRiskReport';
-import { generateThreeYearSimulation, generateStressTestData } from '../utils/mockDataGenerator';
-import { formatCLevel } from '../utils/formatUtils';
+import { generateYearlyPack } from '../utils/mockDataGenerator';
+import { formatCLevel, toLocalIsoDate } from '../utils/formatUtils';
 import { InfoTooltip } from '../components/ui/InfoTooltip';
 
 export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab }) => {
-    const { ledger, financials, addEntries, clearAllData, periods, closingRecords, seedThreeYearSimulation, addAsset, addLease, performClosing, setBudget } = useAccounting();
+    const {
+        ledger, financials, addEntries, clearAllData, periods, closingRecords, initialCashBalance,
+        seedThreeYearSimulation, seedScenarioSimulation, addAsset, addLease, performClosing, setBudget,
+        systemNow, setSystemNow, getRunway, liabilities
+    } = useAccounting();
+
     const [isMounted, setIsMounted] = useState(false);
-    const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('day');
+    const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'year'>(() =>
+        (localStorage.getItem('dash_time_range') as any) || 'day'
+    );
+
+    const [selectedScenario, setSelectedScenario] = useState<BusinessScenario>(() =>
+        (localStorage.getItem('dash_scenario') as BusinessScenario) || 'STANDARD'
+    );
+
+    // Persist settings
+    React.useEffect(() => {
+        localStorage.setItem('dash_time_range', timeRange);
+        localStorage.setItem('dash_scenario', selectedScenario);
+    }, [timeRange, selectedScenario]);
+
+    // Initialize systemNow to the latest if still empty
+    React.useEffect(() => {
+        if (ledger.length > 0 && !systemNow) {
+            const dates = ledger.map(e => e.date).sort();
+            const lastDate = dates[dates.length - 1];
+            setSystemNow(lastDate);
+        }
+    }, [ledger, systemNow, setSystemNow]);
     const [showRiskReport, setShowRiskReport] = useState(false);
 
     React.useEffect(() => {
@@ -59,9 +88,10 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
             const vat = entry.vat || 0;
             const total = amount + vat;
 
-            // Actual Cash Flow (Liquid Basis)
-            if (isCashAccount(entry.debitAccount)) current.income += total;
-            if (isCashAccount(entry.creditAccount)) current.expense += total;
+            const flowType = CashPolicy.isExternalFlow(entry.debitAccount, entry.creditAccount);
+
+            if (flowType === 'INFLOW') current.income += total;
+            else if (flowType === 'OUTFLOW') current.expense += total;
 
             // Accrual Sales (Business Performance Basis)
             if (entry.type === 'Revenue') current.sales += amount;
@@ -74,8 +104,11 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
         if (hasActivity) {
             const sortedDates = approvedLedger.map(e => e.date).sort();
             const startLimit = new Date(sortedDates[0]);
-            const today = new Date();
-            const endLimit = new Date(sortedDates[sortedDates.length - 1]) > today ? new Date(sortedDates[sortedDates.length - 1]) : today;
+            const latestDataDate = new Date(sortedDates[sortedDates.length - 1]);
+
+            // Use systemNow for the end of the chart if it exists and is valid
+            const selectedDate = systemNow ? new Date(systemNow) : null;
+            const endLimit = (selectedDate && !isNaN(selectedDate.getTime())) ? selectedDate : latestDataDate;
 
             const rangeStart = new Date(endLimit);
             if (timeRange === 'week') rangeStart.setDate(endLimit.getDate() - 7);
@@ -86,6 +119,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
             const effectiveStart = rangeStart > startLimit ? rangeStart : startLimit;
 
             for (let d = new Date(effectiveStart); d <= endLimit; d.setDate(d.getDate() + 1)) {
+                if (isNaN(d.getTime())) continue;
                 const key = d.toISOString().split('T')[0];
                 const stats = dailyStats.get(key) || { income: 0, expense: 0, sales: 0 };
                 rawData.push({
@@ -107,7 +141,11 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
         });
 
         // 4. Advanced Burn Rate & Runway Analysis (CFO Logic)
-        const outEntries = approvedLedger.filter(e => e.type === 'Expense' || e.type === 'Payroll');
+        // CRITICAL: Filter by systemNow to avoid including future planned expenses in current burn rate
+        const outEntries = approvedLedger.filter(e =>
+            (e.type === 'Expense' || e.type === 'Payroll') &&
+            (systemNow ? e.date <= systemNow : true)
+        );
         const totalOut = outEntries.reduce((s, e) => s + ((e.amount || 0) + (e.vat || 0)), 0);
 
         let avgBurnRate = 0;
@@ -127,59 +165,79 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
         }
 
         return { cashFlowData, hasActivity, avgBurnRate, activityDays };
-    }, [ledger, timeRange]);
+    }, [ledger, timeRange, systemNow]);
 
     const unsettledMetrics = useMemo(() => {
-        // We include both Approved and Unconfirmed for "Managerial Visibility" (Gemini feedback #1)
+        // We include both Approved and Unconfirmed for "Managerial Visibility"
+        // CRITICAL: Must respect systemNow (reference date) to show snapshot at that time
         const relevant = ledger.filter(e =>
             (e.status === 'Approved' || e.status === 'Unconfirmed') &&
-            !e.isSettled
+            !e.isSettled &&
+            (systemNow ? e.date <= systemNow : true)
         );
 
         const ar = relevant.filter(e => isArAccount(e.debitAccount)).reduce((sum, e) => sum + ((e.amount || 0) + (e.vat || 0)), 0);
         const ap = relevant.filter(e => isApAccount(e.creditAccount)).reduce((sum, e) => sum + ((e.amount || 0) + (e.vat || 0)), 0);
 
-        console.debug(`[Dashboard] AP Calculation: Found ${relevant.length} relevant entries. Total AP: ${ap}`);
         return { ar, ap };
-    }, [ledger]);
+    }, [ledger, systemNow]);
 
     const rangeFinancials = useMemo(() => {
         const approvedLedger = ledger.filter(e => e.status === 'Approved');
         if (approvedLedger.length === 0) return financials;
 
         const sortedDates = approvedLedger.map(e => e.date).sort();
-        const endLimitDay = new Date(sortedDates[sortedDates.length - 1]);
-        const rangeStart = new Date(endLimitDay);
+        const latestAvailable = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : new Date().toISOString().split('T')[0];
+        // Use user-selected systemNow if available, otherwise latest data date
+        const endLimitDay = new Date(systemNow || latestAvailable);
+        // Safety: If date is invalid, fallback to latestAvailable
+        const finalEndDay = isNaN(endLimitDay.getTime()) ? new Date(latestAvailable) : endLimitDay;
+        let rangeStart = new Date(finalEndDay);
 
-        if (timeRange === 'week') rangeStart.setDate(endLimitDay.getDate() - 7);
-        else if (timeRange === 'month') rangeStart.setMonth(endLimitDay.getMonth() - 1);
-        else if (timeRange === 'year') rangeStart.setFullYear(endLimitDay.getFullYear() - 1);
-        else rangeStart.setDate(endLimitDay.getDate() - 14);
+        if (timeRange === 'week') rangeStart.setDate(finalEndDay.getDate() - 7);
+        else if (timeRange === 'month') rangeStart.setMonth(finalEndDay.getMonth() - 1);
+        else if (timeRange === 'year') rangeStart = new Date(finalEndDay.getFullYear(), 0, 1); // Fiscal YTD (Jan 1)
+        else rangeStart.setDate(finalEndDay.getDate() - 14);
 
-        const startStr = rangeStart.toISOString().split('T')[0];
-        const endStr = endLimitDay.toISOString().split('T')[0];
+        const startStr = toLocalIsoDate(rangeStart);
+        const endStr = toLocalIsoDate(finalEndDay);
 
         // Filter ledger for calculating range-specific metrics
         const rangeLedger = approvedLedger.filter(e => e.date >= startStr && e.date <= endStr);
+        const cumulativeLedger = approvedLedger.filter(e => e.date <= endStr);
 
-        // We calculate P/L metrics for the range, but for Cash/AR/AP, 
-        // we might want the cumulative state at the end of the range.
+        // [SYNC] Core Calculation for the range (P/L) and cumulative (B/S)
+        // initialCashBalance must be included to get the REAL world cash balance.
         const rangeStats = calculateFinancials(rangeLedger);
-        const cumulativeAtEnd = calculateFinancials(approvedLedger.filter(e => e.date <= endStr));
+        const cumulativeAtEnd = calculateFinancials(cumulativeLedger, endStr, initialCashBalance);
+
+        // Previous year/period for comparison
+        const prevEndDay = new Date(rangeStart);
+        prevEndDay.setDate(prevEndDay.getDate() - 1);
+        const prevEndStr = prevEndDay.toISOString().split('T')[0];
+        const prevStats = calculateFinancials(approvedLedger.filter(e => e.date <= prevEndStr), prevEndStr, initialCashBalance);
 
         return {
             ...rangeStats,
-            cash: cumulativeAtEnd.cash,
-            displayCash: cumulativeAtEnd.displayCash,
+            netIncome: rangeStats.revenue - rangeStats.expenses, // Selected period P/L
+            currentCash: cumulativeAtEnd.cash, // Real ITD Balance
+            cash: cumulativeAtEnd.cash, // Fallback alias for components expecting .cash
             cashInflow: rangeStats.cashInflow,
-            cashOutflow: rangeStats.cashOutflow
+            cashOutflow: rangeStats.cashOutflow,
+            prevNetIncome: prevStats.revenue - prevStats.expenses,
+            prevCash: prevStats.cash,
+            startDate: startStr,
+            endDate: endStr
         };
-    }, [ledger, timeRange, financials]);
+    }, [ledger, timeRange, systemNow, initialCashBalance]);
 
     const latestPeriod = useMemo(() => {
-        const closed = periods.filter(p => p.status === 'CLOSED').sort((a, b) => b.period.localeCompare(a.period));
+        const viewMonth = systemNow ? systemNow.substring(0, 7) : '9999-12';
+        const closed = periods
+            .filter(p => p.status === 'CLOSED' && p.period <= viewMonth)
+            .sort((a, b) => b.period.localeCompare(a.period));
         return closed.length > 0 ? closed[0] : null;
-    }, [periods]);
+    }, [periods, systemNow]);
 
     const latestRecord = useMemo(() => {
         if (!latestPeriod) return null;
@@ -196,20 +254,26 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                     <div>
                         <h1 className="text-4xl font-black text-white tracking-tighter">경영 대시보드 (Dashboard)</h1>
                         <p className="text-slate-500 font-bold mt-1 flex items-center gap-2">
-                            마지막 결산 확정일: <span className="text-indigo-400">{closingRecords.length > 0 ? `${closingRecords[closingRecords.length - 1].period} (CLOSED)` : '내역 없음'}</span>
+                            마지막 결산 확정일: <span className="text-indigo-400">{latestPeriod ? `${latestPeriod.period} (CLOSED)` : '내역 없음'}</span>
                         </p>
                     </div>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
+                    {/* Date Picker for Historical View */}
+                    <PremiumDatePicker
+                        value={systemNow}
+                        onChange={setSystemNow}
+                    />
+
                     <div className="flex bg-[#151D2E] p-1 rounded-2xl border border-white/5 shadow-xl">
-                        {(['day', 'week', 'month', 'year'] as const).map((r) => (
+                        {(['week', 'day', 'month', 'year'] as const).map((r) => (
                             <button
                                 key={r}
                                 onClick={() => setTimeRange(r)}
                                 className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${timeRange === r ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'text-slate-500 hover:text-white'}`}
                             >
-                                {r === 'day' ? '14일' : r === 'week' ? '주간' : r === 'month' ? '월간' : '연간'}
+                                {r === 'week' ? '주간 (7일)' : r === 'day' ? '단기 (14일)' : r === 'month' ? '월간' : '연간'}
                             </button>
                         ))}
                     </div>
@@ -220,6 +284,14 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                     >
                         <ShieldAlert size={16} />
                         Phase 2 엔진 검증
+                    </button>
+
+                    <button
+                        onClick={() => runSystemIntegrityTest(ledger, systemNow || new Date().toISOString().split('T')[0], addEntries as any, clearAllData, setSystemNow)}
+                        className="flex items-center gap-2 px-6 py-3 bg-[#151D2E] text-indigo-400 hover:text-white hover:bg-indigo-500/10 text-[10px] font-black uppercase rounded-2xl transition-all border border-indigo-500/40 animate-pulse shadow-lg shadow-indigo-500/10"
+                    >
+                        <Activity size={16} />
+                        SIT: 시스템 정합성 테스트 (v9)
                     </button>
 
                     <button
@@ -237,18 +309,91 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                         <Lock size={16} />
                         실시간 월마감 실행
                     </button>
+                </div>
 
-                    <button
-                        onClick={() => {
-                            if (window.confirm('기존 데이터를 모두 삭제하고 3개년 시뮬레이션 데이터를 생성하시겠습니까?\n(33개월 자동 결산 포함)')) {
-                                seedThreeYearSimulation();
-                            }
-                        }}
-                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-2xl transition-all shadow-xl shadow-indigo-600/20 active:scale-95 border border-white/10"
-                    >
-                        <RefreshCw size={16} />
-                        Phase 1 시나리오
-                    </button>
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-3 bg-[#111827]/80 p-2 rounded-2xl border border-white/5 backdrop-blur-md">
+                        <span className="text-[10px] font-bold text-slate-400 px-3 uppercase tracking-widest">Scenario Mode:</span>
+                        {(['SURVIVAL', 'STANDARD', 'GROWTH'] as BusinessScenario[]).map(s => (
+                            <button
+                                key={s}
+                                onClick={() => {
+                                    const label = s === 'SURVIVAL' ? '자생적 생존(Lean)' : s === 'GROWTH' ? '공격 확장' : '표준 성장';
+                                    if (window.confirm(`${label}로 전환하시겠습니까? \n\n기존 기간 데이터를 유지한 채 시나리오를 변경합니다.`)) {
+                                        // Intelligence: Detect current years to maintain continuity
+                                        const currentYears = Array.from(new Set(ledger.map(e => parseInt(e.date.substring(0, 4)))));
+                                        const targetYears = currentYears.length > 0 ? currentYears : [2026];
+
+                                        setSelectedScenario(s);
+                                        seedScenarioSimulation(s, targetYears);
+
+                                        // Auto-sync systemNow to the end of the newly generated timeline
+                                        const lastYear = Math.max(...targetYears);
+                                        setSystemNow(`${lastYear}-12-31`);
+                                    }
+                                }}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${selectedScenario === s
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                                    : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                    }`}
+                            >
+                                {s === 'SURVIVAL' ? '자생(Lean/Survival)' : s === 'STANDARD' ? '표준(Grant)' : '공격(Growth)'}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => {
+                                if (window.confirm(`2026년 [${selectedScenario}] 시나리오를 시작하시겠습니까? (기존 데이터 초기화)\n\nSelected path: ${selectedScenario}`)) {
+                                    seedScenarioSimulation(selectedScenario, [2026]);
+                                    setSystemNow('2026-12-31');
+                                }
+                            }}
+                            className="flex items-center gap-2 px-6 py-3 bg-[#1E293B] text-white text-[10px] font-black uppercase rounded-2xl transition-all border border-indigo-500/30 hover:bg-indigo-600 shadow-lg shadow-indigo-600/10"
+                        >
+                            <Zap size={16} />
+                            Run 2026 Pack
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                // Integrity Check
+                                const has2026 = ledger.some(e => e.date.startsWith('2026'));
+                                if (!has2026) {
+                                    alert('2026년 데이터가 먼저 필요합니다.\nPlease Run 2026 Pack First.');
+                                    return;
+                                }
+                                if (window.confirm(`2027년 [${selectedScenario}] 비즈니스 시나리오를 진행하시겠습니까? (BEP 도전)\n\nMoving to Scale-up Phase.`)) {
+                                    seedScenarioSimulation(selectedScenario, [2026, 2027]);
+                                    setSystemNow('2027-12-31');
+                                }
+                            }}
+                            className="flex items-center gap-2 px-6 py-3 bg-[#1E293B] text-white text-[10px] font-black uppercase rounded-2xl transition-all border border-indigo-500/30 hover:bg-indigo-600 shadow-lg shadow-indigo-600/10"
+                        >
+                            <TrendingUp size={16} />
+                            Run 2027 Pack
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                // Integrity Check
+                                const has2027 = ledger.some(e => e.date.startsWith('2027'));
+                                if (!has2027) {
+                                    alert('2027년 데이터가 먼저 필요합니다.\nPlease Run 2027 Pack First.');
+                                    return;
+                                }
+                                if (window.confirm(`2028년 [${selectedScenario}] 시장 우위 시나리오를 진행하시겠습니까?\n\nDominating the Market.`)) {
+                                    seedScenarioSimulation(selectedScenario, [2026, 2027, 2028]);
+                                    setSystemNow('2028-12-31');
+                                }
+                            }}
+                            className="flex items-center gap-2 px-6 py-3 bg-[#1E293B] text-white text-[10px] font-black uppercase rounded-2xl transition-all border border-indigo-500/30 hover:bg-indigo-600 shadow-lg shadow-indigo-600/10"
+                        >
+                            <Target size={16} />
+                            Run 2028 Pack
+                        </button>
+                    </div>
 
                     <button
                         onClick={() => setShowRiskReport(true)}
@@ -260,20 +405,25 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                 </div>
             </header>
 
+            {/* [Phase 11] Liability Management via Journal Badge System */}
+            {/* LiabilityAlertBanner removed - CEO loans are normal operations, not "unplanned liabilities" */}
+            {/* Liability tracking is handled through individual entry badges in Journal page */}
+
             {showRiskReport && <ManagementRiskReport onClose={() => setShowRiskReport(false)} />}
 
             <CEOQuickBar
                 financials={rangeFinancials}
                 avgMonthlyBurn={analytics.avgBurnRate * 30.41}
+                runwayMonths={getRunway().runwayMonths}
                 isProfitable={rangeFinancials.netIncome > 0}
                 hasActivity={analytics.hasActivity}
                 onNavigate={setTab}
                 timeRange={timeRange}
             />
 
-            <AIForecastPanel />
+            <AIForecastPanel referenceDate={systemNow} />
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
                 <CFOReportCard
                     metrics={{
                         overdueReceivables: unsettledMetrics.ar,
@@ -281,7 +431,9 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                     }}
                     onViewReport={() => setTab('arap-management')}
                 />
-                <ManagementReportPanel ledger={ledger} />
+                <div className="lg:col-span-2">
+                    <ManagementReportPanel ledger={ledger} viewDate={systemNow} />
+                </div>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -331,7 +483,10 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                                         dataKey="name"
                                         tick={{ fontSize: 10, fill: '#64748b' }}
                                         minTickGap={30}
-                                        tickFormatter={(str) => str.split('-').slice(1).join('/')}
+                                        tickFormatter={(str) => {
+                                            const parts = str.split('-');
+                                            return timeRange === 'year' ? `${parts[0].substring(2)}/${parts[1]}` : `${parts[1]}/${parts[2]}`;
+                                        }}
                                     />
                                     <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v) => `${(v / 10000).toFixed(0)} 만`} />
                                     <RechartsTooltip
@@ -388,7 +543,10 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
             </div>
 
             <div className="h-[450px]">
-                <RecentTransactions transactions={ledger} onNavigate={setTab} />
+                <RecentTransactions
+                    transactions={ledger.filter(e => systemNow ? e.date <= systemNow : true)}
+                    onNavigate={setTab}
+                />
             </div>
         </div>
     );

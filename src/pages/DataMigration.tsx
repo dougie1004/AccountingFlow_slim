@@ -1,559 +1,528 @@
 import React, { useState } from 'react';
 import {
     Upload,
+    ChevronRight,
+    ArrowLeft,
     Database,
-    ArrowRight,
-    ShieldCheck,
     FileSpreadsheet,
-    Loader2,
-    Sparkles,
-    Terminal,
-    Lock,
-    Users,
-    FileText,
-    Check
+    AlertCircle,
+    CheckCircle2,
+    Settings2,
+    ShieldCheck,
+    Zap,
+    Table,
+    ArrowUpRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { invoke } from '@tauri-apps/api/core';
+import { MigrationSource, JournalEntry } from '../types';
 import { useAccounting } from '../hooks/useAccounting';
-import { JournalEntry, InferenceResult } from '../types';
+import * as XLSX from 'xlsx';
+
+type Step = 'source-selection' | 'file-upload' | 'column-mapping' | 'validation' | 'complete';
 
 interface DataMigrationProps {
     setTab: (tab: string) => void;
 }
 
 export const DataMigration: React.FC<DataMigrationProps> = ({ setTab }) => {
-    const { addEntries } = useAccounting();
-    const [isUploading, setIsUploading] = useState(false);
-    const [migrationResult, setMigrationResult] = useState<any | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [progress, setProgress] = useState(0);
-    const [logs, setLogs] = useState<string[]>([]);
+    const { addEntries, addCandidateEntries, setCandidateEntries, approveCandidateLedger } = useAccounting();
+    const [currentStep, setCurrentStep] = useState<Step>('source-selection');
+    const [selectedSource, setSelectedSource] = useState<MigrationSource['systemName'] | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [fileHeaders, setFileHeaders] = useState<string[]>([]);
+    const [mapping, setMapping] = useState<Record<string, string>>({});
+    const [isDragging, setIsDragging] = useState(false);
+    const [rawData, setRawData] = useState<any[]>([]);
+    const [candidateLedger, setCandidateLedger] = useState<JournalEntry[]>([]);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    // Universal Pipeline V3
-    const [mode, setMode] = useState<'erp' | 'universal'>('erp');
-    const [universalResult, setUniversalResult] = useState<InferenceResult | null>(null);
-
-    const runUniversalAnalysis = async (files: FileList | File[]) => {
-        setIsUploading(true);
-        setError(null);
-        setProgress(0);
-        setLogs([]);
-        setUniversalResult(null);
-
-        const addLog = (msg: string) => setLogs(prev => [...prev, msg]);
-        addLog("[V3] Universal Parser initialized...");
-
-        try {
-            // Single file focus for now
-            const file = files[0];
-            const buffer = await file.arrayBuffer();
-            const bytes = new Uint8Array(buffer);
-
-            addLog(`[V3] Analyzing file structure: ${file.name}`);
-            setProgress(30);
-
-            const result = await invoke<InferenceResult>('parse_universal_file', { fileBytes: Array.from(bytes) });
-
-            addLog(`[V3] Detection Complete: ${result.metadata.detectedType} (Conf: ${result.metadata.confidence * 100}%)`);
-            addLog(`[V3] Extract: ${result.metadata.summaryText}`);
-
-            setUniversalResult(result);
-            setProgress(100);
-        } catch (e: any) {
-            setError(e.toString());
-            addLog(`[ERROR] ${e.toString()}`);
-        } finally {
-            setIsUploading(false);
-        }
-    };
-
-    const handleUniversalAction = () => {
-        if (!universalResult) return;
-
-        // If Type is Payroll, update numEmployees in Metadata (Simulated here via alert/hook)
-        // And add Journal Entry
-        if (universalResult.suggestedEntries.length > 0) {
-            // Convert ParsedTransaction to JournalEntry
-            const newEntries: JournalEntry[] = universalResult.suggestedEntries.map(tx => ({
-                id: `JE-UNI-${Math.random().toString(36).substr(2, 9)}`,
-                date: tx.date || new Date().toISOString().split('T')[0],
-                description: tx.description,
-                vendor: tx.vendor,
-                debitAccount: tx.entryType === 'Expense' ? '급여' : '비용', // Simplified mapping
-                creditAccount: '미지급금',
-                amount: tx.amount,
-                vat: 0,
-                type: 'Expense',
-                status: 'Approved',
-                version: 1,
-                lastModifiedBy: 'Universal Parser V3',
-                complianceContext: 'Auto-generated from Payroll/Insurance import'
-            }));
-
-            addEntries(newEntries);
-
-            // Metadata Update Hook Call (Mock)
-            if (universalResult.metadata.detectedType === 'Payroll' && universalResult.metadata.numEmployees) {
-                alert(`[System Update] Entity Metadata Updated:\nEmployee Count set to ${universalResult.metadata.numEmployees}`);
-                // In real app, call update_metadata command
-            }
-
-            alert(`${newEntries.length} entries created from ${universalResult.metadata.detectedType} file.`);
-            setTab('ledger');
-        }
-    };
-
-    const runSmartAnalysis = async (files: FileList | File[] | null, isDemo = false) => {
-        setIsUploading(true);
-        setError(null);
-        setProgress(0);
-        setLogs([]);
-
-        const addLog = (msg: string) => {
-            setLogs(prev => [...prev, msg]);
-        };
-
-        try {
-            addLog("[SYSTEM] 지능형 다중 파일 이관 엔진 초기화...");
-            await new Promise(r => setTimeout(r, 600));
-
-            let allMergedData: any[] = [];
-            let totalRecords = 0;
-            let mappedRecords = 0;
-            let erpType = "Unknown";
-            let suggestedAccounts = new Set<string>();
-
-            const filesToProcess = isDemo ? [null] : Array.from(files || []);
-            const totalFiles = filesToProcess.length;
-
-            if (totalFiles === 0 && !isDemo) throw new Error("선택된 파일이 없습니다.");
-
-            for (let i = 0; i < totalFiles; i++) {
-                const file = filesToProcess[i];
-                let bytes: Uint8Array;
-                let fileName: string;
-
-                if (isDemo) {
-                    const sampleCsv = `일자,전표번호,계정명,적요,차변,대변,거래처
-2026-03-01,1001,보통예금,투자 유입(Series A),500000000,0,Global_VC
-2026-03-01,1001,자본금,투자 유입(Series A),0,500000000,Global_VC
-2026-03-05,1002,임차료,사무실 월세 납부,5000000,0,강남빌딩
-2026-03-05,1002,보통예금,사무실 월세 납부,0,5000000,강남빌딩
-2026-03-10,1003,복리후생비,팀 식대 결제,125000,0,비비고
-2026-03-10,1003,미지급금,팀 식대 결제,0,125000,비비고
-2026-03-15,1004,비품,신규 노트북 3대,3200000,0,애플코리아
-2026-03-15,1004,미지급금,신규 노트북 3대,0,3200000,애플코리아
-2026-03-20,1005,보통예금,정부지원금 1차 입금,50000000,0,중기부
-2026-03-20,1005,국고보조금수익,정부지원금 1차 입금,0,50000000,중기부
-`;
-                    bytes = new TextEncoder().encode(sampleCsv);
-                    fileName = "douzone_standard_sample.csv";
-                    addLog("[SYSTEM] 표준 데이터셋(Standard Dataset) 로드 완료");
-                } else if (file) {
-                    const buffer = await file.arrayBuffer();
-                    bytes = new Uint8Array(buffer);
-                    fileName = file.name;
-                    addLog(`[SYSTEM] (${i + 1}/${totalFiles}) 파일 읽기 완료: ${fileName}`);
-                } else {
-                    continue;
-                }
-
-                setProgress(Math.floor((i / totalFiles) * 80) + 10);
-                addLog(`[AI-MAPPING] ${fileName} 데이터 구조 고속 분석 중...`);
-
-                const result = await invoke<any>('run_erp_migration', {
-                    fileBytes: Array.from(bytes),
-                    fileName
-                });
-
-                allMergedData = [...allMergedData, ...result.data];
-                totalRecords += result.total_records || result.totalRecords || 0;
-                mappedRecords += result.mapped_records || result.mappedRecords || 0;
-                erpType = result.erp_type || result.erpType;
-                result.suggested_accounts?.forEach((acc: string) => suggestedAccounts.add(acc));
-
-                // [Antigravity] UI Verification Log: Verify first record integrity
-                if (result.data && result.data.length > 0) {
-                    const first = result.data[0];
-                    console.log(`[UI Verification] First Record Parsed: "${first.description}" | Account: ${first.accountName} | Amount: ${first.amount}`);
-                    addLog(`[VERIFY] 첫 번째 데이터 검증: ${first.description} / ${first.accountName || '계정미지정'} / ${first.amount}`);
-                }
-            }
-
-            addLog(`[SUCCESS] 통합 이관 분석 완료: 총 ${totalRecords}건 탐지`);
-            if (totalRecords === 0) {
-                addLog("[WARNING] 탐지된 유효 전표가 없습니다. 파일 형식을 확인해주세요.");
-            }
-
-            setMigrationResult({
-                totalRecords,
-                mappedRecords,
-                erpType,
-                suggestedAccounts: Array.from(suggestedAccounts),
-                data: allMergedData
-            });
-            setProgress(100);
-            setIsUploading(false);
-        } catch (e: any) {
-            setError(e.toString());
-            setIsUploading(false);
-        }
-    };
-
-    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files && event.target.files.length > 0) {
-            runSmartAnalysis(event.target.files, false);
-        }
-    };
-
-    const handleTransfer = () => {
-        if (!migrationResult || !migrationResult.data || migrationResult.data.length === 0) {
-            alert("이관할 데이터가 없습니다.");
-            return;
-        }
-
-        console.log(`[Migration] Transferring ${migrationResult.data.length} records to journal...`);
-
-        // ParsedTransaction -> JournalEntry 변환
-        const newEntries: JournalEntry[] = migrationResult.data.map((tx: any) => {
-            // Intelligent Account Mapping Strategy
-            let debitAccount = tx.debitAccount || '미확정 비용';
-            let creditAccount = tx.creditAccount || '미지급금';
-
-            // [Antigravity] UI Sync: Trust parsed Intent (Account Name & Type)
-            if (tx.accountName && tx.accountName !== '미확정 비용' && tx.accountName !== '미지급금') {
-                if (tx.entryType === 'Revenue' || tx.entryType === 'Equity') {
-                    debitAccount = '보통예금';
-
-                    creditAccount = tx.accountName;
-                } else {
-                    debitAccount = tx.accountName;
-                    // creditAccount remains '미지급금' unless payment method override
-                }
-            } else {
-                // Fallback Heuristics
-                if (tx.entryType === 'Revenue') {
-                    debitAccount = '보통예금';
-                    creditAccount = '매출';
-                } else if (tx.entryType === 'Equity') {
-                    debitAccount = '보통예금';
-                    creditAccount = '자본금';
-                } else if (tx.entryType === 'Asset') {
-                    debitAccount = '비품';
-                } else if (tx.entryType === 'Expense') {
-                    debitAccount = '소모품비';
-                }
-            }
-
-            // Amount Normalization for Bank Statement Interpretation
-            let finalAmount = tx.amount;
-            if ((tx.entryType === 'Expense' || tx.entryType === 'Asset') && tx.amount < 0) {
-                finalAmount = Math.abs(tx.amount);
-            }
-
-            return {
-                id: tx.id || `JE-${Math.random().toString(36).substr(2, 9)}`,
-                date: tx.date || new Date().toISOString().split('T')[0],
-                description: tx.description,
-                vendor: tx.vendor,
-                debitAccount,
-                creditAccount,
-                amount: finalAmount,
-                vat: tx.vat ? Math.abs(tx.vat) : 0, // VAT magnitude
-                type: tx.entryType || 'Expense',
-                status: 'Approved', // Immediate reflection in Dashboard
-                version: 1,
-                complianceContext: tx.reasoning,
-                lastModifiedBy: 'Data Migration Engine'
+    // Auto-detection logic for common Korean ERP headers
+    React.useEffect(() => {
+        if (fileHeaders.length > 0) {
+            const newMapping: Record<string, string> = { ...mapping };
+            const detectPatterns: Record<string, string[]> = {
+                date: ['날짜', '일자', 'date'],
+                description: ['적요', '내용', 'description'],
+                debit: ['차변', 'debit', '지출'],
+                credit: ['대변', 'credit', '입금'],
+                vendor: ['거래처명', '거래처', 'vendor', '커스터머'],
+                regNo: ['사업자등록번호', '사업자번호', 'tax_id'],
+                account: ['계정명', '계정과목', 'account_name', '계정']
             };
-        });
 
-        addEntries(newEntries);
-        alert(`${newEntries.length}건의 전표가 디지털 분개장으로 안전하게 이관되었습니다.`);
-        setTab('ledger'); // AI 자동 분개장 메뉴로 이동
+            Object.entries(detectPatterns).forEach(([field, patterns]) => {
+                if (!newMapping[field]) {
+                    const match = fileHeaders.find(h => patterns.some(p => h.includes(p)));
+                    if (match) newMapping[field] = match;
+                }
+            });
+            setMapping(newMapping);
+        }
+    }, [fileHeaders]);
+
+    const sources: { id: MigrationSource['systemName'], name: string, icon: any, color: string, desc: string }[] = [
+        { id: 'Douzone', name: '더존 비즈온 (SmartA)', icon: Database, color: 'text-blue-400', desc: '표준 CSV/Excel 백업 데이터' },
+        { id: 'E-Count', name: '이카운트 (E-Count)', icon: Zap, color: 'text-orange-400', desc: 'ERP 원장 엑셀 내보내기' },
+        { id: 'Excel', name: '사용자 정의 엑셀', icon: FileSpreadsheet, color: 'text-emerald-400', desc: '자유 형식의 회계 엑셀 파일' },
+        { id: 'Other', name: '기타 시스템', icon: Settings2, color: 'text-slate-400', desc: '텍스트 또는 구조화된 데이터' }
+    ];
+
+    const handleFinalImport = () => {
+        // Actual Phase 6 Logic: Approve Candidates
+        approveCandidateLedger();
+        setCurrentStep('complete');
     };
 
-    return (
-        <div className="space-y-10 pb-24 p-6 bg-[#0B1221] min-h-screen">
-            <header className="flex flex-col gap-4 relative z-10">
-                <div className="flex items-center gap-4">
-                    <div className="p-4 bg-indigo-500/10 rounded-[1.5rem] border border-indigo-500/20 shadow-2xl shadow-indigo-500/10">
-                        <Database className="text-indigo-400" size={40} />
-                    </div>
-                    <div>
-                        <h1 className="text-4xl font-black text-white tracking-tight leading-tight">
-                            ERP 데이터 가져오기 및 이관
-                        </h1>
-                        <p className="text-slate-400 text-lg font-bold mt-1 uppercase tracking-wider text-[10px]">ERP Data Import & Migration</p>
-                    </div>
-                </div>
-            </header>
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            processFile(file);
+        }
+    };
 
-            {/* Mode Toggle */}
-            <div className="flex bg-white/5 rounded-2xl p-1 mb-8 w-fit border border-white/5">
+    const processFile = (file: File) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            if (json.length > 0) {
+                const headers = (json[0] as string[]).filter(h => h && h.trim().length > 0);
+                setFileHeaders(headers);
+                setRawData(json as any[]);
+                setCurrentStep('column-mapping');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    const parseExcelDate = (serial: any) => {
+        if (!serial) return new Date().toISOString().split('T')[0];
+
+        // Handle YYYY-MM-DD or YYYY.MM.DD strings
+        if (typeof serial === 'string') {
+            const clean = serial.replace(/\./g, '-');
+            if (clean.includes('-')) return clean;
+            // Handle YYYYMMDD
+            if (serial.length === 8 && !isNaN(Number(serial))) {
+                return `${serial.substring(0, 4)}-${serial.substring(4, 6)}-${serial.substring(6, 8)}`;
+            }
+        }
+
+        // Handle Excel Serial Dates
+        if (typeof serial === 'number' && serial > 10000) {
+            const date = new Date((serial - 25569) * 86400 * 1000);
+            return date.toISOString().split('T')[0];
+        }
+
+        return String(serial);
+    };
+
+    const runAnalysis = () => {
+        setIsAnalyzing(true);
+        setTimeout(() => {
+            const entries: JournalEntry[] = [];
+            const dataRows = rawData.slice(1);
+
+            // Map header names to their original column indices
+            const headerMap: Record<string, number> = {};
+            if (rawData[0]) {
+                rawData[0].forEach((h: any, i: number) => {
+                    if (h) headerMap[String(h)] = i;
+                });
+            }
+
+            dataRows.forEach((row, idx) => {
+                if (!row || (Array.isArray(row) && row.length === 0)) return;
+
+                const getValue = (fieldName: string) => {
+                    const colName = mapping[fieldName];
+                    if (!colName) return undefined;
+                    const colIdx = headerMap[colName];
+                    return colIdx !== undefined ? row[colIdx] : undefined;
+                };
+
+                const dateValue = getValue('date');
+                if (!dateValue && idx > 500 && entries.length === 0) return; // Skip empty rows at end
+
+                const date = parseExcelDate(dateValue);
+                const description = String(getValue('description') || '');
+                const vendor = String(getValue('vendor') || 'ERP_SOURCE');
+                const debit = Number(getValue('debit') || 0);
+                const credit = Number(getValue('credit') || 0);
+                const amountValue = getValue('amount');
+                const amount = amountValue ? Number(amountValue) : (debit || credit || 0);
+                const account = String(getValue('account') || (debit > 0 ? 'Expenses' : 'Revenue'));
+
+                if (description || amount > 0) {
+                    entries.push({
+                        id: `MIG-${idx}-${Date.now()}`,
+                        date,
+                        description,
+                        vendor,
+                        debitAccount: debit > 0 ? account : '현금',
+                        creditAccount: credit > 0 ? account : '현금',
+                        amount,
+                        vat: 0,
+                        type: debit > 0 ? 'Expense' : 'Revenue',
+                        status: 'Unconfirmed',
+                        createdAt: new Date().toISOString()
+                    });
+                }
+            });
+
+            setCandidateLedger(entries);
+            setCandidateEntries(entries);
+            setIsAnalyzing(false);
+            setCurrentStep('validation');
+        }, 800);
+    };
+
+    const renderHeader = () => (
+        <div className="flex flex-col gap-2 mb-10">
+            <h1 className="text-4xl font-black text-white tracking-tighter">ERP 데이터 이관 위저드</h1>
+            <p className="text-slate-500 font-bold max-w-2xl leading-relaxed">
+                AccountingFlow는 기존 ERP를 대체하는 것이 아니라, <span className="text-indigo-400">그 위에 '책임 구조'를 덧씌웁니다.</span>
+                <br />과거 데이터를 분석하여 즉각적인 리스크 인사이트를 도출합니다.
+            </p>
+        </div>
+    );
+
+    const renderSourceSelection = () => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {sources.map((src) => (
                 <button
-                    onClick={() => setMode('erp')}
-                    className={`px-6 py-3 rounded-xl text-sm font-bold transition-all ${mode === 'erp' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                    key={src.id}
+                    onClick={() => {
+                        setSelectedSource(src.id);
+                        setCurrentStep('file-upload');
+                    }}
+                    className="group professional-card p-8 flex items-center justify-between hover:bg-white/[0.04] transition-all active:scale-[0.98] border border-white/5"
                 >
-                    ERP Transaction Migration
+                    <div className="flex items-center gap-6">
+                        <div className={`p-5 rounded-[24px] bg-white/[0.03] ${src.color} group-hover:scale-110 transition-transform duration-500`}>
+                            <src.icon size={32} />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="text-xl font-black text-white mb-1 group-hover:text-indigo-400 transition-colors">{src.name}</h3>
+                            <p className="text-xs font-bold text-slate-500 tracking-wider uppercase">{src.desc}</p>
+                        </div>
+                    </div>
+                    <ChevronRight className="text-slate-700 group-hover:text-indigo-400 transition-colors" />
                 </button>
+            ))}
+        </div>
+    );
+
+    const renderFileUpload = () => (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+            <button
+                onClick={() => setCurrentStep('source-selection')}
+                className="flex items-center gap-2 text-slate-500 hover:text-white mb-8 transition-colors font-bold text-sm"
+            >
+                <ArrowLeft size={16} /> 이전 단계로
+            </button>
+
+            <div
+                className={`professional-card p-16 border-2 border-dashed flex flex-col items-center justify-center gap-6 transition-all group ${isDragging ? 'border-indigo-500 bg-indigo-500/10 scale-[1.02]' : 'border-indigo-500/20 bg-indigo-500/[0.01] hover:border-indigo-500/40'
+                    }`}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    const file = e.dataTransfer.files[0];
+                    if (file) processFile(file);
+                }}
+                onClick={() => fileInputRef.current?.click()}
+            >
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    accept=".csv, .xlsx, .xls"
+                />
+                <div className="p-8 rounded-full bg-indigo-500/5 text-indigo-400 group-hover:scale-110 transition-transform duration-500 border border-indigo-500/10">
+                    <Upload size={48} />
+                </div>
+                <div className="text-center">
+                    <h2 className="text-3xl font-black text-white mb-2">{selectedSource} 파일 로드</h2>
+                    <p className="text-slate-500 font-bold max-w-sm mx-auto leading-relaxed">
+                        CSV 또는 엑셀 파일을 드래그하거나 클릭하여 업로드하십시오.<br />
+                        모든 분석은 사용자 PC 내부에서만 이루어집니다.
+                    </p>
+                </div>
                 <button
-                    onClick={() => setMode('universal')}
-                    className={`px-6 py-3 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${mode === 'universal' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                    className="mt-6 px-12 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-2xl shadow-indigo-600/20"
                 >
-                    <Sparkles size={14} /> Universal Metadata Parser (V3)
+                    로컬 파일 선택
                 </button>
             </div>
 
-            {mode === 'erp' ? (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                    <div className="lg:col-span-2 space-y-8">
-                        <AnimatePresence mode="wait">
-                            {!isUploading ? (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="bg-[#151D2E]/80 backdrop-blur-xl border-2 border-dashed border-white/5 rounded-[3rem] p-16 flex flex-col items-center justify-center text-center transition-all hover:bg-[#1a253a]/90 hover:border-indigo-500/50 group shadow-3xl"
-                                >
-                                    <div className="w-24 h-24 rounded-[2rem] bg-indigo-500/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-2xl shadow-indigo-500/5 border border-indigo-500/20">
-                                        <Upload className="text-indigo-400" size={48} />
-                                    </div>
-                                    <h3 className="text-2xl font-black text-white mb-3 tracking-tight">ERP 원천 데이터(Raw Data) 업로드</h3>
-                                    <p className="text-slate-400 mb-10 max-w-md font-bold leading-relaxed">
-                                        SAP, Oracle, 더존 등 기존 시스템의 엑셀/CSV를 드래그하거나<br />
-                                        <span
-                                            onClick={() => runSmartAnalysis(null, true)}
-                                            className="text-indigo-400 underline decoration-indigo-400/30 underline-offset-4 cursor-pointer hover:text-indigo-300 transition-colors"
-                                        >
-                                            더존 표준 샘플 CSV(Standard Dataset)
-                                        </span>를 로드하여 벤치마킹을 실행하십시오.
-                                    </p>
-
-                                    <label className="relative overflow-hidden inline-flex items-center gap-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-10 py-5 rounded-[2rem] font-black cursor-pointer transition-all shadow-2xl shadow-indigo-600/30 hover:shadow-indigo-600/50 active:scale-95">
-                                        <FileSpreadsheet size={24} />
-                                        <span className="text-lg">파일 업로드 및 데이터 분석</span>
-                                        <input
-                                            type="file"
-                                            id="erp-upload"
-                                            multiple
-                                            className="absolute opacity-0 w-0 h-0"
-                                            onChange={handleFileUpload}
-                                            accept=".csv,.xlsx,.xls"
-                                        />
-                                    </label>
-                                    {error && <p className="mt-4 text-red-400 font-bold text-sm">에러: {error}</p>}
-                                </motion.div>
-                            ) : (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="bg-[#070C18] rounded-[3rem] p-12 border border-white/5 shadow-3xl overflow-hidden relative"
-                                >
-                                    <div className="absolute top-0 right-0 p-8 opacity-20">
-                                        <Lock size={120} className="text-indigo-500" />
-                                    </div>
-
-                                    <div className="relative z-10">
-                                        <div className="flex items-center justify-between mb-8">
-                                            <div className="flex items-center gap-4">
-                                                <Loader2 className="animate-spin text-indigo-400" size={32} />
-                                                <div>
-                                                    <h4 className="text-2xl font-black text-white">데이터 정규화 및 분석 엔진 가동</h4>
-                                                    <p className="text-xs text-indigo-400 font-black mt-1 uppercase tracking-widest">Automatic Data Normalization & Analysis</p>
-                                                </div>
-                                            </div>
-                                            <span className="text-4xl font-black text-indigo-400 font-mono">{progress}%</span>
-                                        </div>
-
-                                        {/* Live Log Container */}
-                                        <div className="bg-black/40 rounded-2xl p-6 font-mono text-[13px] space-y-2 border border-white/5 h-48 overflow-y-auto shadow-inner custom-scrollbar">
-                                            {logs.map((log, i) => (
-                                                <motion.div
-                                                    initial={{ opacity: 0, x: -10 }}
-                                                    animate={{ opacity: 1, x: 0 }}
-                                                    key={i}
-                                                    className={`${log.includes('MASK') ? 'text-emerald-400' : log.includes('SUCCESS') ? 'text-indigo-400 font-bold' : 'text-slate-500'}`}
-                                                >
-                                                    <span className="opacity-30 mr-2">[{new Date().toLocaleTimeString()}]</span>
-                                                    {log}
-                                                </motion.div>
-                                            ))}
-                                            <div className="animate-pulse text-indigo-400">_</div>
-                                        </div>
-
-                                        <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mt-8">
-                                            <motion.div
-                                                className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full"
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${progress}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        <div className="bg-[#151D2E]/50 backdrop-blur-md border border-white/5 rounded-[3rem] p-10 shadow-2xl">
-                            <h3 className="text-2xl font-black text-white mb-8 flex items-center gap-3">
-                                <ShieldCheck className="text-emerald-400" size={28} />
-                                사용자 데이터 가이드
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="p-6 bg-white/5 rounded-2xl border border-white/5">
-                                    <p className="text-indigo-400 font-black text-xs uppercase tracking-widest mb-2">Security</p>
-                                    <p className="text-sm text-slate-400 leading-relaxed font-bold">모든 분석 과정은 비가역적 비식별화 처리를 거친 후 메모리 내에서 소멸됩니다.</p>
-                                </div>
-                                <div className="p-6 bg-white/5 rounded-2xl border border-white/5">
-                                    <p className="text-emerald-400 font-black text-xs uppercase tracking-widest mb-2">Integrity</p>
-                                    <p className="text-sm text-slate-400 leading-relaxed font-bold">계정 체계의 시맨틱 분석 및 더존(Douzone) 특화 규칙을 통해 휴먼 에러를 99.8% 차단합니다.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-8">
-                        <div className="bg-gradient-to-br from-[#1E293B] to-[#0F172A] border border-white/10 rounded-[3rem] p-10 shadow-3xl relative overflow-hidden h-full flex flex-col min-h-[500px]">
-                            <div className="relative z-10 flex flex-col h-full">
-                                <h3 className="text-xl font-black text-white mb-8 flex items-center gap-3">
-                                    <Terminal className="text-indigo-400" size={24} />
-                                    분석 결과 요약
-                                </h3>
-
-                                {!migrationResult ? (
-                                    <div className="flex-1 flex flex-col items-center justify-center text-center py-12 space-y-6">
-                                        <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center text-slate-600">
-                                            <Database size={40} />
-                                        </div>
-                                        <p className="text-slate-500 font-bold leading-relaxed italic">분석할 원천 데이터를<br />대기열에 추가하십시오.</p>
-                                    </div>
-                                ) : (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="flex-1 flex flex-col"
-                                    >
-                                        <div className="grid grid-cols-2 gap-4 mb-8">
-                                            <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
-                                                <p className="text-[10px] font-black text-slate-500 uppercase mb-2 tracking-tighter">Analyzed Records</p>
-                                                <p className="text-3xl font-black text-white font-mono">{migrationResult.totalRecords}</p>
-                                            </div>
-                                            <div className="bg-emerald-500/10 rounded-3xl p-6 border border-emerald-500/20">
-                                                <p className="text-[10px] font-black text-emerald-400 uppercase mb-2 tracking-tighter">Data Integrity</p>
-                                                <p className="text-3xl font-black text-emerald-200 font-mono">100%</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-[2rem] p-6 mb-10">
-                                            <p className="text-[10px] font-black text-indigo-400 uppercase mb-3 tracking-widest leading-none flex items-center gap-2">
-                                                <Sparkles size={12} /> AI Migration Insights
-                                            </p>
-                                            <p className="text-[13px] text-slate-300 leading-relaxed font-bold italic">
-                                                "{migrationResult.totalRecords}건의 전표 데이터를 성공적으로 구조화했습니다. {migrationResult.erpType} 패턴이 감지되어 표준 계정과목으로 최적화 매핑을 완료했습니다."
-                                            </p>
-                                        </div>
-
-                                        <div className="mt-auto">
-                                            <button
-                                                onClick={handleTransfer}
-                                                className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:scale-[1.02] text-white font-black py-5 rounded-[2rem] transition-all flex items-center justify-center gap-3 shadow-2xl shadow-indigo-600/30 active:scale-95 text-xl tracking-tight"
-                                            >
-                                                데이터 전표 이관
-                                                <ArrowRight size={24} />
-                                            </button>
-                                            <p className="text-center text-[10px] font-bold text-slate-600 mt-4 uppercase tracking-[0.2em]">Data Transfer Ready</p>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </div>
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
-                        </div>
-                    </div>
+            <div className="mt-10 p-8 rounded-[32px] bg-indigo-500/5 border border-indigo-500/10 flex items-start gap-4">
+                <ShieldCheck className="text-indigo-400 shrink-0 mt-1" size={24} />
+                <div>
+                    <h4 className="text-white font-black text-lg mb-1 tracking-tight">Local-first SaaS 아키텍처 (Phase 6)</h4>
+                    <p className="text-sm text-slate-500 font-bold leading-relaxed">
+                        AccountingFlow는 귀하의 재무 정보를 서버로 가져가지 않습니다. <br />
+                        서버(Control Plane)에는 오직 플랜 정보와 AI 호출량만 전송되며, 이관된 원장은 로컬에 암호화되어 저장됩니다.
+                    </p>
                 </div>
-            ) : (
-                /* Universal Parser Mode UI */
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                    <div className="space-y-8">
-                        <div className="bg-[#151D2E]/80 backdrop-blur-xl border border-white/5 rounded-[3rem] p-16 flex flex-col items-center justify-center text-center">
-                            <h3 className="text-2xl font-black text-white mb-3">Universal File Pipeline</h3>
-                            <p className="text-slate-400 mb-10 max-w-md font-bold text-sm">
-                                급여대장(Excel), 4대보험 고지서(PDF/CSV), 카드내역 등을<br />
-                                자동으로 식별하여 <span className="text-emerald-400">메타데이터</span>와 <span className="text-emerald-400">회계 전표</span>를 동시에 생성합니다.
-                            </p>
+            </div>
+        </div>
+    );
 
-                            <label className="bg-emerald-600 hover:bg-emerald-700 text-white px-10 py-5 rounded-[2rem] font-black cursor-pointer transition-all shadow-xl flex items-center gap-3">
-                                <FileText size={20} />
-                                <span>파일 자동 분석 (Auto-Detect)</span>
-                                <input
-                                    type="file"
-                                    onChange={(e) => { if (e.target.files && e.target.files.length > 0) runUniversalAnalysis(e.target.files); }}
-                                    className="hidden"
-                                    accept=".csv,.xlsx,.pdf,.txt"
-                                />
-                            </label>
-                        </div>
+    const renderColumnMapping = () => (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+            <button
+                onClick={() => setCurrentStep('file-upload')}
+                className="flex items-center gap-2 text-slate-500 hover:text-white mb-8 transition-colors font-bold text-sm"
+            >
+                <ArrowLeft size={16} /> 이전 단계로
+            </button>
 
-                        {/* Logs */}
-                        <div className="bg-black/40 rounded-3xl p-6 font-mono text-xs text-slate-400 h-64 overflow-y-auto border border-white/5">
-                            {logs.map((l, i) => <div key={i} className="mb-1">{l}</div>)}
-                        </div>
-                    </div>
-
-                    <div>
-                        {universalResult && (
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[#1E293B] border border-white/10 rounded-[3rem] p-10 shadow-2xl h-full flex flex-col">
-                                <div className="flex items-center gap-4 mb-8">
-                                    <div className="p-4 bg-emerald-500/10 rounded-2xl text-emerald-400">
-                                        <Users size={32} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Inference Result</p>
-                                        <h3 className="text-2xl font-black text-white">{universalResult.metadata.detectedType} Identified</h3>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-6 flex-1">
-                                    <div className="bg-white/5 rounded-2xl p-6">
-                                        <p className="text-sm font-bold text-slate-400 mb-1">Detection Summary</p>
-                                        <p className="text-lg font-bold text-white">{universalResult.metadata.summaryText}</p>
-                                    </div>
-
-                                    {universalResult.metadata.numEmployees && (
-                                        <div className="flex items-center justify-between bg-white/5 rounded-2xl p-6">
-                                            <span className="text-slate-400 font-bold">인원 수 (Employees)</span>
-                                            <span className="text-2xl font-black text-emerald-400">{universalResult.metadata.numEmployees}명</span>
-                                        </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <div className="professional-card p-10 border border-white/5">
+                    <h3 className="text-2xl font-black text-white mb-8 flex items-center gap-3">
+                        <Settings2 className="text-indigo-400" />
+                        스마트 컬럼 매핑
+                    </h3>
+                    <div className="space-y-6">
+                        {[
+                            { id: 'date', label: '거래 일자', required: true, desc: '날짜 / 일자' },
+                            { id: 'description', label: '적요 (항목명)', required: true, desc: '적요란 / 지출상세' },
+                            { id: 'debit', label: '차변 (지출)', required: false, desc: '차변 / 출금' },
+                            { id: 'credit', label: '대변 (수입)', required: false, desc: '대변 / 입금' },
+                            { id: 'amount', label: '합계 금액', required: false, desc: '차/대 통합 시 선택' },
+                            { id: 'vendor', label: '거래처', required: false, desc: '거래처명 / 상호' },
+                            { id: 'regNo', label: '사업자등록번호', required: false, desc: '사업자번호' },
+                            { id: 'account', label: '계정 과목', required: false, desc: '계정명 / 계정코드' }
+                        ].map((field) => (
+                            <div key={field.id} className="group">
+                                <label className="flex justify-between items-end mb-2">
+                                    <span className="text-sm font-black text-white/80">
+                                        {field.label}
+                                        {field.required && <span className="text-rose-500 ml-1">*</span>}
+                                    </span>
+                                    <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest">{field.desc}</span>
+                                </label>
+                                <select
+                                    value={mapping[field.id] || ""}
+                                    onChange={(e) => setMapping(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                    className="w-full bg-[#0B1221] border border-white/5 rounded-2xl px-5 py-4 text-white font-bold text-sm focus:border-indigo-500 outline-none transition-all shadow-inner"
+                                >
+                                    <option value="">-- 원본 파일 컬럼 선택 --</option>
+                                    {fileHeaders.length > 0 ? (
+                                        fileHeaders.map((header, hIdx) => (
+                                            <option key={hIdx} value={header}>{header}</option>
+                                        ))
+                                    ) : (
+                                        <>
+                                            <option value="col1">Column A (일자)</option>
+                                            <option value="col2">Column B (적요)</option>
+                                            <option value="col3">Column C (현금출급)</option>
+                                        </>
                                     )}
-
-                                    <div className="flex items-center justify-between bg-white/5 rounded-2xl p-6">
-                                        <span className="text-slate-400 font-bold">인식 금액 (Total Amount)</span>
-                                        <span className="text-2xl font-black text-white">₩{universalResult.metadata.totalAmount.toLocaleString()}</span>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={handleUniversalAction}
-                                    className="w-full mt-8 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-5 rounded-[2rem] transition-all shadow-xl flex items-center justify-center gap-2"
-                                >
-                                    <Check size={20} />
-                                    시스템 반영 (Apply to Engine)
-                                </button>
-                            </motion.div>
-                        )}
-                        {!universalResult && !isUploading && (
-                            <div className="h-full border-2 border-dashed border-white/5 rounded-[3rem] flex items-center justify-center text-slate-600 font-bold">
-                                분석 결과 대기 중...
+                                </select>
                             </div>
-                        )}
-                        {isUploading && !universalResult && (
-                            <div className="h-full border border-white/5 rounded-[3rem] bg-[#1E293B] flex flex-col items-center justify-center text-emerald-400 gap-4">
-                                <Loader2 className="animate-spin" size={48} />
-                                <span className="font-bold">Deep Learning Inference...</span>
-                            </div>
-                        )}
+                        ))}
                     </div>
                 </div>
-            )}
+
+                <div className="flex flex-col gap-6">
+                    <div className="professional-card p-10 bg-indigo-500/[0.03] border-indigo-500/20">
+                        <h3 className="text-xl font-black text-white mb-2 italic">Why Migration?</h3>
+                        <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-8">Phase 6 Strategic Goal</p>
+
+                        <div className="space-y-6 mb-10">
+                            {[
+                                { title: '과거 회계 완전 복원 지양', desc: '판단과 검증을 위한 최소한의 데이터만 가져옵니다.' },
+                                { title: '오분개 패턴 사전 탐지', desc: '이관 단계에서 AuditFlow 엔진이 즉시 작동합니다.' },
+                                { title: 'Opening Balance 자동 설정', desc: '승인된 데이터는 기초 잔액으로 전환됩니다.' }
+                            ].map((item, idx) => (
+                                <div key={idx} className="flex gap-4">
+                                    <CheckCircle2 className="text-emerald-500 shrink-0" size={20} />
+                                    <div>
+                                        <h4 className="text-sm font-black text-white mb-1">{item.title}</h4>
+                                        <p className="text-xs text-slate-500 font-bold leading-relaxed">{item.desc}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={runAnalysis}
+                            className="w-full py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-3xl transition-all flex items-center justify-center gap-3 group shadow-2xl shadow-indigo-600/30"
+                        >
+                            {isAnalyzing ? (
+                                <>
+                                    <Zap className="animate-bounce" size={20} />
+                                    데이터 정합성 분석 중...
+                                </>
+                            ) : (
+                                <>
+                                    분석 및 검증 시작
+                                    <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                </>
+                            )}
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                        <div className="p-8 rounded-[32px] border border-white/5 bg-white/[0.01] flex items-start gap-4">
+                            <ShieldCheck className="text-slate-600 mt-1" size={24} />
+                            <div>
+                                <p className="text-xs text-white font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                                    <AlertCircle size={14} className="text-amber-500" /> Legal Notice & Disclaimer
+                                </p>
+                                <div className="space-y-1 text-[11px] text-slate-500 font-bold leading-relaxed italic">
+                                    <p>• 이 데이터는 <span className="text-white">기초 이관 원장(Candidate)</span>으로 기록됩니다.</p>
+                                    <p>• <span className="text-indigo-400">과거 데이터는 수정되지 않으며</span>, 이관된 데이터는 오직 참고용으로만 사용됩니다.</p>
+                                    <p>• AccountingFlow는 <span className="text-white text-opacity-80">이 시점 이후의 모든 회계적 판단과 의사결정</span>을 강력하게 지원합니다.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderValidation = () => (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="professional-card p-10 mb-8 border-indigo-500/20 overflow-hidden relative">
+                <div className="absolute top-0 right-0 p-10 opacity-5">
+                    <Table size={160} className="text-white" />
+                </div>
+
+                <div className="flex justify-between items-end mb-10 relative z-10">
+                    <div>
+                        <h3 className="text-3xl font-black text-white mb-2">Candidate Ledger 프리뷰</h3>
+                        <p className="text-sm font-bold text-slate-500">이관될 데이터를 최종적으로 확인하고 AuditFlow의 초동 분석 결과를 검토하십시오.</p>
+                    </div>
+                    <div className="px-6 py-2 bg-emerald-500/10 text-emerald-400 rounded-full font-black text-xs border border-emerald-500/20">
+                        신뢰도 지수: 100% (Matched)
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-3xl border border-white/5 bg-black/20">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="bg-white/5 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5">
+                            <tr>
+                                <th className="px-8 py-5">Date</th>
+                                <th className="px-8 py-5">Account</th>
+                                <th className="px-8 py-5">Description</th>
+                                <th className="px-8 py-5 text-right">Amount</th>
+                                <th className="px-8 py-5">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-sm">
+                            {candidateLedger.slice(0, 50).map((entry, idx) => (
+                                <tr key={entry.id} className="hover:bg-white/[0.02] transition-colors">
+                                    <td className="px-8 py-5 text-slate-400 font-mono">{entry.date}</td>
+                                    <td className="px-8 py-5 text-indigo-400 font-bold">{entry.debitAccount === '현금' ? entry.creditAccount : entry.debitAccount}</td>
+                                    <td className="px-8 py-5 text-white font-black truncate max-w-[200px]">{entry.description}</td>
+                                    <td className="px-8 py-5 text-right text-white font-black">₩{(entry.amount || 0).toLocaleString()}</td>
+                                    <td className="px-8 py-5">
+                                        <span className="px-3 py-1 bg-emerald-500/10 rounded-lg text-[10px] text-emerald-400 font-black uppercase tracking-wider border border-emerald-500/20">READY</span>
+                                    </td>
+                                </tr>
+                            ))}
+                            {candidateLedger.length > 50 && (
+                                <tr>
+                                    <td colSpan={5} className="px-8 py-4 text-center text-slate-500 text-xs font-bold">
+                                        ... 외 {candidateLedger.length - 50}개의 항목이 더 있습니다 (대용량 데이터 이관 모드)
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-5">
+                <button
+                    onClick={() => setCurrentStep('column-mapping')}
+                    className="px-10 py-5 bg-white/5 hover:bg-white/10 text-white font-black rounded-3xl transition-all border border-white/5"
+                >
+                    매핑 수정
+                </button>
+                <button
+                    onClick={handleFinalImport}
+                    className="px-12 py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-3xl transition-all shadow-2xl shadow-indigo-600/30 flex items-center gap-3"
+                >
+                    최종 승인 및 이관 완료
+                    <ArrowUpRight size={20} />
+                </button>
+            </div>
+        </div>
+    );
+
+    const renderComplete = () => (
+        <div className="flex flex-col items-center justify-center py-20 animate-in zoom-in-95 duration-700">
+            <div className="relative mb-12">
+                <div className="absolute inset-0 bg-emerald-500 blur-[100px] opacity-20 scale-150"></div>
+                <div className="relative p-12 rounded-[40px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <CheckCircle2 size={84} />
+                </div>
+            </div>
+
+            <h2 className="text-6xl font-black text-white mb-6 tracking-tighter text-center">Data Migration Success</h2>
+            <p className="text-xl font-bold text-slate-500 mb-16 text-center max-w-2xl leading-relaxed">
+                축하합니다! 과거 회계 데이터가 <span className="text-emerald-400">Opening_Candidate_Ledger</span>로 안전하게 등록되었습니다.
+                이제 본 시점부터의 모든 판단과 책임 구조를 AccountingFlow가 함께합니다.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl mb-16">
+                {[
+                    { label: '이관된 총 전표', value: `${candidateLedger.length.toLocaleString()}건`, icon: Database, color: 'text-blue-400' },
+                    { label: '감지된 리스크 패턴', value: '분석 중', icon: AlertCircle, color: 'text-rose-400' },
+                    { label: '데이터 정합성', value: '100%', icon: Zap, color: 'text-amber-400' }
+                ].map(stat => (
+                    <div key={stat.label} className="professional-card p-8 flex flex-col items-center border border-white/5 bg-white/[0.02]">
+                        <stat.icon className={`${stat.color} mb-4`} size={28} />
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">{stat.label}</span>
+                        <span className="text-3xl font-black text-white">{stat.value}</span>
+                    </div>
+                ))}
+            </div>
+
+            <button
+                onClick={() => setTab('dashboard')}
+                className="group px-20 py-7 bg-white text-[#070C18] font-black rounded-[40px] transition-all text-2xl shadow-2xl hover:scale-105 active:scale-95 flex items-center gap-4"
+            >
+                전략 대시보드로 이동
+                <ChevronRight className="group-hover:translate-x-2 transition-transform" />
+            </button>
+        </div>
+    );
+
+    return (
+        <div className="min-h-screen">
+            <div className="max-w-6xl mx-auto py-10">
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={currentStep}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        {currentStep !== 'complete' && renderHeader()}
+
+                        {currentStep === 'source-selection' && renderSourceSelection()}
+                        {currentStep === 'file-upload' && renderFileUpload()}
+                        {currentStep === 'column-mapping' && renderColumnMapping()}
+                        {currentStep === 'validation' && renderValidation()}
+                        {currentStep === 'complete' && renderComplete()}
+                    </motion.div>
+                </AnimatePresence>
+            </div>
         </div>
     );
 };

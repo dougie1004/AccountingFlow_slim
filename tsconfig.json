@@ -18,7 +18,40 @@
         "resolveJsonModule": true,
         "isolatedModules": true,
         "noEmit": true,
-        "jsx": "react-jsx"
+        "jsx": "react-jsx",
+        "baseUrl": ".",
+        "paths": {
+            "@bridge/*": [
+                "src/bridge/*"
+            ],
+            "@core/*": [
+                "src/core_engine/*"
+            ],
+            "@strategic/*": [
+                "src/strategic_layer/*"
+            ],
+            "@constitution/*": [
+                "src/constitution/*"
+            ],
+            "@types": [
+                "src/types/index"
+            ],
+            "@types/*": [
+                "src/types/*"
+            ],
+            "@const/*": [
+                "src/constants/*"
+            ],
+            "@hooks/*": [
+                "src/hooks/*"
+            ],
+            "@utils/*": [
+                "src/utils/*"
+            ],
+            "@components/*": [
+                "src/components/*"
+            ]
+        }
     },
     "include": [
         "src"

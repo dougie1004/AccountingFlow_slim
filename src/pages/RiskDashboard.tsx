@@ -17,48 +17,80 @@ import {
     Filter
 } from 'lucide-react';
 import { formatCurrency, formatPercent } from '../utils/formatUtils';
+import { isSuspenseAccount, isArAccount, isApAccount } from '../constants/accounts';
 import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { isSuspenseAccount, BLOCKED_REASON } from '../constants/accounts';
-import { analyzeIntelligence } from '../core/intelligenceEngine';
+import { BLOCKED_REASON } from '../constants/accounts';
+import { analyzeIntelligence } from '../bridge/StrategicBridge';
 import { IntelligenceSnapshot } from '../types/intelligence';
 
 export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab }) => {
-    const { ledger, financials } = useAccounting();
+    const { ledger = [], financials, systemNow } = useAccounting();
+
+    // Safety check for ledger
+    const safeLedger = Array.isArray(ledger) ? ledger : [];
 
     const stats = useMemo(() => {
-        const today = new Date();
-        const ninetyDaysAgo = new Date();
+        const today = new Date(systemNow);
+        const ninetyDaysAgo = new Date(systemNow);
         ninetyDaysAgo.setDate(today.getDate() - 90);
 
-        // Detect Unsettled Items by Pillar (Broadened)
-        const isSuspense = (name: string) => ['가지급금', '가수금', '전도금', 'suspense', 'petty'].some(k => name.toLowerCase().includes(k));
-        const isArAp = (name: string) => ['외상매출', '외상매입', '미수금', '미지급금', '매출채권', '매입채무', 'receivable', 'payable'].some(k => name.toLowerCase().includes(k));
-        const isMatching = (name: string) => ['선급금', '선수금', '선급비용', '선수수익', 'prepayment', 'advance', 'deferred', 'accrued'].some(k => name.toLowerCase().includes(k));
+        // Detect Unsettled Items using Standard definitions
+        // Refined Logic (Phase 9-R17): Strictly exclude Equity/Revenue/Expense from "Risk" buckets
+        // unless they are explicitly flagged as 'Unsettled' tracking items (rare).
 
-        const unsettledEntries = ledger.filter(e => !e.isSettled);
+        // We use the shared helpers to ensure consistency with ArApManagement
+        const isSuspense = (name: string) => isSuspenseAccount(name);
+        const isArAp = (name: string) => isArAccount(name) || isApAccount(name);
+        // Matching: Prepaid/Unearned/Deferred
+        // [Risk Logic Fix] Removed 'accrued' to avoid overlap with AP (Operational Risk)
+        const isMatchingRaw = (name: string) => ['선급', '선수', '이연', 'prepayment', 'advance', 'deferred'].some(k => name.toLowerCase().includes(k));
 
-        // 1. Compliance Risk (가계정)
+        // Point-in-time unsettled entries logic
+        const unsettledEntries = ledger.filter(e => {
+            // 1. Must exist as of systemNow
+            if (e.date > systemNow) return false;
+            if (e.status !== 'Approved') return false;
+
+            // 2. Must be unsettled as of systemNow
+            // Either never settled, or settled AFTER our reference date
+            const isUnsettledAtTime = !e.isSettled || (e.settledDate && e.settledDate > systemNow);
+
+            return isUnsettledAtTime;
+        });
+
+        // 1. Compliance Risk (가계정) - Priority 1
         const complianceEntries = unsettledEntries.filter(e => isSuspense(e.debitAccount) || isSuspense(e.creditAccount));
         const complianceAmount = complianceEntries.reduce((s, e) => s + (e.amount + (e.vat || 0)), 0);
 
-        // 2. Operational Risk (상거래 미결)
-        const opEntries = unsettledEntries.filter(e => isArAp(e.debitAccount) || isArAp(e.creditAccount));
-        const opAmount = opEntries.reduce((s, e) => s + (e.amount + (e.vat || 0)), 0);
-
-        // 3. Matching Risk (선급/선수/상각)
-        const matchingEntries = unsettledEntries.filter(e => isMatching(e.debitAccount) || isMatching(e.creditAccount));
+        // 2. Matching Risk (선급/선수/상각) - Priority 2 (Excludes Compliance)
+        const matchingEntries = unsettledEntries.filter(e => {
+            if (complianceEntries.includes(e)) return false; // Already bucketed
+            return isMatchingRaw(e.debitAccount) || isMatchingRaw(e.creditAccount);
+        });
         const matchingAmount = matchingEntries.reduce((s, e) => s + (e.amount + (e.vat || 0)), 0);
+
+        // 3. Operational Risk (상거래 미결) - Priority 3 (Excludes Compliance & Matching)
+        const opEntries = unsettledEntries.filter(e => {
+            if (complianceEntries.includes(e)) return false;
+            if (matchingEntries.includes(e)) return false;
+            return isArAp(e.debitAccount) || isArAp(e.creditAccount);
+        });
+        const opAmount = opEntries.reduce((s, e) => s + (e.amount + (e.vat || 0)), 0);
 
         const totalUnsettledAmount = complianceAmount + opAmount + matchingAmount;
         const totalAssets = financials?.totalAssets || 1;
 
-        // Blocked & Aging logic (Keep for compatibility/depth)
-        const blocked = unsettledEntries.filter(e => e.clearingRecord?.status === 'BLOCKED');
+        // Blocked & Aging logic
+        // CRITICAL: filtering 'aging90' should only look at the RELEVANT entries (Compliance/Op/Matching),
+        // NOT all 'unsettled' entries (which might incorrectly include Equity/Expense traces if logic was loose).
+        const relevantEntries = [...complianceEntries, ...opEntries, ...matchingEntries];
+
+        const blocked = relevantEntries.filter(e => e.clearingRecord?.status === 'BLOCKED');
         const blockedAmount = blocked.reduce((s, e) => s + (e.amount + (e.vat || 0)), 0);
 
-        const aging90 = unsettledEntries.filter(e => new Date(e.date) < ninetyDaysAgo);
+        const aging90 = relevantEntries.filter(e => new Date(e.date) < ninetyDaysAgo);
         const overdue90Amount = aging90.reduce((s, e) => s + (e.amount + (e.vat || 0)), 0);
 
         const pillarData = [
@@ -97,9 +129,67 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
             }
         };
 
-        const findings = analyzeIntelligence(snapshot);
+        // Legacy intelligence bridge removed. Using local strategic logic directly.
+        const findings: any[] = [];
 
-        // Check if matching items exist for checklist
+        try {
+            // [Strategic Logic] 9-R28: Revenue Concentration Risk (Vertical Strategy Check)
+            const revenueEntries = ledger.filter(e => e.type === 'Revenue');
+            const totalRevenue = revenueEntries.reduce((s, e) => s + e.amount, 0);
+            const vendorMap = new Map<string, number>();
+            revenueEntries.forEach(e => {
+                const v = e.vendor || 'Unknown';
+                // Intelligence: Skip "Collective SaaS Pools" as they are fragmented by nature
+                if (v.includes('SaaS 정기 구독자') || v.includes('Individual Subscribers')) return;
+                vendorMap.set(v, (vendorMap.get(v) || 0) + e.amount);
+            });
+            const rankedVendors = Array.from(vendorMap.entries()).sort((a, b) => b[1] - a[1]);
+            const top1Vendor = rankedVendors[0];
+            const top1Share = totalRevenue > 0 && top1Vendor ? top1Vendor[1] / totalRevenue : 0;
+
+            if (top1Share > 0.3 && top1Vendor) {
+                findings.unshift({
+                    id: 'STRAT-REV-001',
+                    title: '매출 집중 위험 (Revenue Dependency)',
+                    description: `매출의 ${formatPercent(top1Share)}가 단일 거래처(${top1Vendor[0]})에 집중되어 있습니다. 특정 고객 이탈 시 손익 구조에 중대한 위협이 됩니다.`,
+                    recommendation: 'Vertical 전략 유지 하에 고객 포트폴리오 다변화가 필요합니다. (Max Limit 30% 초과)',
+                    severity: 'URGENT',
+                });
+            }
+
+            // [Strategic Logic] 9-R28: Infrastructure Anomaly (AWS Spike)
+            const awsEntries = ledger.filter(e => e.vendor === 'Amazon' || (e.description && e.description.includes('AWS')));
+            // Group by Month
+            const monthlyCost = new Map<string, number>();
+            awsEntries.forEach(e => {
+                const m = e.date.substring(0, 7);
+                monthlyCost.set(m, (monthlyCost.get(m) || 0) + e.amount);
+            });
+
+            // Simple Anomaly Detection
+            const changes = Array.from(monthlyCost.entries()).sort();
+            if (changes.length > 2) {
+                // Check the latest or specific spikes (e.g. 2027-05)
+                // We scan for any month that is > 200% of previous month
+                for (let i = 1; i < changes.length; i++) {
+                    const prev = changes[i - 1][1];
+                    const curr = changes[i][1];
+                    const month = changes[i][0];
+
+                    if (prev > 0 && (curr / prev) > 2.5) { // 2.5x Spike
+                        findings.unshift({
+                            id: `STRAT-INFRA-${month}`,
+                            title: '인프라 비용 이상 급등 (Anomaly)',
+                            description: `${month}월 AWS 비용이 전월 대비 ${formatPercent((curr - prev) / prev)} 급증했습니다. (패턴 이탈)`,
+                            recommendation: '서비스 스케일링인지 비효율적 자원 누수인지 즉시 점검하십시오.',
+                            severity: 'URGENT',
+                        });
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[RiskDashboard] Strategic Intelligence Failed:', err);
+        }
         const hasPrepayments = matchingEntries.some(e => e.debitAccount.includes('선급'));
         const hasAdvances = matchingEntries.some(e => e.creditAccount.includes('선수'));
 
@@ -292,6 +382,8 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
                                 </Pie>
                                 <Tooltip
                                     contentStyle={{ backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
+                                    itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
+                                    labelStyle={{ color: '#94a3b8', fontSize: '10px', marginBottom: '4px' }}
                                     formatter={(v: any) => [`${v.toLocaleString()}원`, '금액']}
                                 />
                                 <Legend verticalAlign="bottom" height={36} />
@@ -327,6 +419,8 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
                                 <Tooltip
                                     cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                     contentStyle={{ backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
+                                    itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
+                                    labelStyle={{ color: '#94a3b8', fontSize: '10px', marginBottom: '4px' }}
                                     formatter={(v: any) => [`${v.toLocaleString()}원`, '금액']}
                                 />
                                 <Bar dataKey="value" fill="#3b82f6" radius={[0, 8, 8, 0]} barSize={24} />

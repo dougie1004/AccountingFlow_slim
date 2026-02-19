@@ -1,4 +1,38 @@
 ﻿use serde::{Serialize, Deserialize};
+use std::fmt;
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+pub enum AccountNature {
+    REVENUE,
+    COGS,
+    #[serde(rename = "SG&A")]
+    SGnA,
+    ASSET,
+    LIABILITY,
+    EQUITY,
+    NON_OPERATING,
+}
+
+impl fmt::Display for AccountNature {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AccountNature::REVENUE => write!(f, "REVENUE"),
+            AccountNature::COGS => write!(f, "COGS"),
+            AccountNature::SGnA => write!(f, "SG&A"),
+            AccountNature::ASSET => write!(f, "ASSET"),
+            AccountNature::LIABILITY => write!(f, "LIABILITY"),
+            AccountNature::EQUITY => write!(f, "EQUITY"),
+            AccountNature::NON_OPERATING => write!(f, "NON_OPERATING"),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Account {
+    pub id: String,
+    pub name: String,
+    pub nature: AccountNature,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AuditIssue { 

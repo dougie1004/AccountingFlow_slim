@@ -33,4 +33,6 @@ test_key.js
 # Evidence images (temporary)
 KakaoTalk_*.jpg
 20260109_*.jpg
-src-tauri/.env
+# Private Management Docs
+docs/*_PRIVATE.md
+docs/FINANCIAL_SCENARIOS_PRIVATE.md

@@ -60,7 +60,8 @@ pub fn run() {
             commands::get_management_tasks,
             commands::process_review_context,
             commands::perform_review_check,
-            commands::generate_management_report
+            commands::generate_management_report,
+            commands::calculate_account_afri
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

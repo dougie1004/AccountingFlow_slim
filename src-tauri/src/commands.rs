@@ -242,3 +242,22 @@ pub async fn generate_management_report(
         report_mode
     ).await
 }
+
+#[tauri::command]
+pub async fn calculate_account_afri(
+    account_name: String,
+    target_year: i32,
+    sub_ledger: Vec<JournalEntry>
+) -> Result<crate::models::RiskIndex, String> {
+    let account_entries: Vec<&JournalEntry> = sub_ledger.iter()
+        .filter(|e| e.debit_account == account_name || e.credit_account == account_name)
+        .collect();
+
+    let (ur, cv, hhi_current, hhi_expected, spike, budget_excess, budget) = 
+        crate::accounting::flow_analysis::extract_structural_metrics(&account_entries, target_year);
+
+    let afri_result = crate::accounting::flow_analysis::calculate_afri(ur, cv, hhi_current, hhi_expected, spike, budget_excess, budget);
+    
+    // In later phases, record this result asynchronously into account_risk_profile
+    Ok(afri_result)
+}

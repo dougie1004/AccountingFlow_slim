@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { useAccounting } from '../hooks/useAccounting';
+import { invoke } from '@tauri-apps/api/core';
+import { AFRIProfile } from '../types';
 import {
     Calculator,
     ArrowRight,
@@ -201,6 +203,28 @@ const TrialBalance: React.FC = () => {
 
     // [New] Drill-down State
     const [selectedAccount, setSelectedAccount] = React.useState<string | null>(null);
+    const [afriProfile, setAfriProfile] = React.useState<AFRIProfile | null>(null);
+    const [isLoadingAfri, setIsLoadingAfri] = React.useState(false);
+
+    React.useEffect(() => {
+        if (selectedAccount) {
+            setIsLoadingAfri(true);
+            invoke<AFRIProfile>('calculate_account_afri', {
+                accountName: selectedAccount,
+                targetYear: parseInt(selectedYear) || new Date().getFullYear(),
+                subLedger: subLedger
+            }).then(res => {
+                setAfriProfile(res);
+            }).catch(err => {
+                console.error("AFRI Error:", err);
+                setAfriProfile(null);
+            }).finally(() => {
+                setIsLoadingAfri(false);
+            });
+        } else {
+            setAfriProfile(null);
+        }
+    }, [selectedAccount, selectedYear, subLedger]);
 
     // [New] Filtered Transactions for Detail View
     const getAccountDetails = useMemo(() => {
@@ -281,37 +305,62 @@ const TrialBalance: React.FC = () => {
                             </div>
 
                             {/* AFRI v1.0 Structural Risk Index Breakdown (Hidden Layer UI) */}
-                            <div className="p-6 bg-[#0B1221] border border-white/10 rounded-2xl mb-8">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div>
-                                        <h4 className="text-sm font-black text-white flex items-center gap-2">
-                                            Structural Risk Index Breakdown
-                                            <span className="px-2 py-0.5 bg-amber-500 text-black text-[9px] font-black rounded uppercase">MODERATE (0.54)</span>
-                                        </h4>
-                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Pure deterministic quantification (AFRI v1.0)</p>
+                            <div className="p-6 bg-[#0B1221] border border-white/10 rounded-2xl mb-8 relative min-h-[160px]">
+                                {isLoadingAfri ? (
+                                    <div className="absolute inset-0 bg-[#0B1221]/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 transition-all rounded-2xl">
+                                        <div className="w-8 h-8 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin mb-3"></div>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest animate-pulse">Computing Structural Deviation...</p>
                                     </div>
-                                    <div className="text-right">
-                                        <span className="text-xs font-black text-slate-500 bg-white/5 py-1 px-3 rounded-lg border border-white/5">INTERNAL VIEW ONLY</span>
-                                    </div>
-                                </div>
+                                ) : null}
 
-                                <div className="space-y-3">
-                                    {[
-                                        { label: 'Unexplained Ratio', value: 0.72, color: 'bg-orange-500' },
-                                        { label: 'Volatility Risk', value: 0.61, color: 'bg-amber-500' },
-                                        { label: 'Concentration Risk', value: 0.55, color: 'bg-amber-400' },
-                                        { label: 'Temporal Spike Risk', value: 0.80, color: 'bg-rose-500' },
-                                        { label: 'Budget Risk', value: 0.12, color: 'bg-emerald-500' },
-                                    ].map(item => (
-                                        <div key={item.label} className="flex items-center gap-4">
-                                            <div className="w-1/3 text-xs font-bold text-slate-400">{item.label}</div>
-                                            <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
-                                                <div className={`h-full ${item.color} rounded-full`} style={{ width: `${item.value * 100}%` }}></div>
+                                {afriProfile && (
+                                    <>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div>
+                                                <h4 className="text-sm font-black text-white flex items-center gap-2">
+                                                    Structural Risk Index Breakdown
+                                                    <span className={`px-2 py-0.5 text-white text-[9px] font-black rounded uppercase ${afriProfile.grade === 'Critical' ? 'bg-rose-600' :
+                                                            afriProfile.grade === 'High' ? 'bg-orange-500' :
+                                                                afriProfile.grade === 'Moderate' ? 'bg-amber-500 text-black' :
+                                                                    'bg-emerald-500 text-black'
+                                                        }`}>
+                                                        {afriProfile.grade} ({afriProfile.totalScore.toFixed(2)})
+                                                    </span>
+                                                </h4>
+                                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Pure deterministic quantification (AFRI v1.0)</p>
                                             </div>
-                                            <div className="w-12 text-right text-xs font-black text-slate-300 font-mono">{item.value.toFixed(2)}</div>
+                                            <div className="text-right flex items-center gap-2">
+                                                <span className="text-xs font-black text-slate-500 bg-white/5 py-1 px-3 rounded-lg border border-white/5">INTERNAL VIEW ONLY</span>
+                                                {(afriProfile.grade === 'High' || afriProfile.grade === 'Critical') && (
+                                                    <button
+                                                        onClick={() => alert('해당 계정에 대한 AuditFlow 정밀 감사 이관이 큐(Queue)에 등록되었습니다.')}
+                                                        className="text-[10px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 py-1 px-3 rounded-lg border border-rose-500/20 transition-all active:scale-95 flex items-center gap-1"
+                                                    >
+                                                        Escalate to AuditFlow
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
-                                    ))}
-                                </div>
+
+                                        <div className="space-y-3">
+                                            {[
+                                                { label: 'Unexplained Ratio', value: afriProfile.breakdown.unexplained_ratio, color: 'bg-orange-500' },
+                                                { label: 'Volatility Risk', value: afriProfile.breakdown.volatility_risk, color: 'bg-amber-500' },
+                                                { label: 'Concentration Risk', value: afriProfile.breakdown.concentration_risk, color: 'bg-amber-400' },
+                                                { label: 'Temporal Spike Risk', value: afriProfile.breakdown.temporal_risk, color: 'bg-rose-500' },
+                                                { label: 'Budget Risk', value: afriProfile.breakdown.budget_risk, color: 'bg-emerald-500' },
+                                            ].map(item => (
+                                                <div key={item.label} className="flex items-center gap-4">
+                                                    <div className="w-1/3 text-xs font-bold text-slate-400">{item.label}</div>
+                                                    <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                                                        <div className={`h-full ${item.color} rounded-full transition-all duration-1000`} style={{ width: `${item.value * 100}%` }}></div>
+                                                    </div>
+                                                    <div className="w-12 text-right text-xs font-black text-slate-300 font-mono">{item.value.toFixed(2)}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
                             {/* Transaction List */}

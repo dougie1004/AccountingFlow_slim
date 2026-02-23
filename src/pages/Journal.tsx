@@ -14,7 +14,7 @@ import { VatOptimizationReport } from '../components/tax/VatOptimizationReport';
 import { toLocalIsoDate } from '../utils/formatUtils';
 
 const Journal: React.FC = () => {
-    const { ledger, addEntry, partners, stagingTransactions, setStagingTransactions, bulkApprove } = useAccounting();
+    const { ledger, addEntry, partners, stagingTransactions, setStagingTransactions, bulkApprove, systemNow } = useAccounting();
 
     // Filtering state
     const [startDate, setStartDate] = useState('');
@@ -62,12 +62,13 @@ const Journal: React.FC = () => {
     // Derived filtered data
     const filteredLedger = useMemo(() => {
         const result = ledger.filter((entry) => {
+            if (systemNow && entry.date > systemNow) return false;
             const dateMatch = (!startDate || entry.date >= startDate) && (!endDate || entry.date <= endDate);
             const vendorMatch = !selectedVendor || entry.vendor === selectedVendor;
             return dateMatch && vendorMatch;
         });
         return result.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    }, [ledger, startDate, endDate, selectedVendor]);
+    }, [ledger, startDate, endDate, selectedVendor, systemNow]);
 
     const unconfirmedFiltered = useMemo(() => {
         return filteredLedger.filter(e => e.status !== 'Approved');
@@ -206,17 +207,17 @@ const Journal: React.FC = () => {
                 </div>
             </details>
 
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between pt-8 border-t border-white/5 gap-6">
+            {/* Sticky Ledger Header & Actions */}
+            <div className="sticky top-0 z-40 bg-[#0B1221]/80 backdrop-blur-md py-6 -mx-8 px-8 border-b border-white/5 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
                 <div>
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <div className="p-1.5 bg-indigo-500/10 rounded-lg">
                                 <FileText className="w-5 h-5 text-indigo-400" />
                             </div>
-                            <h2 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">Unified Digital Ledger</h2>
+                            <h2 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Unified Digital Ledger</h2>
                         </div>
-                        <h1 className="text-3xl font-black text-white tracking-tight">AI 통합 분개장 및 원장 관리</h1>
-                        <p className="mt-2 text-slate-400 font-bold">Compliance-Ready: 확정(Authorized)된 전표만 재무제표 및 경영 분석 지표에 반영됩니다.</p>
+                        <h1 className="text-3xl font-black text-white tracking-tight">AI 통합 분개장 및 원장</h1>
                     </div>
                 </div>
 
@@ -238,18 +239,18 @@ const Journal: React.FC = () => {
 
                     <button
                         onClick={() => setIsManualModalOpen(true)}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 rounded-xl text-sm font-bold text-white hover:bg-emerald-700 transition-all shadow-lg active:scale-95"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 rounded-xl text-xs font-black text-white hover:bg-emerald-700 transition-all shadow-lg active:scale-95 border border-white/10"
                     >
                         <Plus size={16} />
-                        수동 전표 입력
+                        입력
                     </button>
 
                     <button
                         onClick={() => setIsVatReportOpen(true)}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl text-sm font-bold border border-indigo-500/30 hover:bg-indigo-500/20 transition-all shadow-lg active:scale-95"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl text-xs font-black border border-indigo-500/30 hover:bg-indigo-500/20 transition-all shadow-lg active:scale-95"
                     >
                         <Sparkles size={16} />
-                        VAT 최적화 리포트
+                        VAT 최적화
                     </button>
 
                     {unconfirmedFiltered.length > 0 && (
@@ -259,20 +260,20 @@ const Journal: React.FC = () => {
                                     bulkApprove(unconfirmedFiltered.map(e => e.id));
                                 }
                             }}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 rounded-xl text-sm font-bold text-white hover:bg-indigo-700 transition-all shadow-lg active:scale-95 animate-in zoom-in-95"
+                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 rounded-xl text-xs font-black text-white hover:bg-indigo-700 transition-all shadow-lg active:scale-95 animate-in zoom-in-95"
                         >
                             <Sparkles size={16} />
-                            {unconfirmedFiltered.length}건 일괄 확정
+                            {unconfirmedFiltered.length}건 확정
                         </button>
                     )}
 
                     <button
                         onClick={handleExportCSV}
                         disabled={filteredLedger.length === 0}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs font-black text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Download size={16} />
-                        엑셀(CSV) 저장
+                        Export
                     </button>
                 </div>
             </div>

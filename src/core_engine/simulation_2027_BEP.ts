@@ -1,5 +1,5 @@
 
-import { calculateFinancials } from './StrategicBridge';
+import { calculateFinancials } from '../bridge/StrategicBridge';
 import { JournalEntry } from '../types';
 import * as fs from 'fs';
 

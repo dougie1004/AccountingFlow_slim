@@ -278,27 +278,34 @@ export const AIForecastPanel: React.FC<{ referenceDate?: string }> = ({ referenc
                 </div>
 
                 {/* 2. Runway Metric */}
-                <div className="bg-[#0B1221] p-5 rounded-2xl border border-white/5 flex flex-col justify-center relative overflow-hidden">
+                <div className="bg-[#0B1221] p-5 rounded-2xl border border-white/5 flex flex-col justify-center relative overflow-hidden group">
                     <p className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
-                        <Activity size={12} className={runway.runwayMonths < 6 ? 'text-amber-400' : 'text-emerald-400'} />
+                        <Activity size={12} className={runway.runwayMonths <= 3 ? 'text-rose-400' : 'text-emerald-400'} />
                         런웨이(Runway) 분석
                     </p>
                     <div className="flex items-end gap-2">
-                        <p className={`text-2xl font-black ${runway.runwayMonths >= 99 ? 'text-emerald-400' : (runway.runwayMonths < 3 ? 'text-rose-400' : 'text-amber-400')
+                        <p className={`text-2xl font-black ${runway.runwayMonths >= 99 ? 'text-emerald-400' : (runway.runwayMonths <= 3 ? 'text-rose-400' : 'text-amber-400')
                             }`}>
-                            {runway.runwayMonths >= 99 ? '안정적' : `${runway.runwayMonths}`}
+                            {runway.runwayMonths >= 99 ? '안정적' : (runway.runwayMonths === 0 ? '즉시 위험' : `${runway.runwayMonths}`)}
                         </p>
-                        {runway.runwayMonths < 99 && <span className="text-sm font-bold text-slate-500 mb-1">개월 남음</span>}
+                        {runway.runwayMonths > 0 && runway.runwayMonths < 99 && <span className="text-sm font-bold text-slate-500 mb-1">개월 남음</span>}
                     </div>
                     <div className="flex flex-col gap-1 mt-2">
                         <p className="text-[10px] text-slate-400 font-bold flex justify-between">
-                            <span>순 현금 소진액:</span>
+                            <span>가용 현금 소진율:</span>
                             <span className="text-white">{formatCurrency(runway.burnRate)}</span>
                         </p>
-                        <p className="text-[10px] text-slate-600 font-bold flex justify-between border-t border-white/5 pt-1">
-                            <span>총 지출액:</span>
-                            <span>{formatCurrency((runway as any).grossBurnRate)}</span>
-                        </p>
+                        {(projection.details as any).unplannedLiabilityAmount > 0 && (
+                            <div className="mt-1 pt-1 border-t border-white/5 group-hover:bg-rose-500/5 transition-colors">
+                                <p className="text-[10px] text-rose-400 font-black flex justify-between items-center">
+                                    <span className="flex items-center gap-1"><AlertTriangle size={8} /> 부채 안전 차감:</span>
+                                    <span>-{formatCurrency((projection.details as any).unplannedLiabilityAmount)}</span>
+                                </p>
+                                <p className="text-[8px] text-slate-600 font-bold leading-tight mt-0.5">
+                                    가수금 등 미계획 부채를 상환 가능 리스크로 보아 가용 현금에서 제외함
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

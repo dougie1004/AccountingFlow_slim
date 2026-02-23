@@ -19,7 +19,7 @@ type SortField = 'date' | 'vendor' | 'description' | 'account' | 'amount';
 type SortOrder = 'asc' | 'desc';
 
 export const LedgerView: React.FC = () => {
-    const { ledger, subLedger } = useAccounting();
+    const { ledger, subLedger, systemNow } = useAccounting();
 
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -28,7 +28,10 @@ export const LedgerView: React.FC = () => {
     const [viewMode, setViewMode] = useState<'all' | 'subledger'>('subledger');
     const [sortConfig, setSortConfig] = useState<{ field: SortField; order: SortOrder }>({ field: 'date', order: 'desc' });
 
-    const activeData = viewMode === 'subledger' ? subLedger : ledger;
+    const activeData = useMemo(() => {
+        const data = viewMode === 'subledger' ? subLedger : ledger;
+        return data.filter(e => !systemNow || e.date <= systemNow);
+    }, [viewMode, subLedger, ledger, systemNow]);
 
     const accounts = useMemo(() => {
         const accs = new Set<string>();
@@ -68,6 +71,11 @@ export const LedgerView: React.FC = () => {
                 refinedPush(rows, e.id + '-1', e.date, vendor, e.description, e.debitAccount, e.amount + vat, true);
                 if (vat > 0) refinedPush(rows, e.id + '-v', e.date, vendor, e.description + ' (부가세)', '부가세예수금', vat, false);
                 refinedPush(rows, e.id + '-2', e.date, vendor, e.description, e.creditAccount, e.amount, false);
+            }
+            else if (e.type === 'Payroll') {
+                refinedPush(rows, e.id + '-1', e.date, vendor, e.description, e.debitAccount, e.amount, true);
+                if (vat > 0) refinedPush(rows, e.id + '-v', e.date, vendor, e.description + ' (원천세)', '예수금(원천세)', vat, false);
+                refinedPush(rows, e.id + '-2', e.date, vendor, e.description, e.creditAccount, e.amount - vat, false);
             }
             else {
                 refinedPush(rows, e.id + '-1', e.date, vendor, e.description, e.debitAccount, e.amount, true);
@@ -140,20 +148,21 @@ export const LedgerView: React.FC = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-            <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-                <div>
-                    <h1 className="text-3xl font-black text-white tracking-tight mb-2">총계정원장 (General Ledger)</h1>
-                    <p className="text-slate-400 font-bold">승인 완료된 거래의 계정별 상세 내역입니다.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="flex gap-2 p-1.5 bg-[#151D2E]/50 rounded-2xl border border-white/5">
-                        <button onClick={() => setViewMode('subledger')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${viewMode === 'subledger' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-white'}`}>Sub-ledger</button>
-                        <button onClick={() => setViewMode('all')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${viewMode === 'all' ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-white'}`}>All Logs</button>
+            {/* Sticky Page Header & Filters */}
+            <div className="sticky top-0 z-40 bg-[#0B1221]/80 backdrop-blur-md py-6 -mx-8 px-8 border-b border-white/5 space-y-6">
+                <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                    <div>
+                        <h1 className="text-3xl font-black text-white tracking-tight mb-2">총계정원장 (General Ledger)</h1>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Official Digital Ledger & Double-Entry Verification</p>
                     </div>
-                </div>
-            </header>
+                    <div className="flex items-center gap-3">
+                        <div className="flex gap-2 p-1 bg-[#151D2E]/50 rounded-2xl border border-white/5 shadow-inner">
+                            <button onClick={() => setViewMode('subledger')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'subledger' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-white'}`}>Sub-ledger</button>
+                            <button onClick={() => setViewMode('all')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'all' ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-white'}`}>All Logs</button>
+                        </div>
+                    </div>
+                </header>
 
-            <div className="bg-[#151D2E] p-8 rounded-[2.5rem] border border-white/5 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="md:col-span-2 relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
@@ -162,7 +171,7 @@ export const LedgerView: React.FC = () => {
                             placeholder="거래처 또는 적요 검색..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-12 pr-6 py-3.5 bg-[#0B1221] border border-white/5 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-bold"
+                            className="w-full pl-12 pr-6 py-3.5 bg-[#0B1221] border border-white/10 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-bold text-sm"
                         />
                     </div>
                     <div className="relative">
@@ -170,7 +179,7 @@ export const LedgerView: React.FC = () => {
                         <select
                             value={selectedAccount}
                             onChange={(e) => setSelectedAccount(e.target.value)}
-                            className="w-full pl-12 pr-6 py-3.5 bg-[#0B1221] border border-white/5 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none font-bold"
+                            className="w-full pl-12 pr-6 py-3.5 bg-[#0B1221] border border-white/10 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none font-bold text-sm"
                         >
                             <option>전체 계정</option>
                             {accounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
@@ -184,7 +193,7 @@ export const LedgerView: React.FC = () => {
                                 type="date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full pl-9 pr-2 py-3.5 bg-[#0B1221] border border-white/5 rounded-2xl text-xs text-white outline-none focus:ring-2 focus:ring-indigo-500/50 font-bold"
+                                className="w-full pl-9 pr-2 py-3.5 bg-[#0B1221] border border-white/10 rounded-2xl text-[11px] text-white outline-none focus:ring-2 focus:ring-indigo-500/50 font-black"
                             />
                         </div>
                         <div className="flex-1 relative">
@@ -193,35 +202,35 @@ export const LedgerView: React.FC = () => {
                                 type="date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="w-full pl-9 pr-2 py-3.5 bg-[#0B1221] border border-white/5 rounded-2xl text-xs text-white outline-none focus:ring-2 focus:ring-indigo-500/50 font-bold"
+                                className="w-full pl-9 pr-2 py-3.5 bg-[#0B1221] border border-white/10 rounded-2xl text-[11px] text-white outline-none focus:ring-2 focus:ring-indigo-500/50 font-black"
                             />
                         </div>
                     </div>
                 </div>
 
                 {selectedAccount !== '전체 계정' && (
-                    <div className="flex items-center justify-between p-6 bg-indigo-500/5 rounded-2xl border border-indigo-500/10">
+                    <div className="flex items-center justify-between p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400">
                                 <Calculator size={20} />
                             </div>
                             <div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Selected Account</p>
-                                <h4 className="text-lg font-black text-white">{selectedAccount}</h4>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-tight">Detail Analysis</p>
+                                <h4 className="text-base font-black text-white">{selectedAccount}</h4>
                             </div>
                         </div>
                         <div className="flex gap-8 text-right">
                             <div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Debit</p>
-                                <h4 className="text-xl font-black text-emerald-400">{formatCurrency(totals.debit)}</h4>
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Total Debit</p>
+                                <h4 className="text-base font-black text-emerald-400">{formatCurrency(totals.debit)}</h4>
                             </div>
                             <div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Credit</p>
-                                <h4 className="text-xl font-black text-rose-400">{formatCurrency(totals.credit)}</h4>
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Total Credit</p>
+                                <h4 className="text-base font-black text-rose-400">{formatCurrency(totals.credit)}</h4>
                             </div>
-                            <div className="pl-8 border-l border-white/10">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Net Balance</p>
-                                <h4 className="text-2xl font-black text-white">{formatCurrency(totals.balance)}</h4>
+                            <div className="pl-6 border-l border-white/10 flex flex-col justify-center">
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Net Balance</p>
+                                <h4 className="text-xl font-black text-white">{formatCurrency(totals.balance)}</h4>
                             </div>
                         </div>
                     </div>

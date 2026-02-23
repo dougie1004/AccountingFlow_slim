@@ -52,7 +52,7 @@ async fn enhance_transaction_with_ai(
         tx.vat
     );
     
-    match ai_service::call_journal_ai(&input, None, policy, "default", "Pro").await {
+    match ai_service::call_journal_ai(&input, None, policy, "default", "Pro", None).await {
         Ok(ai_result_list) => {
             if let Some(ai_result) = ai_result_list.into_iter().next() {
                 tx.account_name = tx.account_name.or(ai_result.account_name);

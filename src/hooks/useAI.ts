@@ -149,6 +149,7 @@ export function useAI() {
 
         // --- Original Desktop Logic (Unmodified) ---
         try {
+            const customApiKey = localStorage.getItem('user_gemini_api_key');
             const result = await invoke<AnalysisResponse>('parse_transaction', {
                 input,
                 imageBytes: imageBytes || null,
@@ -156,7 +157,8 @@ export function useAI() {
                 policy,
                 partners,
                 tenantId,
-                tier
+                tier,
+                customApiKey: customApiKey || import.meta.env.VITE_GEMINI_API_KEY || null
             });
 
             // --- Client-Side Cortex Overlay (Contextual Inference & Self-Correction) ---

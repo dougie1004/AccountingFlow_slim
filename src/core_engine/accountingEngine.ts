@@ -174,7 +174,8 @@ export const generateClosingSnapshotData = (
     const fullOnly = ledger.filter(e => e.status === 'Approved' && e.date <= `${period}-31`);
 
     const fullFin = calculateFinancials(fullOnly);
-    const periodFin = calculateFinancials(periodOnly);
+    // [BugFix] isDeltaMode = true is required for periodOnly because cash flow can naturally be negative within a single month's delta
+    const periodFin = calculateFinancials(periodOnly, undefined, 0, undefined, true);
 
     const unsettled = periodOnly.filter((e: JournalEntry) => !e.isSettled);
     const isSus = (n: string) => ['가지급금', '가수금', '전도금', 'suspense'].some(k => n.toLowerCase().includes(k));
@@ -196,7 +197,11 @@ export const generateClosingSnapshotData = (
             equity: fullFin.totalAssets - fullFin.totalLiabilities,
             revenue: periodFin.revenue,
             expense: periodFin.expenses,
+            cogs: periodFin.cogs,
+            sga: periodFin.sga,
+            nonOperatingExpense: periodFin.nonOperatingExpense,
             profit: periodFin.netIncome,
+            cash: fullFin.cash,
             fixedAssetsGross,
             fixedAssetsAccumDep,
             fixedAssetsNetBookValue: fixedAssetsGross - fixedAssetsAccumDep,
@@ -228,7 +233,7 @@ export function calculateDailyCashFlow(ledger: JournalEntry[], targetDate: strin
     approvedEntries.forEach(entry => {
         const amount = entry.amount || 0;
         const vat = entry.vat || 0;
-        const total = amount + vat;
+        const total = entry.type === 'Payroll' ? amount - vat : amount + vat;
 
         const flowType = CashPolicy.isExternalFlow(entry.debitAccount, entry.creditAccount);
         let flow = 0;

@@ -36,7 +36,7 @@ export const calculateDailyCashFlow = CoreEngine.calculateDailyCashFlow;
  * [Closing Integration]
  * Orchestrates Core Data + Strategic Briefing
  */
-export const generateClosingSnapshot = (
+export const generateClosingSnapshot = async (
     ledger: JournalEntry[],
     assets: Asset[],
     leases: LeaseContract[],
@@ -46,7 +46,7 @@ export const generateClosingSnapshot = (
     accountNatures: Record<string, AccountNature>,
     previousRecord?: ClosingRecord | null,
     budget?: MonthlyBudget
-): ClosingRecord => {
+): Promise<ClosingRecord> => {
     // 1. Get raw deterministic data from core
     const data = CoreEngine.generateClosingSnapshotData(
         ledger, assets, leases, period, userId, accountNatures, note
@@ -60,7 +60,7 @@ export const generateClosingSnapshot = (
 
     // 3. Generate strategic briefing
     const periodOnly = ledger.filter(e => e.status === 'Approved' && e.date.startsWith(period));
-    fullRecord.aiBriefing = FinancialAnalyst.generateClosingBriefing(
+    fullRecord.aiBriefing = await FinancialAnalyst.generateClosingBriefing(
         fullRecord,
         previousRecord || null,
         budget,
@@ -84,6 +84,48 @@ export const analyzeStrategicDeviation = RawDeviation.analyzeStrategicDeviation;
 export const analyzeManagementRisks = RawRisk.analyzeManagementRisks;
 export const generateManagementReport = RawRisk.generateManagementReport;
 export const generateNarrativeBriefing = RawRisk.generateNarrativeBriefing;
+export const getCFORiskSnapshot = RawRisk.getCFORiskSnapshot;
+
+/**
+ * [Consolidated Intelligence - SINGLE SOURCE OF TRUTH]
+ * [CONSTITUTION ART 17] - Numerical Unification
+ */
+export const getConsolidatedMetrics = (
+    ledger: JournalEntry[],
+    closingRecords: ClosingRecord[],
+    systemNow: string,
+    initialCash: number,
+    asOfDate?: string
+) => {
+    const targetDate = asOfDate || systemNow;
+    const periodKey = targetDate.substring(0, 7);
+    const closing = closingRecords.find(r => r.period === periodKey);
+
+    if (closing && targetDate === `${periodKey}-31`) {
+        // Return Sealed Truth
+        return {
+            cash: closing.summary.cash,
+            revenue: closing.summary.revenue,
+            expenses: closing.summary.expense,
+            netIncome: closing.summary.profit,
+            totalAssets: closing.summary.totalAssets,
+            totalLiabilities: closing.summary.totalLiabilities,
+            isSealed: true
+        };
+    }
+
+    // Live Calculation
+    const live = TrialBalance.calculateFinancials(ledger, targetDate, initialCash);
+    return {
+        cash: live.cash,
+        revenue: live.revenue,
+        expenses: live.expenses,
+        netIncome: live.netIncome,
+        totalAssets: live.totalAssets,
+        totalLiabilities: live.totalLiabilities,
+        isSealed: false
+    };
+};
 
 /**
  * [Responsibility & Routing]
@@ -98,5 +140,6 @@ export const StrategicInterface = {
     computeTruth: TrialBalance.calculateFinancials,
     predictFuture: RawForecasting.generateCashForecast,
     detectAnomalies: RawDeviation.analyzeIntelligence,
-    version: '2.0.0-REFACTORED'
+    getMetrics: getConsolidatedMetrics,
+    version: '2.1.0-CONSOLIDATED'
 };

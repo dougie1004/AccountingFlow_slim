@@ -311,12 +311,12 @@ export default function RemediationTracking() {
                             </div>
 
                             <div className="space-y-4">
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block">감사인 검토 의견 (Auditor's Final Comment)</label>
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block">담당자 최종 의견 (Final Comment)</label>
                                 <textarea
                                     rows={3}
                                     value={editComment}
                                     onChange={(e) => setEditComment(e.target.value)}
-                                    placeholder="최종 조치 결과에 대한 감사팀 의견을 기록하세요..."
+                                    placeholder="최종 조치 결과에 대한 검토 의견을 기록하세요..."
                                     className="w-full bg-blue-500/5 border border-blue-500/20 rounded-3xl px-5 py-4 text-sm font-medium text-white outline-none focus:border-blue-500 transition-all resize-none placeholder:text-slate-600"
                                 />
                             </div>

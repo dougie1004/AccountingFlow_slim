@@ -35,10 +35,12 @@ export const callAiService = async (
       prompt = typeof payload === 'object' ? JSON.stringify(payload) : String(payload);
     }
 
-    // 2. Call the Secure Rust Backend
+    // 2. Call the Secure Rust Backend with optional User API Key
+    const customApiKey = localStorage.getItem('user_gemini_api_key');
     const response = await safeInvoke<string>('generic_ai_chat', {
       prompt,
-      systemContext: systemContext || '당신은 최고의 회계 비서 AI입니다. 모든 답변은 한국어로 핵심만 답하세요.'
+      systemContext: systemContext || '당신은 최고의 회계 비서 AI입니다. 모든 답변은 한국어로 핵심만 답하세요.',
+      customApiKey: customApiKey || import.meta.env.VITE_GEMINI_API_KEY || null
     });
 
     return {

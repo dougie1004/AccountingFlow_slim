@@ -36,7 +36,7 @@ interface MockFile {
 
 export default function ProcessMonitoring() {
     const { activeProject } = useApp();
-    const { injectStressData, ledger } = useAccounting();
+    const { injectStressData, ledger, systemNow } = useAccounting();
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [result, setResult] = useState<MiningResult | null>(null);
     const [progress, setProgress] = useState(0);
@@ -46,12 +46,13 @@ export default function ProcessMonitoring() {
     // [Phase 3] Silent Observation Logic
     const deviations = useMemo(() => {
         try {
-            return analyzeStrategicDeviation(ledger);
+            const currentLedger = ledger.filter(e => !systemNow || e.date <= systemNow);
+            return analyzeStrategicDeviation(currentLedger);
         } catch (e) {
             console.error("Strategic Observation Error:", e);
             return null; // Return null to signal error state
         }
-    }, [ledger]);
+    }, [ledger, systemNow]);
 
     useEffect(() => {
         // [Immunity System] Process mining is always a REAL_WORLD observation tool

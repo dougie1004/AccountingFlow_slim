@@ -16,7 +16,7 @@ import {
 import { JournalEntry } from '../types';
 
 export const TaxReport: React.FC = () => {
-    const { ledger } = useAccounting();
+    const { ledger, systemNow } = useAccounting();
     const [activeTab, setActiveTab] = useState<'tax' | 'analysis'>('tax');
     const [quarter, setQuarter] = useState<'1Q' | '2Q' | '3Q' | '4Q'>('1Q');
     const [year, setYear] = useState(new Date().getFullYear().toString());
@@ -29,6 +29,7 @@ export const TaxReport: React.FC = () => {
             const month = parseInt(entry.date.split('-')[1]);
             const statusOk = entry.status === 'Approved';
 
+            if (systemNow && entry.date > systemNow) return false;
             if (entryYear !== year) return false;
 
             // For Tax Tab, we filter by Quarter
@@ -45,7 +46,7 @@ export const TaxReport: React.FC = () => {
                 return statusOk;
             }
         });
-    }, [ledger, quarter, year, activeTab]);
+    }, [ledger, quarter, year, activeTab, systemNow]);
 
     // ==========================================
     // Tab 1: Tax & Evidence Logic
@@ -55,6 +56,7 @@ export const TaxReport: React.FC = () => {
         const targetData = ledger.filter(entry => {
             const entryYear = entry.date.split('-')[0];
             const month = parseInt(entry.date.split('-')[1]);
+            if (systemNow && entry.date > systemNow) return false;
             if (entryYear !== year || entry.status !== 'Approved') return false;
             if (quarter === '1Q') return month >= 1 && month <= 3;
             if (quarter === '2Q') return month >= 4 && month <= 6;
@@ -78,7 +80,9 @@ export const TaxReport: React.FC = () => {
                 purchaseSupply += e.amount;
             }
 
-            if (e.creditAccount.includes('예수금')) {
+            if (e.type === 'Payroll' && e.vat > 0) {
+                totalWithheld += e.vat;
+            } else if (e.creditAccount.includes('예수금')) {
                 totalWithheld += e.amount;
             }
         });
@@ -105,7 +109,7 @@ export const TaxReport: React.FC = () => {
             evidenceRisks,
             allExpenses
         };
-    }, [ledger, quarter, year]);
+    }, [ledger, quarter, year, systemNow]);
 
 
     // ==========================================
@@ -113,7 +117,7 @@ export const TaxReport: React.FC = () => {
     // ==========================================
     const analysisResults = useMemo(() => {
         const risks: { id: string, type: 'Duplicate' | 'Weekend' | 'Spike', severity: 'High' | 'Medium' | 'Low', description: string, entry: JournalEntry }[] = [];
-        const expenses = ledger.filter(e => e.type === 'Expense' && e.status === 'Approved' && e.date.startsWith(year));
+        const expenses = ledger.filter(e => (!systemNow || e.date <= systemNow) && e.type === 'Expense' && e.status === 'Approved' && e.date.startsWith(year));
 
         // 1. Duplicate Payments Detection (중복 결제 의심)
         // Group by Date + Vendor + Amount
@@ -199,7 +203,7 @@ export const TaxReport: React.FC = () => {
         });
 
         return risks.sort((a, b) => b.severity === 'High' ? -1 : 1);
-    }, [ledger, year]);
+    }, [ledger, year, systemNow]);
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">

@@ -68,7 +68,7 @@ export default function DataUpload() {
     };
 
     useEffect(() => {
-        safeInvoke("get_audit_projects").then((res: any) => {
+        safeInvoke("get_management_projects").then((res: any) => {
             setProjects(res);
             if (id) {
                 setActiveProject(id);
@@ -261,10 +261,9 @@ export default function DataUpload() {
                 .join("\n\n");
 
             const dept = activeProject?.includes("MKT") ? "Marketing" : activeProject?.includes("SAL") ? "Sales" : activeProject?.includes("FACT") ? "Vietnam Factory" : "General";
-            const result: AnalysisResult = await safeInvoke('execute_project_analysis', {
-                projectId: activeProject,
-                department: dept,
-                fullContent: aggregatedContent || null
+            const result: AnalysisResult = await safeInvoke('process_review_context', {
+                project_id: activeProject,
+                content: aggregatedContent || null
             });
             setAnalysisResult(result);
             setIsAnalyzing(false);
@@ -366,14 +365,14 @@ export default function DataUpload() {
 
     return (
         <div className="min-h-screen bg-[#020617] text-slate-300 font-sans p-8 lg:p-12">
-            {/* Header: Fixed and Professional */}
-            <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start mb-12 gap-8">
+            {/* Sticky Global Control Header */}
+            <div className="sticky top-0 z-40 bg-[#020617]/80 backdrop-blur-md py-8 -mx-12 px-12 border-b border-white/5 max-w-[calc(100%+6rem)] flex flex-col md:flex-row justify-between items-start gap-8 mb-12">
                 <div className="space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded-xl text-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.2)]">
                             <Zap size={20} />
                         </div>
-                        <h1 className="text-3xl font-black text-white tracking-tight italic uppercase">Accounting Intelligence Terminal</h1>
+                        <h1 className="text-3xl font-black text-white tracking-tight italic uppercase">Strategic Intelligence Terminal</h1>
                     </div>
 
                     <div className="relative group">
@@ -535,7 +534,7 @@ export default function DataUpload() {
                                                 </div>
                                             </div>
                                             <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full">
-                                                <span className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em] italic">Real Asset Verification</span>
+                                                <span className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em] italic">Strategic Asset Verification</span>
                                             </div>
                                         </div>
                                         <div className="flex-1 overflow-auto bg-slate-950/40">

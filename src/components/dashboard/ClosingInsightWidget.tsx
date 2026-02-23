@@ -134,7 +134,7 @@ export const ClosingInsightWidget: React.FC<ClosingInsightWidgetProps> = ({ late
                 </div>
 
                 <button
-                    onClick={() => onNavigate?.('trial-balance')}
+                    onClick={() => onNavigate?.('executive-report')}
                     className="mt-4 w-full py-3 bg-white/5 hover:bg-white/10 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 border border-white/5 shrink-0"
                 >
                     상세 리포트 보기 <ArrowRight size={14} />

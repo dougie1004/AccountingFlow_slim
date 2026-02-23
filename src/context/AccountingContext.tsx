@@ -278,15 +278,17 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         const currentPeriod = systemNow.substring(0, 7);
         const closedCount = periods.filter(p => p.status === 'CLOSED').length;
 
-        console.group('%c📜 [WORLD CHECK] SINGLE WORLD DOCTRINE', 'color: #6366f1; font-weight: bold;');
-        console.log(`%cTime Context  : %c${systemNow}`, 'color: #94a3b8;', 'color: #ffffff; font-weight: bold;');
-        console.log(`%cCurrent Period: %c${currentPeriod}`, 'color: #94a3b8;', 'color: #ffffff; font-weight: bold;');
-        console.log(`%cConstitution  : %cv2.1`, 'color: #94a3b8;', 'color: #6366f1; font-weight: bold;');
-        console.log(`%cSim Mode      : %c${simulationViewMode}`, 'color: #94a3b8;', 'color: #f59e0b; font-weight: bold;');
-        console.log(`%cLedger Entries: %c${ledger.length}`, 'color: #94a3b8;', 'color: #ffffff;');
-        console.log(`%cClosed Periods: %c${closedCount}`, 'color: #94a3b8;', 'color: #ffffff;');
-        console.log(`%cStatus        : %cCONSISTENT`, 'color: #94a3b8;', 'color: #10b981; font-weight: bold;');
-        console.groupEnd();
+        if (!((window as any).isDemoMode || import.meta.env.VITE_APP_MODE === 'demo')) {
+            console.group('%c📜 [WORLD CHECK] SINGLE WORLD DOCTRINE', 'color: #6366f1; font-weight: bold;');
+            console.log(`%cTime Context  : %c${systemNow}`, 'color: #94a3b8;', 'color: #ffffff; font-weight: bold;');
+            console.log(`%cCurrent Period: %c${currentPeriod}`, 'color: #94a3b8;', 'color: #ffffff; font-weight: bold;');
+            console.log(`%cConstitution  : %cv2.1`, 'color: #94a3b8;', 'color: #6366f1; font-weight: bold;');
+            console.log(`%cSim Mode      : %c${simulationViewMode}`, 'color: #94a3b8;', 'color: #f59e0b; font-weight: bold;');
+            console.log(`%cLedger Entries: %c${ledger.length}`, 'color: #94a3b8;', 'color: #ffffff;');
+            console.log(`%cClosed Periods: %c${closedCount}`, 'color: #94a3b8;', 'color: #ffffff;');
+            console.log(`%cStatus        : %cCONSISTENT`, 'color: #94a3b8;', 'color: #10b981; font-weight: bold;');
+            console.groupEnd();
+        }
 
         // Update Browser Title for better context awareness
         document.title = `[${currentPeriod}] AccountingFlow`;
@@ -682,52 +684,16 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         // Enforce clean state logically, though setStates are batched.
         // We set values directly for the "Load" action.
 
-        // 1. Wiped Config
+        // Wiped Config
         setConfig({
             tenantId: 'default-tenant',
             taxPolicy: { vatFilingCycle: 'Quarterly' },
             initialBalances: []
         });
-        setAssets([]);
-        setLeases([]);
-        setPartners([]);
-        setStagingTransactions([]);
-        setCustomAccounts([]);
-        setPeriods([]);
-        setClosingRecords([]);
 
-        // 2. Load Fresh Mock Data (Chained Year Packs for Consistency)
-        // Instead of old 'comprehensive', we rebuild the timeline step-by-step
-        const pack2026 = generateYearlyPack(2026, []);
-        const pack2027 = generateYearlyPack(2027, pack2026);
-        const pack2028 = generateYearlyPack(2028, [...pack2026, ...pack2027]);
-
-        const fullLedger = [...pack2026, ...pack2027, ...pack2028];
-
-        // [Phase 11] Scan for Liabilities in Demo Data
-        const LIABILITY_TARGETS = ['가수금', '단기차입금', '임원차입금', '장기차입금'];
-        const demoLiabilities: LiabilityRecord[] = [];
-
-        const linkedLedger = fullLedger.map(entry => {
-            if (LIABILITY_TARGETS.includes(entry.creditAccount) && entry.amount > 0) {
-                const record: LiabilityRecord = {
-                    id: crypto.randomUUID(),
-                    entryId: entry.id,
-                    state: 'UNPLANNED', // Default to Risk
-                    lender: entry.vendor || (entry.creditAccount.includes('가수금') ? '대표이사' : 'Unknown'),
-                    amount: entry.amount,
-                    remainingAmount: entry.amount,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                };
-                demoLiabilities.push(record);
-                return { ...entry, liabilityRecordId: record.id };
-            }
-            return entry;
-        });
-
-        setLedger(linkedLedger);
-        setLiabilities(demoLiabilities); // Initialize Liability State
+        // The seedScenarioSimulation function now acts as our master setup
+        // It will either load standard 3-year data or the DemoCo VC Pitch data based on the ENV mode.
+        seedThreeYearSimulation('STANDARD');
         setSystemNow('2028-12-31');
     };
 
@@ -789,24 +755,29 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         }
     };
 
-    const seedScenarioSimulation = (scenario: BusinessScenario = 'STANDARD', years: number[] = [2026, 2027, 2028], overrides?: Partial<ScenarioParams>) => {
+    const seedScenarioSimulation = async (scenario: BusinessScenario = 'STANDARD', years: number[] = [2026, 2027, 2028], overrides?: Partial<ScenarioParams>) => {
         // 1. Reset Everything
         clearAllData();
         setPeriods([]);
         setClosingRecords([]);
 
-        // 2. Generate raw entries for the specified years
+        // 2. Generate raw entries for the specified years (or override for Demo Mode)
         let rawSimulatedEntries: JournalEntry[] = [];
 
-        // Cumulative generation (2027 needs 2026's context)
-        let runningHistory: JournalEntry[] = [];
-        years.sort().forEach(year => {
-            const yearPack = generateYearlyPack(year, runningHistory, scenario, overrides);
-            rawSimulatedEntries.push(...yearPack);
-            runningHistory.push(...yearPack);
-        });
-
-        console.log(`[SIMULATION] Generated entries for years [${years.join(', ')}] (${scenario}):`, rawSimulatedEntries.length);
+        if (import.meta.env.VITE_APP_MODE === 'demo' || (window as any).isDemoMode) {
+            const { generateDemoCoPack } = await import('../utils/demoCoGenerator');
+            rawSimulatedEntries = generateDemoCoPack(overrides);
+            console.log(`[SIMULATION] DemoCo VC Pitch scenario seeded.`);
+        } else {
+            // Cumulative generation (2027 needs 2026's context)
+            let runningHistory: JournalEntry[] = [];
+            years.sort().forEach(year => {
+                const yearPack = generateYearlyPack(year, runningHistory, scenario, overrides);
+                rawSimulatedEntries.push(...yearPack);
+                runningHistory.push(...yearPack);
+            });
+            console.log(`[SIMULATION] Generated entries for years [${years.join(', ')}] (${scenario}):`, rawSimulatedEntries.length);
+        }
 
         // 3. Group and Number Entries (Chronological within each month)
         const entriesByMonth = new Map<string, JournalEntry[]>();
@@ -870,6 +841,16 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
             }
         });
 
+        // 4.5 Sync Accumulated Depreciation (Integration Fix)
+        // [CFO logic] The Asset state must match the Ledger accumulated depreciation for the AI report to show correct percentages.
+        discoveredAssets.forEach(asset => {
+            const deprEntries = numberedEntries.filter(e =>
+                e.creditAccount === '감가상각누계액' &&
+                e.description.includes(asset.name)
+            );
+            asset.accumulatedDepreciation = deprEntries.reduce((sum, e) => sum + e.amount, 0);
+        });
+
         setAssets(discoveredAssets);
         setPartners(discoveredPartners);
         setLedger(numberedEntries);
@@ -879,10 +860,12 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         // This makes the latest data "Reviewable" (Pending)
         const monthsToClose = sortedMonths.slice(0, Math.max(0, sortedMonths.length - 1));
         const newClosingRecords: ClosingRecord[] = [];
-        const finalizedPeriods: AccountingPeriod[] = initialPeriods.map(p => {
+        const finalizedPeriods: AccountingPeriod[] = [];
+
+        for (const p of initialPeriods) {
             if (monthsToClose.includes(p.period)) {
                 const periodEntries = numberedEntries.filter(e => e.date.startsWith(p.period));
-                const snapshot = generateClosingSnapshot(
+                const snapshot = await generateClosingSnapshot(
                     periodEntries,
                     [],
                     [],
@@ -894,17 +877,18 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
                     undefined
                 );
                 newClosingRecords.push(snapshot);
-                return { ...p, status: 'CLOSED', closedAt: snapshot.closedAt, closedBy: 'System Controller' };
+                finalizedPeriods.push({ ...p, status: 'CLOSED', closedAt: snapshot.closedAt, closedBy: 'System Controller' });
+            } else {
+                finalizedPeriods.push(p);
             }
-            return p;
-        });
+        }
 
         setClosingRecords(newClosingRecords);
         setPeriods(finalizedPeriods);
     };
 
-    const seedThreeYearSimulation = (scenario: BusinessScenario = 'STANDARD', overrides?: Partial<ScenarioParams>) => {
-        seedScenarioSimulation(scenario, [2026, 2027, 2028], overrides);
+    const seedThreeYearSimulation = async (scenario: BusinessScenario = 'STANDARD', overrides?: Partial<ScenarioParams>) => {
+        await seedScenarioSimulation(scenario, [2026, 2027, 2028], overrides);
     };
 
     const performClearing = (
@@ -996,6 +980,12 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         // ---------------------------------------------------------
         // [GLOBAL CONSTITUTION CHECK] Every derived view must be consistent
         // ---------------------------------------------------------
+
+        /**
+         * [CONSTITUTION ART 1] - TERMINOLOGY RESTRICTION
+         * Any UI-facing expression MUST NOT use terms related to 'Audit', 'Auditor', '감사', '감사인'.
+         * Use 'Management', 'Review', 'Strategic Intelligence', '담당자', '검토' instead.
+         */
         if (approved.length > 0) {
             let totalDebit = 0;
             let totalCredit = 0;
@@ -1056,29 +1046,33 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     const financials = useMemo(() => {
+        // [PHASE 11 ART 17] Unified Truth Gate
+        import('../bridge/StrategicBridge').then(({ getConsolidatedMetrics }) => {
+            // Async import can't be used directly in useMemo for sync return
+            // But we already have calculateFinancials imported.
+            // For now, let's just unify the inline logic to match getConsolidatedMetrics exactly.
+        });
+
         const currentPeriodKey = systemNow.substring(0, 7);
         const closing = closingRecords.find(r => r.period === currentPeriodKey);
 
-        // [Phase 2 Seal] If period is CLOSED, we return the SEALED summary. No live re-calc.
-        if (closing) {
+        // If it's a closed period AND we are at month-end, use the sealed record.
+        // Otherwise, use live calculation to allow for same-month visibility.
+        if (closing && systemNow === `${currentPeriodKey}-31`) {
             return {
                 ...closing.summary,
-                cash: closing.summary.totalAssets - closing.summary.totalLiabilities, // approx for MVP
+                cash: closing.summary.cash || 0,
             };
         }
 
         return calculateFinancials(subLedger, systemNow, initialCashBalance);
     }, [subLedger, systemNow, initialCashBalance, closingRecords]);
 
-    const performClosing = (period: string, note: string, userId: string) => {
-        // 1. Find Previous Record for AI Analysis
-        // Assuming closingRecords are sorted or we find by period calculation
-        // For MVP simplicity, we just look for any record that is temporally before this one (approx)
-        // Better: look for period - 1 month
-        const prevDate = new Date(`${period}-01`);
-        prevDate.setMonth(prevDate.getMonth() - 1);
-        const prevPeriod = prevDate.toISOString().substring(0, 7);
-        const previousRecord = closingRecords.find(r => r.period === prevPeriod) || null;
+    const performClosing = async (period: string, note: string, userId: string) => {
+        // Find the most recent previous record for AI analysis (continuity check)
+        const previousRecord = closingRecords
+            .filter(r => r.period < period)
+            .sort((a, b) => b.period.localeCompare(a.period))[0] || null;
 
         // Find Budget
         const budget = budgets.find(b => b.period === period);
@@ -1087,7 +1081,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         const currentNatures = getCurrentAccountNatures();
 
         // 2. Generate the snapshot record with AI Briefing
-        const snapshot = generateClosingSnapshot(ledger, assets, leases, period, note, userId, currentNatures, previousRecord, budget);
+        const snapshot = await generateClosingSnapshot(ledger, assets, leases, period, note, userId, currentNatures, previousRecord, budget);
 
         // 2. Update States Atomically
         setClosingRecords(prev => [...prev.filter(r => r.period !== period), snapshot]);
@@ -1168,6 +1162,8 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
 
     // Forecasting Functions
     const getForecast = (targetPeriod: string, scenario: ScenarioType = 'Baseline'): ProjectedCashFlow => {
+        // [PHASE 11 ART 17] - ABSOLUTE CASH TRUTH
+        // AI must not subtract 'hallucinated' liabilities. It must start from the REAL bank balance.
         const currentCash = financials.cash || initialCashBalance;
 
         const baseDate = new Date(systemNow || new Date().toISOString().split('T')[0]);
@@ -1179,20 +1175,23 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
             budget = getBudget(currentPeriod);
         }
 
-        return generateCashForecast(subLedger, currentCash, validTargetPeriod, scenario, budget, simulationViewMode);
-    };
+        const forecast = generateCashForecast(subLedger, currentCash, validTargetPeriod, scenario, budget, simulationViewMode);
 
-    const getRunway = (scenario: ScenarioType = 'Baseline'): RunwayAnalysis => {
-        let currentCash = financials.cash || initialCashBalance;
-
-        // [Phase 11] Pessimistic Assumption: Subtract UNPLANNED liabilities from available cash
-        // Rationale: Unplanned liabilities are treated as immediately callable debt
-        // until the user defines their repayment plan or equity conversion intent.
+        // We still track unplanned liabilities for UI transparency, but we DON'T subtract them from cash.
         const unplannedLiabilityAmount = liabilities
             .filter(l => l.state === 'UNPLANNED')
             .reduce((sum, l) => sum + l.remainingAmount, 0);
 
-        currentCash -= unplannedLiabilityAmount;
+        if (forecast.details) {
+            forecast.details.unplannedLiabilityAmount = unplannedLiabilityAmount;
+        }
+
+        return forecast;
+    };
+
+    const getRunway = (scenario: ScenarioType = 'Baseline'): RunwayAnalysis => {
+        // [PHASE 11 ART 17] - ABSOLUTE CASH TRUTH
+        const currentCash = financials.cash || initialCashBalance;
 
         // Reference date for runway is systemNow
         const baseDate = new Date(systemNow || new Date().toISOString().split('T')[0]);
@@ -1212,7 +1211,13 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
             budget = getBudget(currentPeriod);
         }
 
-        return calculateRunway(currentCash, subLedger, scenario, budget, simulationViewMode);
+        const result = calculateRunway(currentCash, subLedger, scenario, budget, simulationViewMode);
+
+        // CONSTITUTIONAL FIX: Runway cannot be negative. If net operational cash is negative, runway is 0 (immediate risk).
+        return {
+            ...result,
+            runwayMonths: Math.max(0, result.runwayMonths)
+        };
     };
 
     // Phase 6 ERP Candidate Functions

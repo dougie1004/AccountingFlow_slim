@@ -167,9 +167,11 @@ async fn generate_ai_insights(
         current_balance, revenue, rev_growth * 100.0, burn_rate, exp_growth * 100.0
     );
 
+    let pro_model_name = std::env::var("GEMINI_PRO_MODEL").unwrap_or_else(|_| "gemini-2.5-pro".to_string());
+    
     let client = reqwest::Client::new();
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={}", api_key))
+        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", pro_model_name, api_key))
         .json(&json!({ "contents": [{ "parts": [{ "text": prompt }] }] }))
         .send()
         .await

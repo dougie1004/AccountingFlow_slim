@@ -78,8 +78,8 @@ export const ManagementReportPanel: React.FC<ManagementReportPanelProps> = ({ le
             : 0;
 
         const burnRate = lastMonth.expense; // Simplified
-        const fin = calculateFinancials(ledger);
-        const cashObj = fin.cash; // Current Cash
+        const fin = calculateFinancials(effectiveLedger);
+        const cashObj = fin.cash; // Current Cash up to viewDate
         const runway = burnRate > 0 ? cashObj / burnRate : 99;
 
         // 3. Top Expense Category

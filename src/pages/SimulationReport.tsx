@@ -5,9 +5,11 @@ import { getAccountNature } from '../constants/accounts';
 import { ArrowLeft, Table, Download, X, Search, Filter, FileText, ChevronRight, Activity, Calendar, Zap, TrendingUp, CheckCircle2, Snail, Flag } from 'lucide-react';
 import { JournalEntry, BusinessScenario } from '../types';
 import { formatCurrency } from '../utils/formatUtils';
+import { exportFinancialSummary } from '../utils/excelExporter';
+import { StrategicComparator, SensitivityAnalyzer } from '../utils/strategicComparator';
 
 export const SimulationReport: React.FC = () => {
-    const { ledger, systemNow, seedThreeYearSimulation, seedScenarioSimulation, activeScenario } = useAccounting();
+    const { ledger, systemNow, seedThreeYearSimulation, seedScenarioSimulation, activeScenario, initialCashBalance } = useAccounting();
     const [selectedYear, setSelectedYear] = useState<string>('all');
     // Map BusinessScenario ID to Label
     const scenarioLabels = {
@@ -58,19 +60,24 @@ export const SimulationReport: React.FC = () => {
         });
 
         const sortedMonths = Array.from(allMonthsSet).sort();
-        let runningCash = 0;
+        let runningCash = initialCashBalance || 0;
 
-        const results = sortedMonths.map(month => {
+        const lifetimeResults = sortedMonths.map(month => {
             const rangeEntries = buckets[month] || [];
 
-            // Financials for this month (Delta)
-            const periodFin = calculateFinancials(rangeEntries);
+            // Financials for this month (Delta) - bypass Sign Convention Check since it's a delta
+            const periodFin = calculateFinancials(rangeEntries, undefined, 0, undefined, true);
 
             // Running Balance
             runningCash += periodFin.cash;
 
-            // Detailed Breakdown
-            const revenue = rangeEntries.filter(e => e.type === 'Revenue').reduce((s, e) => s + e.amount, 0);
+            // Detailed Breakdown - Real Sales Revenue (Exclude non-operating grants)
+            const revenue = rangeEntries.filter(e =>
+                e.type === 'Revenue' &&
+                e.creditAccount !== '국고보조금수익' &&
+                e.creditAccount !== '영업외수익(국고보조금)' &&
+                e.creditAccount !== '잡이익'
+            ).reduce((s, e) => s + e.amount, 0);
 
             // [CONSTITUTIONAL NATURE] COGS
             const cogs = rangeEntries.filter(e => getAccountNature(e.debitAccount) === 'COGS').reduce((s, e) => s + e.amount, 0);
@@ -94,12 +101,21 @@ export const SimulationReport: React.FC = () => {
 
             // Net Income (Pre-tax)
             const netIncome = opProfit + grantIncome;
+            const expenses = sgaTotal;
 
             // Funding / Capital Injection
             const funding = rangeEntries.filter(e => e.creditAccount === '자본금' || e.creditAccount === '자본잉여금').reduce((s, e) => s + e.amount, 0);
 
-            // Grant Receipt (Cash Inflow, Liability booking)
-            const grantReceived = rangeEntries.filter(e => e.creditAccount === '국고보조금(이연)').reduce((s, e) => s + e.amount, 0);
+            // Asset Related Grant Liability (Deferred) - Only NEW deferrals this month
+            const deferredGrant = rangeEntries.filter(e => e.creditAccount === '국고보조금(이연)').reduce((s, e) => s + e.amount, 0);
+
+            // Only count grant income that is NOT from amortization (to avoid double counting with deferred grant)
+            const directGrantIncome = rangeEntries.filter(e =>
+                e.creditAccount === '국고보조금수익' &&
+                !e.description.includes('감가상각 대응')
+            ).reduce((s, e) => s + e.amount, 0);
+
+            const grantUsage = directGrantIncome + deferredGrant;
 
             return {
                 period: month,
@@ -115,7 +131,8 @@ export const SimulationReport: React.FC = () => {
                 grantIncome,
                 netIncome,
                 funding,
-                grantReceived,
+                grantReceived: grantUsage,
+                expenses,
                 cash: runningCash,
                 // Burn Quality Signals
                 burnQuality: rangeEntries.find(e => e.comment?.includes('Burn'))?.comment?.match(/\((\w+) Burn\)/)?.[1] || null,
@@ -126,8 +143,11 @@ export const SimulationReport: React.FC = () => {
             };
         });
 
-        if (selectedYear === 'all') return results;
-        return results.filter(r => r.period.startsWith(selectedYear));
+        // Store lifetime results for dashboard analytics separately
+        (window as any)._simulation_lifetime = lifetimeResults;
+
+        if (selectedYear === 'all') return lifetimeResults;
+        return lifetimeResults.filter(r => r.period.startsWith(selectedYear));
     }, [ledger, selectedYear]);
 
     // Calculate Totals using useMemo to avoid recalculation on every render
@@ -147,169 +167,243 @@ export const SimulationReport: React.FC = () => {
             netIncome: acc.netIncome + row.netIncome,
             funding: acc.funding + row.funding,
             grantReceived: acc.grantReceived + row.grantReceived,
+            expenses: acc.expenses + row.expenses,
             cash: row.cash // Cash is cumulative, so take the last one
         }), {
             period: 'Total',
             revenue: 0, cogs: 0, grossProfit: 0,
             labor: 0, marketing: 0, rent: 0, depr: 0, otherExp: 0,
             opProfit: 0, grantIncome: 0, netIncome: 0,
-            funding: 0, grantReceived: 0, cash: 0
+            funding: 0, grantReceived: 0, expenses: 0, cash: 0
         });
     }, [monthlyData]);
 
 
     return (
         <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="flex items-center justify-between">
-                <div>
+            {/* Sticky Page Header & Controls */}
+            <header className="sticky top-0 z-40 bg-[#0B1221]/80 backdrop-blur-md py-4 -mt-4 border-b border-white/5 flex items-center justify-between gap-4">
+                <div className="flex-1">
                     <h1 className="text-3xl font-black text-white tracking-tight">월별 손익 현황 (Monthly P&L)</h1>
-                    <p className="text-slate-400 font-bold mt-2">사업계획 검증을 위한 월별 상세 손익 및 현금 흐름 분석표</p>
-                </div>
-                <div className="bg-[#0B1221] p-1 rounded-xl flex border border-white/10">
-                    {[
-                        { id: 'SURVIVAL', label: '생존 (Survival)' },
-                        { id: 'STANDARD', label: '표준 (Standard)' },
-                        { id: 'GROWTH', label: '확장 (Growth)' },
-                        { id: 'DEATH_VALLEY', label: '☠️ 데스 밸리 (Death Valley)' }
-                    ].map(s => (
-                        <button
-                            key={s.id}
-                            onClick={() => handleScenarioChange(s.id as any)}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeScenario === s.id
-                                ? 'bg-emerald-600 text-white shadow-lg'
-                                : 'text-slate-400 hover:text-white hover:bg-white/5'
-                                }`}
-                        >
-                            {s.label}
-                        </button>
-                    ))}
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Monthly Financial Simulation & Strategic Forecast</p>
                 </div>
 
-                <button
-                    onClick={handleStressTest}
-                    className={`px-4 py-2 rounded-xl font-bold transition-all border flex items-center gap-2 ${isMarketingOff
-                        ? 'bg-rose-500/20 border-rose-500/50 text-rose-400'
-                        : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20'
-                        }`}
-                >
-                    <Activity className="w-4 h-4" />
-                    {isMarketingOff ? '마케팅 중단됨 (Stress Test ON)' : '마케팅 중단 테스트'}
-                </button>
+                <div className="flex items-center gap-3">
+                    <div className="bg-[#151D2E] p-1 rounded-xl flex border border-white/10">
+                        {[
+                            { id: 'SURVIVAL', label: '생존 (Survival)' },
+                            { id: 'STANDARD', label: '표준 (Standard)' },
+                            { id: 'GROWTH', label: '확장 (Growth)' },
+                            { id: 'DEATH_VALLEY', label: '☠️ 데스 밸리 (Death Valley)' }
+                        ].map(s => (
+                            <button
+                                key={s.id}
+                                onClick={() => handleScenarioChange(s.id as any)}
+                                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${activeScenario === s.id
+                                    ? 'bg-emerald-600 text-white shadow-lg'
+                                    : 'text-slate-500 hover:text-white hover:bg-white/5'
+                                    }`}
+                            >
+                                {s.label}
+                            </button>
+                        ))}
+                    </div>
 
-                <button
-                    onClick={handleFullSimulation}
-                    className="px-4 py-2 bg-[#1E293B] text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500 hover:text-white rounded-xl transition-all font-black text-xs flex items-center gap-2"
-                >
-                    <Zap size={14} />
-                    3개년 전체 시뮬레이션
-                </button>
-                <div className="bg-[#0B1221] p-1 rounded-xl flex border border-white/10">
-                    {['all', '2026', '2027', '2028'].map(year => (
-                        <button
-                            key={year}
-                            onClick={() => setSelectedYear(year)}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedYear === year
-                                ? 'bg-indigo-600 text-white shadow-lg'
-                                : 'text-slate-400 hover:text-white hover:bg-white/5'
-                                }`}
-                        >
-                            {year === 'all' ? '전체 보기' : `${year}년`}
-                        </button>
-                    ))}
+                    <button
+                        onClick={handleStressTest}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border flex items-center gap-2 ${isMarketingOff
+                            ? 'bg-rose-500/20 border-rose-500/50 text-rose-400'
+                            : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20'
+                            }`}
+                    >
+                        <Activity className="w-4 h-4" />
+                        {isMarketingOff ? 'Stress Test ON' : 'Marketing Stress Test'}
+                    </button>
+
+                    <button
+                        onClick={handleFullSimulation}
+                        className="px-4 py-2 bg-[#1E293B] text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500 hover:text-white rounded-xl transition-all font-black text-[10px] uppercase flex items-center gap-2"
+                    >
+                        <Zap size={14} />
+                        Full Forecast
+                    </button>
+
+                    <div className="bg-[#151D2E] p-1 rounded-xl flex border border-white/10">
+                        {['all', '2026', '2027', '2028'].map(year => (
+                            <button
+                                key={year}
+                                onClick={() => setSelectedYear(year)}
+                                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${selectedYear === year
+                                    ? 'bg-indigo-600 text-white shadow-lg'
+                                    : 'text-slate-500 hover:text-white hover:bg-white/5'
+                                    }`}
+                            >
+                                {year === 'all' ? 'All' : `${year}Y`}
+                            </button>
+                        ))}
+                    </div>
+
+                    <button
+                        onClick={() => exportFinancialSummary(monthlyData, scenarioLabels[activeScenario])}
+                        className="flex items-center gap-2 px-4 py-2 bg-white/5 text-slate-300 hover:text-white rounded-xl transition-colors font-black text-[10px] uppercase border border-white/10"
+                    >
+                        <Download size={16} />
+                        Export
+                    </button>
                 </div>
-
-                <button className="flex items-center gap-2 px-4 py-2 bg-[#1E293B] text-slate-300 hover:text-white rounded-xl transition-colors font-bold text-sm">
-                    <Download size={16} />
-                    Excel
-                </button>
             </header>
 
-            {/* [BEP Analysis Dashboard] */}
+            {/* [Strategic Intelligence & BEP Dashboard] */}
             {monthlyData.length > 0 && (() => {
+                const lifetimeData = (window as any)._simulation_lifetime || monthlyData;
                 let cumulativeNetIncome = 0;
                 let firstMonthlyProfit: string | null = null;
                 let firstCumulativeProfit: string | null = null;
                 let lastMonthRevenue = 0;
                 let lastMonthExpense = 0;
 
-                monthlyData.forEach((row, idx) => {
+                lifetimeData.forEach((row: any, idx: number) => {
                     cumulativeNetIncome += row.netIncome;
-                    if (row.netIncome > 0 && !firstMonthlyProfit) firstMonthlyProfit = row.period;
-                    if (cumulativeNetIncome > 0 && !firstCumulativeProfit) firstCumulativeProfit = row.period;
+                    // Monthly BEP: First month of positive P&L (excluding zero-activity startup months)
+                    if (row.netIncome > 0 && !firstMonthlyProfit && (row.revenue > 0 || row.expenses > 0)) {
+                        firstMonthlyProfit = row.period;
+                    }
+                    // Cumulative BEP: When total lifetime P&L crosses zero
+                    if (cumulativeNetIncome > 0 && !firstCumulativeProfit) {
+                        firstCumulativeProfit = row.period;
+                    }
 
-                    if (idx === monthlyData.length - 1) {
+                    if (idx === lifetimeData.length - 1) {
                         lastMonthRevenue = row.revenue;
-                        // Expense = Rev - NetIncome (approx for projection)
                         lastMonthExpense = row.revenue - row.netIncome;
                     }
                 });
 
-                // Projection Logic
+                // Sensitivity Analysis
+                // 1. OPEX Sensitivity: How 10% increase in total expenses impacts Net Income (Loss)
+                const opexImpact = SensitivityAnalyzer.analyzeImpact({ netIncome: totalData.netIncome }, "Total OPEX", 1.1, totalData.netIncome - (totalData.expenses * 0.1));
+
+                // 2. Revenue Leverage: How 10% increase in sales scales the bottom line
+                const revImpact = SensitivityAnalyzer.analyzeImpact({ netIncome: totalData.netIncome }, "Revenue", 1.1, totalData.netIncome + (totalData.revenue * 0.1));
+
+                // Projection
                 let projectionMsg = "";
                 let projectionColor = "text-slate-500";
-
                 if (firstCumulativeProfit) {
-                    projectionMsg = `🎉 이미 누적 손익분기점(BEP)을 달성했습니다! (${firstCumulativeProfit})`;
+                    projectionMsg = `🎉 누적 BEP 달성 (${firstCumulativeProfit})`;
                     projectionColor = "text-emerald-400";
                 } else if (lastMonthRevenue > lastMonthExpense) {
                     const monthlyProfit = lastMonthRevenue - lastMonthExpense;
                     const monthsNeeded = Math.abs(cumulativeNetIncome) / monthlyProfit;
-                    const targetDate = new Date();
-                    targetDate.setFullYear(2028, 11 + Math.ceil(monthsNeeded), 1); // Add to Dec 2028
-                    const dateStr = targetDate.toISOString().substring(0, 7);
-                    projectionMsg = `🔭 현재 추세라면 ${dateStr}경 누적 적자가 모두 해소될 것으로 예측됩니다.`;
+                    projectionMsg = `🔭 결손금 회수까지 약 ${Math.ceil(monthsNeeded)}개월 소요 예상`;
                     projectionColor = "text-indigo-400";
                 } else {
-                    projectionMsg = "⚠️ 현재 구조로는 누적 적자 해소 시점을 예측할 수 없습니다. (매출 < 비용)";
+                    projectionMsg = "⚠️ 수익성 개선 필수 (회수 예측 불가)";
                     projectionColor = "text-rose-400";
                 }
 
                 return (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-[#151D2E] p-6 rounded-[2rem] border border-white/5 flex flex-col justify-between relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-8 opacity-5 text-emerald-500 transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform">
-                                <TrendingUp size={120} />
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        {/* 1. Monthly BEP */}
+                        <div className="bg-[#151D2E] p-5 rounded-[2.5rem] border border-white/5 relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+                            <div className="absolute top-0 right-0 p-4 opacity-5 text-emerald-500 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform">
+                                <TrendingUp size={80} />
                             </div>
-                            <div>
-                                <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Monthly BEP</div>
-                                <div className="text-2xl font-black text-white tracking-tight">
-                                    {firstMonthlyProfit ? (
-                                        <span className="text-emerald-400 flex items-center gap-2">
-                                            <CheckCircle2 size={24} /> {firstMonthlyProfit}
-                                        </span>
-                                    ) : <span className="text-slate-500">Not Reached</span>}
+                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Monthly BEP</div>
+                            <div className="text-xl font-black text-white">
+                                {firstMonthlyProfit ? <span className="text-emerald-400">{firstMonthlyProfit}</span> : <span className="text-slate-600">N/A</span>}
+                            </div>
+                            <p className="text-[10px] text-slate-500 font-bold mt-1">월 단위 흑자 시점</p>
+
+                            {/* BEP Tooltip */}
+                            <div className="absolute inset-0 bg-[#0B1221]/95 z-20 opacity-0 group-hover:opacity-100 transition-opacity p-4 flex flex-col justify-center rounded-[2.5rem]">
+                                <div className="text-[9px] font-black text-emerald-400 mb-1">월간 손익분기 (Monthly BEP)</div>
+                                <div className="text-[8px] text-slate-400 leading-tight">
+                                    영업 활동을 통해 <br />
+                                    매월 발생하는 비용보다 <br />
+                                    더 많은 매출을 올리기 <br />
+                                    시작하는 첫 번째 달입니다.<br />
+                                    (시뮬레이션 범위 기간 기준)
                                 </div>
-                                <div className="text-xs text-slate-500 mt-2 font-bold">월 단위 흑자 전환 시점</div>
                             </div>
                         </div>
 
-                        <div className="bg-[#151D2E] p-6 rounded-[2rem] border border-white/5 flex flex-col justify-between relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-8 opacity-5 text-indigo-500 transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform">
-                                <Snail size={120} />
+                        {/* 2. Cumulative BEP */}
+                        <div className="bg-[#151D2E] p-5 rounded-[2.5rem] border border-white/5 relative overflow-hidden group hover:border-indigo-500/30 transition-all">
+                            <div className="absolute top-0 right-0 p-4 opacity-5 text-indigo-500 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform">
+                                <Snail size={80} />
                             </div>
-                            <div>
-                                <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Cumulative BEP</div>
-                                <div className="text-2xl font-black text-white tracking-tight">
-                                    {firstCumulativeProfit ? (
-                                        <span className="text-indigo-400 flex items-center gap-2">
-                                            <Flag size={24} /> {firstCumulativeProfit}
-                                        </span>
-                                    ) : <span className="text-slate-500">Not Reached</span>}
+                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Cumulative BEP</div>
+                            <div className="text-xl font-black text-white">
+                                {firstCumulativeProfit ? <span className="text-indigo-400">{firstCumulativeProfit}</span> : <span className="text-slate-600">N/A</span>}
+                            </div>
+                            <p className="text-[10px] text-slate-500 font-bold mt-1">누적 손익분기점</p>
+
+                            {/* Cumulative Tooltip */}
+                            <div className="absolute inset-0 bg-[#0B1221]/95 z-20 opacity-0 group-hover:opacity-100 transition-opacity p-4 flex flex-col justify-center rounded-[2.5rem]">
+                                <div className="text-[9px] font-black text-indigo-400 mb-1">누적 손익분기 (Cumulative BEP)</div>
+                                <div className="text-[8px] text-slate-400 leading-tight">
+                                    설립 이후(또는 시뮬레이션 시작일) <br />
+                                    투입된 모든 비용(결손금)을 <br />
+                                    사업 이익으로 모두 회수하여 <br />
+                                    누적 이익이 (+)로 전환되는 <br />
+                                    진정한 성장의 결과값입니다.
                                 </div>
-                                <div className="text-xs text-slate-500 mt-2 font-bold">누적 손실 전액 회수 시점 (투자금 회수)</div>
                             </div>
                         </div>
 
-                        <div className="bg-[#151D2E] p-6 rounded-[2rem] border border-white/5 flex flex-col justify-center text-center relative overflow-hidden">
-                            <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">AI Projection (2029+)</div>
-                            <div className={`text-sm font-bold ${projectionColor} break-keep leading-relaxed`}>
-                                {projectionMsg}
-                            </div>
-                            {!firstCumulativeProfit && (
-                                <div className="mt-3 text-[10px] text-slate-600 font-mono bg-black/20 py-1 px-2 rounded-lg inline-block mx-auto">
-                                    누적 결손금: {formatCurrency(cumulativeNetIncome)}
+                        {/* 3. Sensitivity (OPEX) */}
+                        <div className="bg-[#151D2E] p-5 rounded-[2.5rem] border border-white/5 group relative hover:border-rose-500/30 transition-all cursor-help">
+                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">OPEX Sensitivity</div>
+                            <div className="text-xl font-black text-rose-400">{opexImpact.sensitivityCoefficient}x</div>
+                            <p className="text-[10px] text-slate-500 font-bold mt-1">판관비 10% 변동 영향</p>
+
+                            {/* Calculation Basis Tooltip */}
+                            <div className="absolute inset-0 bg-[#0B1221]/95 z-20 opacity-0 group-hover:opacity-100 transition-opacity p-4 flex flex-col justify-center rounded-[2.5rem]">
+                                <div className="text-[9px] font-black text-rose-400 mb-1">산출 근거 (Elasticity)</div>
+                                <div className="text-[8px] text-slate-400 leading-tight">
+                                    비용이 1% 오를 때<br />
+                                    손익이 변동하는 폭.<br />
+                                    값이 클수록 비용 통제가<br />
+                                    재무에 치명적임을 의미.
                                 </div>
-                            )}
+                            </div>
+                        </div>
+
+                        {/* 4. Leverage (Revenue) */}
+                        <div className="bg-[#151D2E] p-5 rounded-[2.5rem] border border-white/5 group relative hover:border-emerald-500/30 transition-all cursor-help">
+                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Revenue Leverage</div>
+                            <div className="text-xl font-black text-emerald-400">{revImpact.sensitivityCoefficient}x</div>
+                            <p className="text-[10px] text-slate-500 font-bold mt-1">매출 10% 증량 탄력성</p>
+
+                            <div className="absolute inset-0 bg-[#0B1221]/95 z-20 opacity-0 group-hover:opacity-100 transition-opacity p-4 flex flex-col justify-center rounded-[2.5rem]">
+                                <div className="text-[9px] font-black text-emerald-400 mb-1">산출 근거 (Leverage)</div>
+                                <div className="text-[8px] text-slate-400 leading-tight">
+                                    매출 1% 증가 시 <br />
+                                    {totalData.netIncome < 0 ? '결손금이 감소하는 효율' : '이익이 증폭되는 배율'}.<br />
+                                    현재 결손 구간이므로 {parseFloat(revImpact.sensitivityCoefficient) < 0 ? '(-)는 효율 개선' : '(+)는 스케일링'} 의미.
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 5. Strategy Meta (Composite) */}
+                        <div className="bg-indigo-600/5 p-5 rounded-[2.5rem] border border-indigo-500/20 flex flex-col justify-center text-center group relative overflow-hidden transition-all hover:border-indigo-500/40 cursor-help">
+                            <div className={`text-xs font-black mb-1 ${projectionColor}`}>{projectionMsg}</div>
+                            <div className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">
+                                누적 결손: {formatCurrency(cumulativeNetIncome)}
+                            </div>
+
+                            {/* Payback Intelligence Tooltip */}
+                            <div className="absolute inset-0 bg-[#0B1221]/95 z-20 opacity-0 group-hover:opacity-100 transition-opacity p-4 flex flex-col justify-center rounded-[2.5rem]">
+                                <div className="text-[9px] font-black text-indigo-400 mb-1 italic">전략적 회수 분석 (Payback Analysis)</div>
+                                <div className="text-[8px] text-slate-400 leading-tight">
+                                    현재 시뮬레이션의 <br />
+                                    마지막 달 '영업 흑자 폭'이 <br />
+                                    유지된다는 가정하에, <br />
+                                    남은 누적 결손을 모두 터는 <br />
+                                    시점을 역산한 결과입니다.
+                                </div>
+                            </div>
                         </div>
                     </div>
                 );
@@ -337,7 +431,7 @@ export const SimulationReport: React.FC = () => {
                                 <th className="px-4 py-4 text-right font-black text-white border-r border-white/5 bg-indigo-900/10">당기순이익</th>
 
                                 <th className="px-4 py-4 text-right font-bold text-fuchsia-400">투자/자본금</th>
-                                <th className="px-4 py-4 text-right font-bold text-yellow-400">보조금수령</th>
+                                <th className="px-4 py-4 text-right font-bold text-yellow-400" title="바우처 총 사용액 (수익형 + 자산형 합계)">보조금 집행(바우처)</th>
                                 <th className="px-4 py-4 text-right font-black text-emerald-400 bg-[#0B1221]">월말현금</th>
                             </tr>
                         </thead>

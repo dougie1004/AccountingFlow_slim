@@ -1,16 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../hooks/useAccounting';
 import { useConfig } from '../context/ConfigContext';
-import { Download, FileText, Printer, FileSpreadsheet, File, TrendingUp, TrendingDown, Zap, Calculator, Lock, Calendar } from 'lucide-react';
+import { Download, FileText, Printer, FileSpreadsheet, File, TrendingUp, TrendingDown, Zap, Calculator, Lock, Calendar, History, ShieldCheck, ShieldAlert, FileSearch, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx'; // Import sheetjs
 import { toLocalIsoDate } from '../utils/formatUtils';
+import { generateFinancialHash } from '../utils/integrity';
 
 type Tab = 'bs' | 'pl' | 'cf' | 'ce' | 'tb';
 
 import { STANDARD_ACCOUNTS, getAccountCategory, getAccountNature, isArAccount, CashPolicy } from '../constants/accounts';
 import { calculateFinancials } from '../bridge/StrategicBridge';
 
-const FinancialStatements: React.FC = () => {
+const FinancialStatements: React.FC<{ setTab?: (tab: string) => void }> = ({ setTab }) => {
     const { subLedger, config, periods, ledger, systemNow, initialCashBalance } = useAccounting();
     const { tenantInfo } = useConfig();
 
@@ -55,6 +56,13 @@ const FinancialStatements: React.FC = () => {
 
     const [startDate, setStartDate] = useState<string>(smartDates.start);
     const [endDate, setEndDate] = useState<string>(smartDates.end);
+
+    // [INTEGRITY L4] Verification State
+    const [verificationResult, setVerificationResult] = useState<{
+        status: 'IDLE' | 'VERIFIED' | 'TAMPERED' | 'ERROR';
+        message: string;
+        details?: any;
+    }>({ status: 'IDLE', message: '' });
 
     // [Sync Engine] Ensure reports follow the global system timeline
     React.useEffect(() => {
@@ -247,7 +255,7 @@ const FinancialStatements: React.FC = () => {
 
     const accounts = Array.from(movementMap.values());
 
-    const handleExport = (type: 'excel' | 'pdf') => {
+    const handleExport = async (type: 'excel' | 'pdf') => {
         if (type === 'pdf') {
             window.print();
             return;
@@ -265,7 +273,7 @@ const FinancialStatements: React.FC = () => {
                 .map(a => ({
                     Category: a.category,
                     Account: a.name,
-                    Balance: a.closing
+                    Balance: Math.round(a.closing)
                 }));
         } else if (activeTab === 'pl') {
             data = accounts
@@ -273,42 +281,119 @@ const FinancialStatements: React.FC = () => {
                 .map(a => ({
                     Category: a.category,
                     Account: a.name,
-                    PeriodMovement: (a.category === 'Revenue' ? -1 : 1) * (a.closing - a.opening)
+                    PeriodMovement: Math.round((a.category === 'Revenue' ? -1 : 1) * (a.closing - a.opening))
                 }));
         } else {
             data = accounts.map(a => ({
                 Category: a.category,
                 Account: a.name,
-                Opening: a.opening,
-                Debit: a.debit,
-                Credit: a.credit,
-                Closing: a.closing
+                Opening: Math.round(a.opening),
+                Debit: Math.round(a.debit),
+                Credit: Math.round(a.credit),
+                Closing: Math.round(a.closing)
             }));
         }
 
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        XLSX.utils.book_append_sheet(wb, ws, "Statement");
+
+        // [INTEGRITY L4] Generate Canonical Hash for Sealing
+        const hash = await generateFinancialHash(data);
+
+        const metadata = [
+            ["AccountingFlow Financial Integrity Metadata (Seal v2.0)"],
+            ["Field", "Value"],
+            ["Hash (SHA-256)", hash],
+            ["Algorithm", "Strategic Canonicalization (Zero-Tolerance)"],
+            ["Timestamp", new Date().toISOString()],
+            ["Tab", activeTab],
+            ["Start Date", startDate],
+            ["End Date", endDate],
+            ["Precision", "Integer (KRW)"]
+        ];
+        const wsMeta = XLSX.utils.aoa_to_sheet(metadata);
+        XLSX.utils.book_append_sheet(wb, wsMeta, "Integrity Metadata");
+
         XLSX.writeFile(wb, fileName);
+    };
+
+    const handleVerifyUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setVerificationResult({ status: 'IDLE', message: 'Analyzing file integrity...' });
+
+        try {
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+                try {
+                    const data = evt.target?.result;
+                    const workbook = XLSX.read(data, { type: 'binary' });
+
+                    // 1. Extract Metadata
+                    const metaSheet = workbook.Sheets["Integrity Metadata"];
+                    if (!metaSheet) {
+                        setVerificationResult({ status: 'ERROR', message: '봉인 정보(Metadata)를 찾을 수 없습니다. 외부에서 생성된 파일이거나 위변조되었습니다.' });
+                        return;
+                    }
+                    const metaAoa = XLSX.utils.sheet_to_json(metaSheet, { header: 1 }) as any[][];
+                    const storedHash = metaAoa.find(row => row[0] === "Hash (SHA-256)")?.[1];
+
+                    // 2. Extract Data for Replay
+                    const dataSheet = workbook.Sheets["Statement"];
+                    if (!dataSheet) {
+                        setVerificationResult({ status: 'ERROR', message: '회계 데이터(Statement) 시트가 누락되었습니다.' });
+                        return;
+                    }
+                    const rawData = XLSX.utils.sheet_to_json(dataSheet);
+
+                    // 3. Canonical Re-Hashing
+                    const currentHash = await generateFinancialHash(rawData);
+
+                    // 4. Verification Check
+                    if (currentHash === storedHash) {
+                        setVerificationResult({
+                            status: 'VERIFIED',
+                            message: '무결성 검증 완료. 데이터가 봉인 시점과 100% 일치하며 위변조되지 않았습니다.',
+                            details: { hash: currentHash }
+                        });
+                    } else {
+                        setVerificationResult({
+                            status: 'TAMPERED',
+                            message: '위변조 감지! 데이터가 사후 조작되었거나 엑셀 필드가 변경되었습니다. (Zero-Tolerance Violation)',
+                            details: { expected: storedHash, found: currentHash }
+                        });
+                    }
+                } catch (err) {
+                    setVerificationResult({ status: 'ERROR', message: '파일 구조 해석 중 오류가 발생했습니다.' });
+                }
+            };
+            reader.readAsBinaryString(file);
+        } catch (err) {
+            setVerificationResult({ status: 'ERROR', message: '파일을 읽는 중 시스템 오류가 발생했습니다.' });
+        }
     };
 
     // --- Financial Metrics Aggregation ---
     const plMetrics = useMemo(() => {
         // [SYNC] Use the same logic as Dashboard for 100% consistency
         const rangeTransactions = (effectiveLedger || []).filter(e => e.date >= startDate && e.date <= endDate);
-        const stats = calculateFinancials(rangeTransactions);
+        const stats = calculateFinancials(rangeTransactions, undefined, 0, undefined, true);
 
         const rev = stats.revenue || 0;
-        const exp = stats.expenses || 0;
+        const cogs = stats.cogs || 0;
+        const sga = stats.sga || 0;
+        const nonOp = stats.nonOperatingExpense || 0;
 
         return {
             revenue: rev,
-            cogs: 0,
-            sga: exp,
-            grossProfit: rev,
-            operatingIncome: rev - exp,
-            nonOpNet: 0,
-            netIncome: rev - exp
+            cogs,
+            sga,
+            grossProfit: rev - cogs,
+            operatingIncome: rev - cogs - sga,
+            nonOpNet: -nonOp,
+            netIncome: rev - cogs - sga - nonOp
         };
     }, [effectiveLedger, startDate, endDate]);
 
@@ -409,33 +494,34 @@ const FinancialStatements: React.FC = () => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/5">
-                <div>
-                    <h1 className="text-3xl font-black text-white tracking-tight">재무제표 (Financial Statements)</h1>
-                    <p className="text-slate-400 font-bold mt-1">회사의 재무 상태와 경영 실적을 분석하는 공식 보고서입니다.</p>
-                </div>
-                <div className="flex gap-2 items-center">
-                    <div className={`px-4 py-2 rounded-xl text-xs font-black border flex items-center gap-2 ${isBalanced ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse'}`}>
-                        <div className={`w-2 h-2 rounded-full ${isBalanced ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        {isBalanced ? 'Balanced' : 'Imbalanced'}
+            {/* Sticky Statement Header & Controls */}
+            <div className="sticky top-0 z-40 bg-[#0B1221]/80 backdrop-blur-md py-6 -mx-8 px-8 border-b border-white/5 space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                        <h1 className="text-3xl font-black text-white tracking-tight">재무제표 (Financial Statements)</h1>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Official Financial Reporting & Integrity Analysis</p>
                     </div>
+                    <div className="flex gap-2 items-center">
+                        <div className={`px-4 py-2 rounded-xl text-[10px] font-black border flex items-center gap-2 ${isBalanced ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse'}`}>
+                            <div className={`w-2 h-2 rounded-full ${isBalanced ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                            {isBalanced ? 'BALANCED' : 'IMBALANCED'}
+                        </div>
 
-                    <div className="flex bg-[#0B1221] p-1 rounded-xl border border-white/10 mx-2">
-                        <button
-                            onClick={() => setReportMode('provisional')}
-                            className={`px-3 py-1 text-[10px] font-black rounded-lg transition-all ${reportMode === 'provisional' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}
-                        >
-                            잠정 (Provisional)
-                        </button>
-                        <button
-                            onClick={() => setReportMode('finalized')}
-                            className={`px-3 py-1 text-[10px] font-black rounded-lg transition-all ${reportMode === 'finalized' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}
-                        >
-                            확정 (Finalized)
-                        </button>
-                    </div>
+                        <div className="flex bg-[#0B1221] p-1 rounded-xl border border-white/10 mx-2 shadow-inner">
+                            <button
+                                onClick={() => setReportMode('provisional')}
+                                className={`px-3 py-1 text-[10px] font-black rounded-lg transition-all ${reportMode === 'provisional' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                PROVISIONAL
+                            </button>
+                            <button
+                                onClick={() => setReportMode('finalized')}
+                                className={`px-3 py-1 text-[10px] font-black rounded-lg transition-all ${reportMode === 'finalized' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                FINALIZED
+                            </button>
+                        </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
                         {/* Hierarchical Period Selector */}
                         <div className="flex items-center gap-2 bg-[#0B1221] p-1.5 rounded-2xl border border-white/10 shadow-inner">
                             <Calendar size={14} className="text-indigo-500 ml-2" />
@@ -448,7 +534,7 @@ const FinancialStatements: React.FC = () => {
                                 }}
                                 className="bg-transparent text-white text-[11px] font-black outline-none cursor-pointer hover:text-indigo-400 transition-colors px-2 border-r border-white/5"
                             >
-                                {[2023, 2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y} className="bg-[#0B1221]">{y}년</option>)}
+                                {[2023, 2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y} className="bg-[#0B1221]">{y}Y</option>)}
                             </select>
 
                             <select
@@ -467,11 +553,11 @@ const FinancialStatements: React.FC = () => {
                                 }}
                                 className="bg-transparent text-slate-400 text-[11px] font-black outline-none cursor-pointer hover:text-indigo-400 transition-colors px-2 border-r border-white/5"
                             >
-                                <option value="0" className="bg-[#0B1221]">전체 분기</option>
-                                <option value="1" className="bg-[#0B1221]">1분기 (Q1)</option>
-                                <option value="2" className="bg-[#0B1221]">2분기 (Q2)</option>
-                                <option value="3" className="bg-[#0B1221]">3분기 (Q3)</option>
-                                <option value="4" className="bg-[#0B1221]">4분기 (Q4)</option>
+                                <option value="0" className="bg-[#0B1221]">ALL Q</option>
+                                <option value="1" className="bg-[#0B1221]">Q1</option>
+                                <option value="2" className="bg-[#0B1221]">Q2</option>
+                                <option value="3" className="bg-[#0B1221]">Q3</option>
+                                <option value="4" className="bg-[#0B1221]">Q4</option>
                             </select>
 
                             <select
@@ -488,63 +574,71 @@ const FinancialStatements: React.FC = () => {
                                 }}
                                 className="bg-transparent text-slate-400 text-[11px] font-black outline-none cursor-pointer hover:text-indigo-400 transition-colors px-2"
                             >
-                                <option value="0" className="bg-[#0B1221]">전체 월</option>
+                                <option value="0" className="bg-[#0B1221]">ALL M</option>
                                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                                    <option key={m} value={m} className="bg-[#0B1221]">{m}월</option>
+                                    <option key={m} value={m} className="bg-[#0B1221]">{m}M</option>
                                 ))}
                             </select>
                         </div>
-                        {/* Custom Calendar Picker */}
-                        <div className="flex items-center gap-1 bg-[#0B1221] px-1 py-1 rounded-2xl border border-white/10 shadow-inner">
-                            {activeTab !== 'bs' && (
-                                <>
-                                    <button onClick={() => shiftMonth(-1)} className="p-1 px-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-lg transition-all text-[11px] font-black">◀</button>
-                                    <div className="flex items-center gap-2 px-3 border-r border-white/5">
-                                        <input
-                                            type="date"
-                                            value={startDate}
-                                            onChange={(e) => setStartDate(e.target.value)}
-                                            className="bg-transparent text-white text-[11px] font-bold outline-none font-mono cursor-pointer"
-                                        />
-                                        <span className="text-slate-600 text-[10px] font-black">~</span>
-                                    </div>
-                                </>
-                            )}
-                            <div className="flex items-center gap-2 px-3">
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="bg-transparent text-white text-[11px] font-bold outline-none font-mono cursor-pointer"
-                                />
-                                {activeTab === 'bs' && <span className="text-slate-500 text-[10px] font-black ml-1 uppercase">기준일</span>}
-                            </div>
-                            {activeTab !== 'bs' && (
-                                <button onClick={() => shiftMonth(1)} className="p-1 px-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-lg transition-all text-[11px] font-black">▶</button>
-                            )}
-                        </div>
 
                         {/* Export Actions */}
-                        <div className="flex gap-2 ml-4">
+                        <div className="flex gap-2">
                             <button onClick={() => handleExport('excel')} className="flex items-center gap-2 px-5 py-2.5 bg-[#107C41] hover:bg-[#0e6b37] text-white rounded-2xl text-[11px] font-black transition-all shadow-lg active:scale-95"><FileSpreadsheet size={16} /> EXCEL</button>
                             <button onClick={() => handleExport('pdf')} className="flex items-center gap-2 px-5 py-2.5 bg-[#B30B00] hover:bg-[#990900] text-white rounded-2xl text-[11px] font-black transition-all shadow-lg active:scale-95"><FileText size={16} /> PDF</button>
                         </div>
                     </div>
                 </div>
+
+                {/* Tabs & Verification Area */}
+                <div className="flex flex-col md:flex-row items-end justify-between gap-4">
+                    <div className="flex gap-2 bg-[#151D2E] p-1.5 rounded-xl border border-white/5 w-fit shadow-inner">
+                        {['bs', 'pl', 'tb', 'cf', 'ce'].map(tabId => (
+                            <button
+                                key={tabId}
+                                onClick={() => setActiveTab(tabId as Tab)}
+                                className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${activeTab === tabId ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                            >
+                                {tabId === 'tb' ? '합계잔액시산표' : tabId.toUpperCase()}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* [INTEGRITY L4] Verification Zone */}
+                    <div className="flex items-center gap-4 bg-[#0B1221] p-2 pr-4 rounded-2xl border border-white/10 shadow-inner">
+                        <div className="flex flex-col items-end pr-3 border-r border-white/5">
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Sealing Engine</span>
+                            <div className="flex items-center gap-2">
+                                <div className={`w-1.5 h-1.5 rounded-full ${verificationResult.status === 'VERIFIED' ? 'bg-emerald-500 animate-pulse' : verificationResult.status === 'TAMPERED' ? 'bg-rose-500 animate-pulse' : 'bg-slate-700'}`}></div>
+                                <span className={`text-[10px] font-black ${verificationResult.status === 'VERIFIED' ? 'text-emerald-400' : verificationResult.status === 'TAMPERED' ? 'text-rose-400' : 'text-slate-400'}`}>
+                                    {verificationResult.status === 'IDLE' ? 'READY' : verificationResult.status}
+                                </span>
+                            </div>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl transition-all group">
+                            <FileSearch size={14} className="text-indigo-400 group-hover:scale-110 transition-transform" />
+                            <span className="text-[10px] font-black text-white">VERIFY</span>
+                            <input type="file" accept=".xlsx" className="hidden" onChange={handleVerifyUpload} />
+                        </label>
+                    </div>
+                </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-2 bg-[#151D2E] p-1.5 rounded-xl border border-white/5 w-fit">
-                {['bs', 'pl', 'tb', 'cf', 'ce'].map(tabId => (
-                    <button
-                        key={tabId}
-                        onClick={() => setActiveTab(tabId as Tab)}
-                        className={`px-6 py-2.5 rounded-lg text-xs font-black transition-all ${activeTab === tabId ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                    >
-                        {tabId === 'tb' ? '합계잔액시산표' : tabId.toUpperCase()}
-                    </button>
-                ))}
-            </div>
+            {/* Verification Result Toast/Banner */}
+            {verificationResult.status !== 'IDLE' && (
+                <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-300 ${verificationResult.status === 'VERIFIED' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                    verificationResult.status === 'TAMPERED' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
+                        'bg-slate-500/10 border-slate-500/20 text-slate-400'
+                    }`}>
+                    <div className="flex items-center gap-3">
+                        {verificationResult.status === 'VERIFIED' ? <ShieldCheck size={24} /> : (verificationResult.status === 'TAMPERED' ? <AlertTriangle size={24} /> : <ShieldAlert size={24} />)}
+                        <div>
+                            <p className="text-sm font-black">{verificationResult.message}</p>
+                            {verificationResult.details && <p className="text-[10px] opacity-60 font-mono mt-1 break-all">Hash: {verificationResult.details.hash || verificationResult.details.found}</p>}
+                        </div>
+                    </div>
+                    <button onClick={() => setVerificationResult({ status: 'IDLE', message: '' })} className="text-xs font-black hover:underline opacity-60">닫기</button>
+                </div>
+            )}
 
             {/* Document Content */}
             <div className="bg-white rounded-xl shadow-2xl p-10 text-black font-sans min-h-[800px] relative">
@@ -808,64 +902,70 @@ const FinancialStatements: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {accounts
-                                        .sort((a, b) => {
-                                            const sA = STANDARD_ACCOUNTS.find(s => s.name === a.name)?.sortOrder || 999;
-                                            const sB = STANDARD_ACCOUNTS.find(s => s.name === b.name)?.sortOrder || 999;
-                                            return sA - sB;
-                                        })
-                                        .map(a => {
-                                            const isDr = ['Asset', 'Expense'].includes(a.category);
-                                            // Dr Sum = (Opening if Dr) + Debit
-                                            // Cr Sum = (Opening if Cr) + Credit
-                                            const sumDr = (isDr && a.opening > 0 ? a.opening : 0) + a.debit;
-                                            const sumCr = (!isDr && a.opening > 0 ? a.opening : 0) + a.credit;
-                                            const bal = sumDr - sumCr;
+                                    {(() => {
+                                        // 1. Pre-calculate processed rows and totals for absolute consistency
+                                        const rows = accounts
+                                            .sort((a, b) => {
+                                                const sA = STANDARD_ACCOUNTS.find(s => s.name === a.name)?.sortOrder || 999;
+                                                const sB = STANDARD_ACCOUNTS.find(s => s.name === b.name)?.sortOrder || 999;
+                                                return sA - sB;
+                                            })
+                                            .map(a => {
+                                                const isDr = ['Asset', 'Expense'].includes(a.category);
 
-                                            return (
-                                                <tr key={a.name} onClick={() => setSelectedAccount(a.name)} className="cursor-pointer hover:bg-indigo-50 transition-colors group text-center">
-                                                    <td className="p-2 border-x border-gray-200 text-right font-mono font-bold text-indigo-700">
-                                                        {bal > 0 ? `₩${bal.toLocaleString()}` : ''}
-                                                    </td>
-                                                    <td className="p-2 border-x border-gray-200 text-right font-mono text-gray-500">
-                                                        {sumDr > 0 ? `₩${sumDr.toLocaleString()}` : ''}
-                                                    </td>
-                                                    <td className="p-2 border-x border-gray-200 font-bold text-gray-900 bg-gray-50/30">
-                                                        {a.name}
-                                                    </td>
-                                                    <td className="p-2 border-x border-gray-200 text-right font-mono text-gray-500">
-                                                        {sumCr > 0 ? `₩${sumCr.toLocaleString()}` : ''}
-                                                    </td>
-                                                    <td className="p-2 border-x border-gray-200 text-right font-mono font-bold text-rose-700">
-                                                        {bal < 0 ? `₩${Math.abs(bal).toLocaleString()}` : ''}
-                                                    </td>
+                                                // [FIX] Decompose opening into its Dr/Cr components based on sign and nature
+                                                // Nature logic: Assets/Expenses are Dr nature. Opening > 0 means Dr.
+                                                // Liabilities/Equity/Revenue are Cr nature. Opening > 0 means Cr.
+                                                // If Opening < 0, it moves to the opposite side.
+                                                const openingDr = isDr ? (a.opening > 0 ? a.opening : 0) : (a.opening < 0 ? Math.abs(a.opening) : 0);
+                                                const openingCr = !isDr ? (a.opening > 0 ? a.opening : 0) : (a.opening < 0 ? Math.abs(a.opening) : 0);
+
+                                                const sumDr = openingDr + a.debit;
+                                                const sumCr = openingCr + a.credit;
+                                                const bal = sumDr - sumCr;
+
+                                                return { name: a.name, sumDr, sumCr, bal };
+                                            });
+
+                                        const footTotals = rows.reduce((acc, r) => ({
+                                            balDr: acc.balDr + (r.bal > 0 ? r.bal : 0),
+                                            sumDr: acc.sumDr + r.sumDr,
+                                            sumCr: acc.sumCr + r.sumCr,
+                                            balCr: acc.balCr + (r.bal < 0 ? Math.abs(r.bal) : 0)
+                                        }), { balDr: 0, sumDr: 0, sumCr: 0, balCr: 0 });
+
+                                        return (
+                                            <>
+                                                {rows.map(r => (
+                                                    <tr key={r.name} onClick={() => setSelectedAccount(r.name)} className="cursor-pointer hover:bg-indigo-50 transition-colors group text-center">
+                                                        <td className="p-2 border-x border-gray-200 text-right font-mono font-bold text-indigo-700">
+                                                            {r.bal > 0 ? `₩${r.bal.toLocaleString()}` : ''}
+                                                        </td>
+                                                        <td className="p-2 border-x border-gray-200 text-right font-mono text-gray-500">
+                                                            {r.sumDr > 0 ? `₩${r.sumDr.toLocaleString()}` : ''}
+                                                        </td>
+                                                        <td className="p-2 border-x border-gray-200 font-bold text-gray-900 bg-gray-50/30">
+                                                            {r.name}
+                                                        </td>
+                                                        <td className="p-2 border-x border-gray-200 text-right font-mono text-gray-500">
+                                                            {r.sumCr > 0 ? `₩${r.sumCr.toLocaleString()}` : ''}
+                                                        </td>
+                                                        <td className="p-2 border-x border-gray-200 text-right font-mono font-bold text-rose-700">
+                                                            {r.bal < 0 ? `₩${Math.abs(r.bal).toLocaleString()}` : ''}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                <tr className="bg-gray-900 text-white font-black text-center sticky bottom-0">
+                                                    <td className="p-3 border-x border-white/10 text-right">₩{footTotals.balDr.toLocaleString()}</td>
+                                                    <td className="p-3 border-x border-white/10 text-right">₩{footTotals.sumDr.toLocaleString()}</td>
+                                                    <td className="p-3 border-x border-white/10">합계 (Total)</td>
+                                                    <td className="p-3 border-x border-white/10 text-right">₩{footTotals.sumCr.toLocaleString()}</td>
+                                                    <td className="p-3 border-x border-white/10 text-right">₩{footTotals.balCr.toLocaleString()}</td>
                                                 </tr>
-                                            );
-                                        })}
+                                            </>
+                                        );
+                                    })()}
                                 </tbody>
-                                <tfoot>
-                                    <tr className="bg-gray-900 text-white font-black text-center">
-                                        <td className="p-3 border-x border-white/10 text-right">₩{accounts.reduce((s, a) => {
-                                            const isDr = ['Asset', 'Expense'].includes(a.category);
-                                            const bal = ((isDr && a.opening > 0 ? a.opening : 0) + a.debit) - ((!isDr && a.opening > 0 ? a.opening : 0) + a.credit);
-                                            return s + (bal > 0 ? bal : 0);
-                                        }, 0).toLocaleString()}</td>
-                                        <td className="p-3 border-x border-white/10 text-right">₩{accounts.reduce((s, a) => {
-                                            const isDr = ['Asset', 'Expense'].includes(a.category);
-                                            return s + ((isDr && a.opening > 0 ? a.opening : 0) + a.debit);
-                                        }, 0).toLocaleString()}</td>
-                                        <td className="p-3 border-x border-white/10">합계 (Total)</td>
-                                        <td className="p-3 border-x border-white/10 text-right">₩{accounts.reduce((s, a) => {
-                                            const isDr = ['Asset', 'Expense'].includes(a.category);
-                                            return s + ((!isDr && a.opening > 0 ? a.opening : 0) + a.credit);
-                                        }, 0).toLocaleString()}</td>
-                                        <td className="p-3 border-x border-white/10 text-right">₩{accounts.reduce((s, a) => {
-                                            const isDr = ['Asset', 'Expense'].includes(a.category);
-                                            const bal = ((isDr && a.opening > 0 ? a.opening : 0) + a.debit) - ((!isDr && a.opening > 0 ? a.opening : 0) + a.credit);
-                                            return s + (bal < 0 ? Math.abs(bal) : 0);
-                                        }, 0).toLocaleString()}</td>
-                                    </tr>
-                                </tfoot>
                             </table>
                         </div>
                     )}
@@ -1121,7 +1221,14 @@ const FinancialStatements: React.FC = () => {
                                         <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Grouped Transaction History</p>
                                     </div>
                                 </div>
-                                <button onClick={() => setSelectedAccount(null)} className="p-2 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-900 transition-colors">
+                                <button onClick={() => {
+                                    setSelectedAccount(null);
+                                    const returnTab = localStorage.getItem('fs_return_tab');
+                                    if (returnTab) {
+                                        localStorage.removeItem('fs_return_tab');
+                                        setTab?.(returnTab);
+                                    }
+                                }} className="p-2 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-900 transition-colors">
                                     <span className="sr-only">Close</span>
                                     <div className="text-2xl leading-none">&times;</div>
                                 </button>
@@ -1171,12 +1278,16 @@ const FinancialStatements: React.FC = () => {
                                         <tr className="bg-yellow-50/50">
                                             <td className="p-4 font-mono text-xs text-gray-400">-</td>
                                             <td className="p-4 font-mono text-xs text-gray-400">-</td>
-                                            <td className="p-4 font-bold text-gray-500 italic">기초 잔액 (Opening Balance)</td>
+                                            <td className="p-4 font-bold text-gray-500 italic">
+                                                {selectedAccount === '이익잉여금' ? '전기이월 이익잉여금 (Accumulated P&L)' : '기초 잔액 (Opening Balance Brought Forward)'}
+                                            </td>
                                             <td className="p-4 font-mono text-xs text-gray-400">-</td>
                                             <td className="p-4 text-gray-400">-</td>
                                             <td className="p-4 text-right font-mono text-gray-400 border-l border-gray-100">-</td>
                                             <td className="p-4 text-right font-mono text-gray-400">-</td>
-                                            <td className="p-4 text-right font-mono font-bold text-slate-700 bg-slate-50 border-l border-gray-100">₩0</td>
+                                            <td className={`p-4 text-right font-mono font-black border-l border-gray-100 ${opening > 0 ? 'text-indigo-600' : opening < 0 ? 'text-rose-600' : 'text-gray-400'}`}>
+                                                ₩{opening.toLocaleString()}
+                                            </td>
                                         </tr>
 
                                         {Object.entries(grouped).map(([slipId, groupRows]) => {
@@ -1221,21 +1332,60 @@ const FinancialStatements: React.FC = () => {
                                         })}
 
                                         {finalRows.length === 0 && (
-                                            <tr><td colSpan={8} className="p-12 text-center text-gray-400 italic">No transactions found during this period.</td></tr>
+                                            <tr>
+                                                <td colSpan={8} className="p-20 text-center">
+                                                    <div className="flex flex-col items-center gap-4">
+                                                        <History className="text-gray-200" size={48} />
+                                                        <div className="max-w-md mx-auto">
+                                                            <p className="text-gray-500 font-bold">해당 기간 내 신규 거래 내역이 없습니다.</p>
+                                                            {selectedAccount === '이익잉여금' && (
+                                                                <p className="text-gray-400 text-xs mt-2 leading-relaxed">
+                                                                    이익잉여금은 전기(이전 연도)의 누적 당기순이익이 자본으로 전입된 수치입니다. <br />
+                                                                    현재 표시된 <span className="text-indigo-600 font-black">₩{opening.toLocaleString()}</span>은 과거 결산 결과가 이월된 기초 잔액입니다.
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         )}
                                     </tbody>
                                     <tfoot className="sticky bottom-0 bg-gray-900 text-white z-10 shadow-lg">
                                         <tr className="text-sm">
-                                            <td colSpan={5} className="p-4 font-black text-right uppercase tracking-in-expand">기간 합계</td>
+                                            <td colSpan={5} className="p-4 font-black text-right uppercase tracking-in-expand">
+                                                {selectedAccount === 'GROUP:BURN_RATE' ? '기간 총 지출 (Total Outflow)' : '기간 합계'}
+                                            </td>
                                             <td className="p-4 text-right font-mono font-bold text-emerald-400 border-l border-gray-700">₩{overallDr.toLocaleString()}</td>
                                             <td className="p-4 text-right font-mono font-bold text-rose-400">₩{overallCr.toLocaleString()}</td>
-                                            <td className="p-4 text-right font-mono font-black text-lg bg-gray-800 border-l border-gray-700">₩{overallNetImpact.toLocaleString()}</td>
+                                            <td className="p-4 text-right font-mono font-black text-lg bg-gray-800 border-l border-gray-700">
+                                                ₩{overallNetImpact.toLocaleString()}
+                                            </td>
                                         </tr>
+                                        {selectedAccount === 'GROUP:BURN_RATE' && (
+                                            <tr className="bg-rose-950/80 text-rose-200 text-[11px] font-black border-t border-rose-900/50">
+                                                <td colSpan={8} className="p-3 px-10 text-right uppercase tracking-widest">
+                                                    {(() => {
+                                                        const start = new Date(startDate);
+                                                        const end = new Date(endDate);
+                                                        const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+                                                        const monthlyBurn = (overallDr / days) * 30.41;
+                                                        return `선택 기간 분석: 총 ${days}일간 지출 | 월평균 환산액: ₩${Math.round(monthlyBurn).toLocaleString()} (대시보드 기준)`;
+                                                    })()}
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tfoot>
                                 </table>
                             </div>
                             <div className="p-4 border-t border-gray-100 bg-gray-50 text-right flex justify-end gap-3">
-                                <button onClick={() => setSelectedAccount(null)} className="px-6 py-2 bg-gray-900 text-white rounded-lg font-bold text-sm hover:bg-black transition-colors shadow-lg shadow-gray-200">상세 보기 닫기 (Close)</button>
+                                <button onClick={() => {
+                                    setSelectedAccount(null);
+                                    const returnTab = localStorage.getItem('fs_return_tab');
+                                    if (returnTab) {
+                                        localStorage.removeItem('fs_return_tab');
+                                        setTab?.(returnTab);
+                                    }
+                                }} className="px-6 py-2 bg-gray-900 text-white rounded-lg font-bold text-sm hover:bg-black transition-colors shadow-lg shadow-gray-200">상세 보기 닫기 (Close)</button>
                             </div>
                         </div>
                     </div>

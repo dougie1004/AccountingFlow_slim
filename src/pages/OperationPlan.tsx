@@ -5,9 +5,10 @@ import { STANDARD_ACCOUNTS } from '../constants/accounts';
 import { BudgetItem } from '../types';
 import { Calendar, Save, RotateCcw, TrendingUp, AlertCircle, CheckCircle2, DollarSign, Calculator, Target } from 'lucide-react';
 import { formatCurrency } from '../utils/formatUtils';
+import { PremiumMonthPicker } from '../components/ui/PremiumMonthPicker';
 
 export const OperationPlan: React.FC = () => {
-    const { budgets, setBudget, ledger } = useAccounting();
+    const { budgets, setBudget, ledger, systemNow } = useAccounting();
 
     // 1. Selector State
     const [selectedPeriod, setSelectedPeriod] = useState(() => {
@@ -67,7 +68,7 @@ export const OperationPlan: React.FC = () => {
         const newItems = draftItems.map(item => {
             // Find actuals from ledger for previous period
             const actual = ledger
-                .filter(e => e.date.startsWith(prevPeriod) && e.status === 'Approved')
+                .filter(e => (!systemNow || e.date <= systemNow) && e.date.startsWith(prevPeriod) && e.status === 'Approved')
                 .filter(e => e.debitAccount === item.accountCategory || e.description.includes(item.accountCategory))
                 .reduce((sum, e) => sum + e.amount, 0);
 
@@ -81,8 +82,20 @@ export const OperationPlan: React.FC = () => {
         alert(`💡 지난 달(${prevPeriod}) 실적을 기반으로 예산안을 제안했습니다.`);
     };
 
-    // 6. Summary Metrics of the Draft
+    // 6. Summary Metrics of the Draft & Actuals
+    const actualItems = useMemo(() => {
+        return expenseAccounts.map(acc => {
+            const actual = ledger
+                .filter(e => (!systemNow || e.date <= systemNow) && e.date.startsWith(selectedPeriod) && e.status === 'Approved')
+                .filter(e => e.debitAccount === acc.name || e.description.includes(acc.name))
+                .reduce((sum, e) => sum + e.amount, 0);
+            return { accountCategory: acc.name, actualAmount: actual };
+        });
+    }, [selectedPeriod, ledger, expenseAccounts, systemNow]);
+
     const totalBudget = draftItems.reduce((sum, i) => sum + i.budgetAmount, 0);
+    const totalActual = actualItems.reduce((sum, i) => sum + i.actualAmount, 0);
+    const totalVariance = totalBudget - totalActual;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
@@ -90,103 +103,141 @@ export const OperationPlan: React.FC = () => {
                 <div>
                     <h2 className="text-3xl font-black text-white flex items-center gap-3">
                         <Target className="text-rose-500" size={32} />
-                        운영 계획 수립 (Operation Plan)
+                        운영 계획 및 실적 분석 (BvA Analysis)
                     </h2>
                     <p className="text-slate-500 font-bold mt-1">
-                        월별 예산(Budget)을 설정하여 계획 대비 실적(BvA) 분석을 수행합니다.
+                        월별 예산(Budget) 대비 실제 지출(Actual) 내역을 비교 분석하여 재무 건전성을 점검합니다.
                     </p>
                 </div>
-                <div className="flex bg-[#151D2E] p-1 rounded-2xl border border-white/5">
-                    <input
-                        type="month"
-                        value={selectedPeriod}
-                        onChange={(e) => setSelectedPeriod(e.target.value)}
-                        className="bg-transparent text-white font-black px-4 py-2 border-none focus:ring-0 outline-none"
-                    />
-                </div>
+                <PremiumMonthPicker
+                    value={selectedPeriod}
+                    onChange={(date) => setSelectedPeriod(date)}
+                />
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Summary Card */}
-                <div className="bg-[#151D2E] p-8 rounded-[2.5rem] border border-white/5 flex flex-col justify-center items-center text-center">
-                    <div className="w-16 h-16 bg-rose-500/20 rounded-full flex items-center justify-center text-rose-500 mb-4 shadow-xl shadow-rose-500/20">
-                        <DollarSign size={32} />
+                <div className="bg-[#151D2E] p-8 rounded-[2.5rem] border border-white/5 flex flex-col justify-between relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-6 opacity-5 text-rose-500 group-hover:scale-110 transition-transform">
+                        <Calculator size={100} />
                     </div>
-                    <div className="text-sm font-black text-slate-500 uppercase tracking-widest mb-2">Total Budget</div>
-                    <div className="text-4xl font-black text-white tracking-tighter">
-                        {formatCurrency(totalBudget)}
+                    <div>
+                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Budget vs Actual Summary</div>
+
+                        <div className="space-y-6">
+                            <div>
+                                <div className="text-[10px] font-bold text-slate-400 mb-1">Total Plan (Budget)</div>
+                                <div className="text-3xl font-black text-white tracking-tighter">{formatCurrency(totalBudget)}</div>
+                            </div>
+                            <div>
+                                <div className="text-[10px] font-bold text-slate-400 mb-1">Total Spend (Actual)</div>
+                                <div className="text-3xl font-black text-indigo-400 tracking-tighter">{formatCurrency(totalActual)}</div>
+                            </div>
+                            <div className={`p-4 rounded-2xl border ${totalVariance >= 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                                <div className="text-[10px] font-bold text-slate-400 mb-1">Variance (Savings)</div>
+                                <div className={`text-2xl font-black ${totalVariance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {totalVariance >= 0 ? '+' : ''}{formatCurrency(totalVariance)}
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div className="mt-4 flex gap-2 w-full">
+
+                    <div className="mt-8 space-y-3">
                         <button
                             onClick={handleAutoSuggest}
-                            className="flex-1 py-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs font-black rounded-xl border border-indigo-500/20 transition-all flex items-center justify-center gap-2"
+                            className="w-full py-4 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs font-black rounded-2xl border border-indigo-500/20 transition-all flex items-center justify-center gap-2 shadow-lg"
                         >
                             <Calculator size={14} />
-                            AI 자동 제안
+                            AI 지출 데이터 기반 예산 제안
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={!isDirty}
+                            className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-xs transition-all shadow-xl ${isDirty
+                                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20 active:scale-95'
+                                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                }`}
+                        >
+                            <Save size={16} />
+                            운영 계획 확정 저장
                         </button>
                     </div>
                 </div>
 
                 {/* Budget Form */}
-                <div className="lg:col-span-2 bg-[#151D2E] rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col">
+                <div className="lg:col-span-3 bg-[#151D2E] rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col shadow-2xl">
                     <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0B1221]/50">
                         <h3 className="text-lg font-black text-white flex items-center gap-2">
-                            <Calendar size={18} className="text-slate-400" /> {selectedPeriod} 예산 상세 설정
+                            <Target size={18} className="text-rose-500" /> 세부 지출 계획 및 집행 현황 ({selectedPeriod})
                         </h3>
                         {isDirty && (
-                            <span className="text-[10px] font-black text-amber-500 flex items-center gap-1 animate-pulse">
-                                <AlertCircle size={10} /> Unsaved Changes
+                            <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[10px] font-black text-amber-500 flex items-center gap-1 animate-pulse">
+                                <AlertCircle size={10} /> 수정 중 (저장 필요)
                             </span>
                         )}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto max-h-[600px] p-2">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="sticky top-0 bg-[#151D2E] z-10 shadow-sm">
+                    <div className="flex-1 overflow-y-auto max-h-[600px] p-2 custom-scrollbar">
+                        <table className="w-full text-left border-separate border-spacing-0">
+                            <thead className="sticky top-0 bg-[#0B1221] z-10">
                                 <tr className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                    <th className="px-6 py-3">계정 과목 (Account)</th>
-                                    <th className="px-6 py-3 text-right">예산 금액 (Plan)</th>
+                                    <th className="px-6 py-4 border-b border-white/5">계정 과목</th>
+                                    <th className="px-6 py-4 border-b border-white/5 text-right">계획 (PLAN)</th>
+                                    <th className="px-6 py-4 border-b border-white/5 text-right">집행 (ACTUAL)</th>
+                                    <th className="px-6 py-4 border-b border-white/5 text-right">차이 (DIFF)</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {draftItems.map((item) => (
-                                    <tr key={item.accountCategory} className="group hover:bg-white/[0.02] transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="text-sm font-bold text-slate-300">{item.accountCategory}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <input
-                                                    type="number"
-                                                    value={item.budgetAmount}
-                                                    onChange={(e) => handleAmountChange(item.accountCategory, Number(e.target.value))}
-                                                    className="bg-[#0B1221] text-white text-right font-black px-4 py-2 rounded-xl border border-white/10 focus:ring-1 focus:ring-rose-500 outline-none w-48 transition-all group-hover:border-white/20"
-                                                    step={10000}
-                                                />
-                                                <span className="text-slate-600 text-xs font-bold w-4">원</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {draftItems.map((item) => {
+                                    const actual = actualItems.find(a => a.accountCategory === item.accountCategory)?.actualAmount || 0;
+                                    const diff = item.budgetAmount - actual;
+                                    const isOver = diff < 0;
+
+                                    return (
+                                        <tr key={item.accountCategory} className="group hover:bg-white/[0.02] transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="text-sm font-bold text-slate-300">{item.accountCategory}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <input
+                                                        type="number"
+                                                        value={item.budgetAmount}
+                                                        onChange={(e) => handleAmountChange(item.accountCategory, Number(e.target.value))}
+                                                        className="bg-[#0B1221] text-white text-right font-black px-4 py-2 rounded-xl border border-white/10 focus:ring-1 focus:ring-rose-500 outline-none w-36 transition-all group-hover:border-white/20"
+                                                        step={10000}
+                                                    />
+                                                    <span className="text-slate-600 text-[10px] font-bold w-4">원</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="text-sm font-black text-indigo-400">
+                                                    {formatCurrency(actual)}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className={`text-sm font-black flex items-center justify-end gap-1 ${isOver ? 'text-rose-400' : diff > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                                                    {isOver ? <TrendingUp size={12} className="rotate-0" /> : diff > 0 ? <TrendingUp size={12} className="rotate-180" /> : null}
+                                                    {formatCurrency(Math.abs(diff))}
+                                                    <span className="text-[10px] opacity-70 ml-1">
+                                                        {isOver ? '(초과)' : diff > 0 ? '(절감)' : ''}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
 
-                    <div className="p-6 border-t border-white/5 bg-[#0B1221]/30 flex justify-end">
-                        <button
-                            onClick={handleSave}
-                            disabled={!isDirty}
-                            className={`flex items-center gap-2 px-8 py-4 rounded-2xl font-black text-sm transition-all shadow-xl ${isDirty
-                                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20 active:scale-95'
-                                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                }`}
-                        >
-                            <Save size={18} />
-                            운영 계획 저장하기
-                        </button>
+                    <div className="p-4 bg-rose-500/5 text-center">
+                        <p className="text-[10px] text-rose-400 font-bold flex items-center justify-center gap-1">
+                            <AlertCircle size={10} /> 집행 금액은 현재 장부(Ledger)에 기록되어 승인된 실지출 데이터를 기반으로 자동 집계됩니다.
+                        </p>
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };

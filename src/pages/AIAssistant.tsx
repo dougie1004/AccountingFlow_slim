@@ -28,7 +28,7 @@ export default function AIAssistant() {
     const [messages, setMessages] = useState<Message[]>([
         {
             role: "bot",
-            content: "반갑습니다. AI 감사 분석관입니다. 대량의 데이터에서 리스크 패턴을 찾거나, 경영진 보고를 위한 핵심 요약이 필요하시면 언제든 말씀해 주세요."
+            content: "반갑습니다. AI 경영 분석관입니다. 대량의 데이터에서 리스크 패턴을 찾거나, 경영진 보고를 위한 핵심 요약이 필요하시면 언제든 말씀해 주세요."
         }
     ]);
     const [input, setInput] = useState("");
@@ -88,7 +88,7 @@ export default function AIAssistant() {
                         <Sparkles className="text-white" size={24} />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-black text-white tracking-tight">AI Audit Assistant</h1>
+                        <h1 className="text-3xl font-black text-white tracking-tight">AI Strategic Assistant</h1>
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mt-1">Enterprise-Grade Forensic Engine</p>
                     </div>
                 </div>
@@ -125,7 +125,7 @@ export default function AIAssistant() {
                             </div>
                             <div className={`mt-2 flex items-center gap-2 px-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">
-                                    {msg.role === "bot" ? "AI ANALYST • ACTIVE" : "AUDITOR • VERIFIED"}
+                                    {msg.role === "bot" ? "AI ANALYST • ACTIVE" : "MANAGER • VERIFIED"}
                                 </span>
                             </div>
                         </div>

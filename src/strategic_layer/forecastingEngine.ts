@@ -171,6 +171,7 @@ export const generateCashForecast = (
             variableExpensesEstimate: Math.round(variableEstimate),
             revenueEstimate: Math.round(projectedInflow),
             isBudgetBased,
+            unplannedLiabilityAmount: 0, // Placeholder to be overriden by bridge if needed
             simulationDisclaimer: viewMode === 'ROSE'
                 ? '가정: 공격적 성장 및 비용 효율화가 달성된 장밋빛 시나리오입니다.'
                 : '가정: 성장이 정체되고 운영 비용이 상승하는 현실적 가디언 시나리오입니다.'

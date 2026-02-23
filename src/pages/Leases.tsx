@@ -16,7 +16,8 @@ import {
 } from 'lucide-react';
 
 export const Leases: React.FC = () => {
-    const { leases, addLease, addAsset, ledger, addEntries } = useAccounting();
+    const { leases: rawLeases, addLease, addAsset, ledger, addEntries, systemNow } = useAccounting();
+    const leases = useMemo(() => rawLeases.filter(l => !systemNow || l.startDate <= systemNow), [rawLeases, systemNow]);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     // New Lease Form State

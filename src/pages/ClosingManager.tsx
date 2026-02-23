@@ -17,6 +17,7 @@ import {
     RefreshCw
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatUtils';
+import { PremiumMonthPicker } from '../components/ui/PremiumMonthPicker';
 
 export const ClosingManager: React.FC = () => {
     const { ledger, periods, closingRecords, performClosing, runAutoDepreciation, systemNow } = useAccounting();
@@ -25,6 +26,7 @@ export const ClosingManager: React.FC = () => {
     const [selectedPeriod, setSelectedPeriod] = useState(() => {
         return systemNow.substring(0, 7);
     });
+    const [isClosing, setIsClosing] = useState(false);
     const [closingNote, setClosingNote] = useState('');
 
     const periodStatus = useMemo(() => {
@@ -36,29 +38,42 @@ export const ClosingManager: React.FC = () => {
         return runClosingPrecheck(ledger, selectedPeriod);
     }, [ledger, selectedPeriod, periodStatus]);
 
-    const handleClosing = () => {
+    const handleClosing = async () => {
+        if (isClosing) return;
         if (!precheckResult || precheckResult.errors.length > 0) return;
         if (!closingNote.trim()) {
-            alert('결산 메모를 입력해주세요. (감사 증적을 위해 필수입니다)');
+            alert('결산 메모를 입력해주세요. (결산 증적을 위해 필수입니다)');
             return;
         }
 
         const confirmMsg = `[결산 확정] ${selectedPeriod} 기간을 마감하시겠습니까?\n마감 후에는 해당 기간의 전표 수정 및 정산이 불가능합니다.`;
         if (window.confirm(confirmMsg)) {
-            performClosing(selectedPeriod, closingNote, 'Admin User');
-            setClosingNote('');
+            setIsClosing(true);
+            try {
+                await performClosing(selectedPeriod, closingNote, 'Admin User');
+                setClosingNote('');
+                alert(`✅ ${selectedPeriod} 결산이 성공적으로 완료되었습니다. 경영 리포트가 생성되었습니다.`);
+            } catch (error) {
+                console.error("Closing failed:", error);
+                alert('결산 도중 요류가 발생했습니다. AI 엔진 응답을 확인해주세요.');
+            } finally {
+                setIsClosing(false);
+            }
         }
     };
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-            <header className="flex justify-between items-end">
+            {/* Sticky Page Header */}
+            <header className="sticky top-0 z-40 bg-[#0B1221]/80 backdrop-blur-md py-6 -mx-8 px-8 border-b border-white/5 flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                     <h2 className="text-3xl font-black text-white flex items-center gap-3">
                         <Lock className="text-indigo-500" size={32} />
-                        결산 및 마감 관리 (Period Closing)
+                        결산 및 마감 관리 (Closing)
                     </h2>
-                    <p className="text-slate-500 font-bold mt-1">회계 기간을 공식적으로 확정하고 데이터 수정을 차단합니다.</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                        Fiscal Period Finalization & Integrity Sealing
+                    </p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                     <div className="flex items-center gap-3 px-4 py-2 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
@@ -68,14 +83,10 @@ export const ClosingManager: React.FC = () => {
                         </div>
                         <Clock className="text-indigo-400" size={18} />
                     </div>
-                    <div className="flex bg-[#151D2E] p-1 rounded-2xl border border-white/5 shadow-inner">
-                        <input
-                            type="month"
-                            value={selectedPeriod}
-                            onChange={(e) => setSelectedPeriod(e.target.value)}
-                            className="bg-transparent text-white font-black px-4 py-2 border-none focus:ring-0 outline-none cursor-pointer"
-                        />
-                    </div>
+                    <PremiumMonthPicker
+                        value={selectedPeriod}
+                        onChange={(date) => setSelectedPeriod(date)}
+                    />
                 </div>
             </header>
 
@@ -183,7 +194,7 @@ export const ClosingManager: React.FC = () => {
                             {/* Closing Form */}
                             <div className="pt-6 border-t border-white/5 space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">결산 메모 (Audit Note)</label>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">결산 메모 (담당자 노트)</label>
                                     <textarea
                                         value={closingNote}
                                         onChange={(e) => setClosingNote(e.target.value)}
@@ -193,14 +204,25 @@ export const ClosingManager: React.FC = () => {
                                 </div>
                                 <button
                                     onClick={handleClosing}
-                                    disabled={!precheckResult || precheckResult.errors.length > 0}
-                                    className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${precheckResult && precheckResult.errors.length === 0
-                                        ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-xl shadow-indigo-600/20 active:scale-[0.98]'
-                                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                    disabled={isClosing || !precheckResult || precheckResult.errors.length > 0}
+                                    className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${isClosing
+                                            ? 'bg-slate-700 text-slate-400 cursor-wait'
+                                            : precheckResult && precheckResult.errors.length === 0
+                                                ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-xl shadow-indigo-600/20 active:scale-[0.98]'
+                                                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                                         }`}
                                 >
-                                    {precheckResult && precheckResult.errors.length === 0 ? <Lock size={18} /> : <AlertCircle size={18} />}
-                                    {selectedPeriod} 결산 공식 실행
+                                    {isClosing ? (
+                                        <>
+                                            <RefreshCw size={18} className="animate-spin" />
+                                            {selectedPeriod} AI 결산 분석 중...
+                                        </>
+                                    ) : (
+                                        <>
+                                            {precheckResult && precheckResult.errors.length === 0 ? <Lock size={18} /> : <AlertCircle size={18} />}
+                                            {selectedPeriod} 결산 공식 실행
+                                        </>
+                                    )}
                                 </button>
                                 <p className="text-center text-[10px] font-bold text-slate-600">결산 이후에는 해당 기간의 모든 데이터 수정 권한이 소멸됩니다.</p>
                             </div>

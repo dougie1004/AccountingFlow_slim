@@ -13,24 +13,34 @@ static CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
         .unwrap_or_default()
 });
 
-fn get_ai_model() -> String {
-    // Try GEMINI_MODEL first (latest recommendation), fallback to AI_MODEL_NAME
+fn get_ai_model(tier: &str) -> String {
+    // CFO Strategy Implementation:
+    // 1. "Pro" Tier: Deep Analysis & Risk Detection (High precision, higher cost)
+    if tier.eq_ignore_ascii_case("Pro") || tier.eq_ignore_ascii_case("Deep Analysis") {
+        return std::env::var("GEMINI_PRO_MODEL")
+            .unwrap_or_else(|_| "gemini-2.5-pro".to_string());
+    }
+    
+    // 2. "Flash" / Default Tier: Data Extraction & General Tasks (Cost-effective, high speed)
     std::env::var("GEMINI_MODEL")
         .or_else(|_| std::env::var("AI_MODEL_NAME"))
         .unwrap_or_else(|_| "gemini-2.0-flash".to_string())
 }
 
-/// GCP INTEGRITY MODE: Skeleton Request for Journal AI
 pub async fn call_journal_ai(
     prompt: &str,
     media: Option<(Vec<u8>, String)>,
     policy: &str,
     _tenant_id: &str,
-    _tier: &str,
+    tier: &str,
+    custom_api_key: Option<String>,
 ) -> Result<Vec<ParsedTransaction>, String> {
-    let api_key = env::var("GEMINI_API_KEY").map_err(|_| "GEMINI_API_KEY missing".to_string())?;
+    let api_key = match custom_api_key {
+        Some(key) if !key.trim().is_empty() => key,
+        _ => env::var("GEMINI_API_KEY").map_err(|_| "GEMINI_API_KEY missing. Please set it in Settings.".to_string())?
+    };
     let api_key = api_key.trim().replace('"', ""); 
-    let mut model_name = get_ai_model().trim().to_string();
+    let mut model_name = get_ai_model(tier).trim().to_string();
 
     if !model_name.starts_with("models/") {
         model_name = format!("models/{}", model_name);
@@ -73,6 +83,9 @@ pub async fn call_journal_ai(
 
     if !status.is_success() {
         eprintln!("🚨 [Gemini RAW ERROR] Status: {}, Body: {}", status, body_text);
+        if body_text.contains("API_KEY_INVALID") || body_text.contains("API key expired") {
+            return Err("🔑 [치명적 오류] 구글 정책에 의해 Gemini API 키가 거부되었습니다 (만료, 삭제 또는 한도 초과). 설정에서 새로운 API 키를 등록해주세요.".to_string());
+        }
         return Err(format!("AI_SERVER_ERROR_{}: {}", status, body_text));
     }
 
@@ -164,7 +177,8 @@ pub async fn extract_transaction_from_media(bytes: Vec<u8>, mime: &str) -> Resul
     Return a JSON List if multiple items detected.
     "#;
     
-    call_journal_ai("Analyze this document and extract transaction data.", Some((bytes, mime.to_string())), system_instruction, "default", "Pro").await
+    // Use Flash tier for basic extraction (Image -> JSON) to optimize cost
+    call_journal_ai("Analyze this document and extract transaction data.", Some((bytes, mime.to_string())), system_instruction, "default", "Flash", None).await
 }
 
 pub async fn perform_ai_audit(transactions: Vec<ParsedTransaction>, context: String) -> Result<Vec<ParsedTransaction>, String> {
@@ -197,15 +211,22 @@ pub async fn perform_ai_audit(transactions: Vec<ParsedTransaction>, context: Str
     A single JSON List of the updated transaction objects.
     "#;
 
-    call_journal_ai(&prompt, None, system_instruction, "default", "Pro").await
+    call_journal_ai(&prompt, None, system_instruction, "default", "Pro", None).await
 }
 
-pub async fn generic_ai_chat(prompt: &str, system_context: Option<String>) -> Result<String, String> {
+pub async fn generic_ai_chat(
+    prompt: &str, 
+    system_context: Option<String>,
+    custom_api_key: Option<String>,
+) -> Result<String, String> {
     let system_instruction = system_context.unwrap_or_else(|| "You are a helpful AI assistant.".to_string());
     
-    let api_key = env::var("GEMINI_API_KEY").map_err(|_| "GEMINI_API_KEY missing".to_string())?;
+    let api_key = match custom_api_key {
+        Some(key) if !key.trim().is_empty() => key,
+        _ => env::var("GEMINI_API_KEY").map_err(|_| "GEMINI_API_KEY missing. Please set it in Settings.".to_string())?
+    };
     let api_key = api_key.trim().replace('"', ""); 
-    let mut model_name = get_ai_model().trim().to_string();
+    let mut model_name = get_ai_model("default").trim().to_string();
     if !model_name.starts_with("models/") { model_name = format!("models/{}", model_name); }
     
     let client = &*CLIENT;
@@ -221,11 +242,32 @@ pub async fn generic_ai_chat(prompt: &str, system_context: Option<String>) -> Re
     let url = format!("https://generativelanguage.googleapis.com/v1beta/{}:generateContent?key={}", model_name, api_key);
     let res = client.post(url).json(&body).send().await.map_err(|e| e.to_string())?;
     
-    let res_json: Value = res.json().await.map_err(|e| e.to_string())?;
-    let text = res_json["candidates"][0]["content"]["parts"][0]["text"]
-        .as_str()
-        .unwrap_or("No response")
-        .to_string();
-        
-    Ok(text)
+    let status = res.status();
+    let res_text = res.text().await.unwrap_or_else(|_| "No body".to_string());
+
+    if !status.is_success() {
+        eprintln!("🚨 [Gemini Chat RAW ERROR] Status: {}, Body: {}", status, res_text);
+        if res_text.contains("API_KEY_INVALID") || res_text.contains("API key expired") {
+            return Err("🔑 Google Gemini API 키가 올바르지 않거나 만료되었습니다 (Google API 정책에 의해 정지되었거나 삭제되었을 수 있습니다). \n설정 및 소스코드(.env)에서 활성화된 새 API 키로 교체해 주세요.".to_string());
+        }
+        return Err(format!("AI_SERVER_ERROR_{}: {}", status, res_text));
+    }
+
+    let res_json: Value = serde_json::from_str(&res_text).map_err(|e| format!("JSON Parse Error: {}", e))?;
+    
+    // Check for safety filters or other finish reasons
+    if let Some(candidates) = res_json["candidates"].as_array() {
+        if candidates.is_empty() {
+             return Err("Gemini returned no candidates. This usually happens when safety filters block the response or the model is overloaded.".to_string());
+        }
+
+        let text = candidates[0]["content"]["parts"][0]["text"]
+            .as_str()
+            .ok_or_else(|| "AI response text part is missing. Check 'finishReason' in raw logs.".to_string())?
+            .to_string();
+            
+        Ok(text)
+    } else {
+        Err(format!("Malformed Gemini response: {}", res_text))
+    }
 }

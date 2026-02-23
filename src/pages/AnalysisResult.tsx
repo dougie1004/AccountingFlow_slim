@@ -141,12 +141,12 @@ export default function AnalysisResult({ onBack }: { onBack: () => void }) {
     };
 
     const handleSendEmail = (issue: AuditIssue) => {
-        const subject = `[감사 소명 요청] ${issue.issue_title} 관련 확인 요청`;
+        const subject = `[확인 요청] ${issue.issue_title} 관련 확인 요청`;
         const body = `
 수신: 관련 담당자
-참조: 감사팀
+참조: 경영관리팀
 
-귀 부서의 지출 내역 감사 중 아래와 같은 특이사항이 발견되었습니다.
+귀 부서의 지출 내역 검토 중 아래와 같은 특이사항이 발견되었습니다.
 
 1. 발견 항목: ${issue.issue_title}
 2. 상세 내용: ${issue.description}
@@ -203,7 +203,7 @@ export default function AnalysisResult({ onBack }: { onBack: () => void }) {
                             <ArrowLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" /> {location.state ? 'BACK TO DASHBOARD' : 'COMMAND CENTER'}
                         </button>
                         <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                            <Fingerprint className="w-5 h-5 text-blue-600" /> AI 정밀 탐지 리포트
+                            <Fingerprint className="w-5 h-5 text-blue-600" /> AI 경영 정밀 분석 리포트
                         </h2>
                         {location.state && (
                             <button
@@ -273,7 +273,7 @@ export default function AnalysisResult({ onBack }: { onBack: () => void }) {
                                 <Card className="bg-red-50/50 border-red-100 p-4 flex items-start gap-3">
                                     <AlertTriangle className="w-5 h-5 text-red-500 mt-1 shrink-0" />
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-1">AUDIT SOURCE</span>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-1">DATA SOURCE</span>
                                         <h3 className="text-sm font-black text-slate-800 line-clamp-1">{selectedIssue.issue_title}</h3>
                                         <p className="text-[10px] font-black text-red-400 uppercase mt-3 mb-1">AI DETECTED RISK</p>
                                         <p className="text-sm text-red-900 font-medium leading-relaxed">{selectedIssue.description}</p>
@@ -320,7 +320,7 @@ export default function AnalysisResult({ onBack }: { onBack: () => void }) {
                                 )}
                                 <Card className="p-6 bg-slate-900 border-none">
                                     <h4 className="flex items-center gap-2 font-black text-white text-sm uppercase tracking-tight mb-4">
-                                        <Info className="w-4 h-4 text-slate-400" /> Auditor Decision
+                                        <Info className="w-4 h-4 text-slate-400" /> Management Decision
                                     </h4>
                                     <div className="space-y-3">
                                         <button
@@ -349,7 +349,7 @@ export default function AnalysisResult({ onBack }: { onBack: () => void }) {
                                 <AutoSaveEditor
                                     title="Manager's Review Comment"
                                     initialValue={selectedIssue.manager_comment || ""}
-                                    placeholder="감사인의 검토 의견을 입력하세요. (자동 저장됨)"
+                                    placeholder="담당자의 검토 의견을 입력하세요. (자동 저장됨)"
                                     onSave={async (val) => safeInvoke('update_audit_issue_field', { id: selectedIssue.id, field: 'manager_comment', value: val })}
                                 />
                                 <AutoSaveEditor

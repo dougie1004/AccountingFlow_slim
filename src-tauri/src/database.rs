@@ -58,6 +58,25 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<(), String> {
         params![]
     ).map_err(|e| e.to_string())?;
 
+    // 5. Account Risk Profile (AFRI v1.0)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS account_risk_profile (
+            id TEXT PRIMARY KEY,
+            account_id TEXT NOT NULL,
+            year INTEGER NOT NULL,
+            month INTEGER NOT NULL,
+            total_score REAL NOT NULL,
+            ur REAL NOT NULL,
+            vr REAL NOT NULL,
+            cr REAL NOT NULL,
+            tr REAL NOT NULL,
+            br REAL NOT NULL,
+            grade TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        params![]
+    ).map_err(|e| e.to_string())?;
+
     // [CONSTITUTION Art. 4] Mandatory Seeding of Standard Accounts
     // Ensure all standard accounts exist with their natures.
     let standard_accounts = vec![

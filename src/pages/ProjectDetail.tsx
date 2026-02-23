@@ -26,7 +26,7 @@ export default function ProjectDetail() {
     useEffect(() => {
         if (id) {
             setActiveProject(id);
-            safeInvoke("get_audit_projects").then((res: any) => {
+            safeInvoke("get_management_projects").then((res: any) => {
                 const found = res.find((p: any) => p.id === id);
                 if (found) {
                     setProject(found);
@@ -51,7 +51,7 @@ export default function ProjectDetail() {
         });
         setIsEditing(false);
         // Refresh
-        const res: any = await safeInvoke("get_audit_projects");
+        const res: any = await safeInvoke("get_management_projects");
         const found = res.find((p: any) => p.id === id);
         if (found) setProject(found);
     };
@@ -70,7 +70,7 @@ export default function ProjectDetail() {
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 text-blue-600">
                             <Briefcase size={16} />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">프로젝트 실사 관리 (DD Management)</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">경영 리포트 및 무결성 검증 관리</span>
                         </div>
                         <h1 className="text-4xl font-black text-white tracking-tighter leading-none">
                             {project.title}
@@ -92,19 +92,19 @@ export default function ProjectDetail() {
                             onClick={() => navigate(`/data-upload/${id}`)}
                             className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-blue-200 flex items-center gap-3 active:scale-95"
                         >
-                            <ShieldCheck size={18} /> 실사 작업 환경 실행 (Execution)
+                            <ShieldCheck size={18} /> 검증 작업 환경 실행 (Execution)
                         </button>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Column: Scope & Team */}
+                    {/* Review Scope Definition */}
                     <div className="lg:col-span-2 space-y-8">
-                        {/* Audit Scope Definition */}
+                        {/* Review Scope Definition */}
                         <div className="bg-white/5 backdrop-blur-2xl rounded-[32px] border border-white/10 p-8 shadow-sm space-y-6">
                             <div className="flex justify-between items-center">
                                 <h3 className="text-xl font-black text-white flex items-center gap-2">
-                                    <Target className="text-blue-600" size={24} /> 실사 범위 (Scope) 정의
+                                    <Target className="text-blue-600" size={24} /> 검토 범위 (Scope) 정의
                                 </h3>
                                 {!isEditing ? (
                                     <button onClick={() => setIsEditing(true)} className="text-blue-600 font-bold text-xs uppercase tracking-widest hover:bg-blue-50 px-3 py-1 rounded-lg">Edit Scope</button>
@@ -162,7 +162,7 @@ export default function ProjectDetail() {
                         {/* Gantt Timeline Simulation */}
                         <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm space-y-6">
                             <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                                <Calendar className="text-blue-600" size={24} /> 실사업무 수행 일정 (Fieldwork)
+                                <Calendar className="text-blue-600" size={24} /> 경영 검토 수행 일정 (Execution)
                             </h3>
                             <div className="space-y-6">
                                 {['Planning', 'Fieldwork', 'Reporting'].map((phase: string) => {
@@ -208,11 +208,11 @@ export default function ProjectDetail() {
                             <div className="space-y-4">
                                 <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                     <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-black">
-                                        {project.lead_auditor?.substring(0, 2).toUpperCase() || "AU"}
+                                        {project.lead_reviewer?.substring(0, 2).toUpperCase() || "RV"}
                                     </div>
                                     <div>
-                                        <p className="font-black text-slate-900 leading-none">{project.lead_auditor || "Lead Auditor"}</p>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">담당 조사관 (Investigator)</p>
+                                        <p className="font-black text-slate-900 leading-none">{project.lead_reviewer || "Lead Reviewer"}</p>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">담당 검토관 (Reviewer)</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4 p-4 border border-slate-100 rounded-2xl">

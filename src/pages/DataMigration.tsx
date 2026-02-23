@@ -182,11 +182,10 @@ export const DataMigration: React.FC<DataMigrationProps> = ({ setTab }) => {
     };
 
     const renderHeader = () => (
-        <div className="flex flex-col gap-2 mb-10">
-            <h1 className="text-4xl font-black text-white tracking-tighter">ERP 데이터 이관 위저드</h1>
-            <p className="text-slate-500 font-bold max-w-2xl leading-relaxed">
-                AccountingFlow는 기존 ERP를 대체하는 것이 아니라, <span className="text-indigo-400">그 위에 '책임 구조'를 덧씌웁니다.</span>
-                <br />과거 데이터를 분석하여 즉각적인 리스크 인사이트를 도출합니다.
+        <div className="sticky top-0 z-40 bg-[#0B1221]/80 backdrop-blur-md py-6 -mx-8 px-8 border-b border-white/5 flex flex-col gap-2 mb-10">
+            <h1 className="text-3xl font-black text-white tracking-tighter uppercase">ERP 데이터 이관 위저드</h1>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                Strategic Ledger Migration & Historical Integrity Bootstrapping
             </p>
         </div>
     );
@@ -342,7 +341,7 @@ export const DataMigration: React.FC<DataMigrationProps> = ({ setTab }) => {
                         <div className="space-y-6 mb-10">
                             {[
                                 { title: '과거 회계 완전 복원 지양', desc: '판단과 검증을 위한 최소한의 데이터만 가져옵니다.' },
-                                { title: '오분개 패턴 사전 탐지', desc: '이관 단계에서 AuditFlow 엔진이 즉시 작동합니다.' },
+                                { title: '오분개 패턴 사전 탐지', desc: '이관 단계에서 AccountingFlow 엔진이 즉시 작동합니다.' },
                                 { title: 'Opening Balance 자동 설정', desc: '승인된 데이터는 기초 잔액으로 전환됩니다.' }
                             ].map((item, idx) => (
                                 <div key={idx} className="flex gap-4">

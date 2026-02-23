@@ -20,7 +20,8 @@ import {
     Lock,
     RefreshCw,
     Target,
-    ChevronDown
+    ChevronDown,
+    Siren
 } from 'lucide-react';
 import { JournalEntry, BusinessScenario } from '../types';
 import { isArAccount, isApAccount, isCashAccount, CashPolicy } from '../constants/accounts';
@@ -30,13 +31,13 @@ import {
 import { calculateFinancials } from '../bridge/StrategicBridge';
 import { RecentTransactions } from '../components/dashboard/RecentTransactions';
 import { CFOReportCard } from '../components/dashboard/CFOReportCard';
-import { ManagementReportPanel } from '../components/dashboard/ManagementReportPanel';
 import { CEOQuickBar } from '../components/dashboard/CEOQuickBar';
-import { AIForecastPanel } from '../components/dashboard/AIForecastPanel';
 import { ManagementRiskReport } from '../components/dashboard/ManagementRiskReport';
+import { RiskEvidenceModal } from '../components/dashboard/modals/RiskEvidenceModal';
 import { generateYearlyPack } from '../utils/mockDataGenerator';
 import { formatCLevel, toLocalIsoDate } from '../utils/formatUtils';
 import { InfoTooltip } from '../components/ui/InfoTooltip';
+import { AIForecastPanel } from '../components/dashboard/AIForecastPanel';
 
 export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab }) => {
     const {
@@ -69,6 +70,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
         }
     }, [ledger, systemNow, setSystemNow]);
     const [showRiskReport, setShowRiskReport] = useState(false);
+    const [selectedRiskEvidence, setSelectedRiskEvidence] = useState<'strategy' | 'cash' | 'survival' | 'control' | null>(null);
 
     React.useEffect(() => {
         setIsMounted(true);
@@ -155,16 +157,16 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
             const sorted = outEntries.map(e => new Date(e.date).getTime()).sort((a, b) => a - b);
             const start = sorted[0];
             const end = sorted[sorted.length - 1];
-            // Minimum 1 day to avoid division by zero. 
-            // Also adds a 30-day lookback logic if only a single day of data exists.
             activityDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-
-            // If data spans less than a week, we use a 30-day baseline for safer estimation
             const denominator = activityDays < 7 ? 30 : activityDays;
             avgBurnRate = totalOut / denominator;
         }
 
-        return { cashFlowData, hasActivity, avgBurnRate, activityDays };
+        const earliestExpenseDate = outEntries.length > 0
+            ? toLocalIsoDate(new Date(Math.min(...outEntries.map(e => new Date(e.date).getTime()))))
+            : '2023-01-01';
+
+        return { cashFlowData, hasActivity, avgBurnRate, activityDays, earliestExpenseDate };
     }, [ledger, timeRange, systemNow]);
 
     const unsettledMetrics = useMemo(() => {
@@ -208,7 +210,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
 
         // [SYNC] Core Calculation for the range (P/L) and cumulative (B/S)
         // initialCashBalance must be included to get the REAL world cash balance.
-        const rangeStats = calculateFinancials(rangeLedger);
+        const rangeStats = calculateFinancials(rangeLedger, undefined, 0, undefined, true);
         const cumulativeAtEnd = calculateFinancials(cumulativeLedger, endStr, initialCashBalance);
 
         // Previous year/period for comparison
@@ -246,73 +248,97 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
 
     return (
         <div className="flex-1 bg-[#0B1221] space-y-6 pb-12">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+            {/* [UX] Sticky Global Dashboard Header */}
+            <header className="sticky top-0 z-40 bg-[#0B1221]/80 backdrop-blur-md py-6 -mx-8 px-8 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-5">
                     <div className="w-14 h-14 bg-indigo-600 rounded-[1.25rem] flex items-center justify-center shadow-2xl shadow-indigo-600/40 rotate-12 transition-transform hover:rotate-0 cursor-pointer">
                         <Activity className="text-white" size={32} />
                     </div>
                     <div>
-                        <h1 className="text-4xl font-black text-white tracking-tighter">경영 대시보드 (Dashboard)</h1>
-                        <p className="text-slate-500 font-bold mt-1 flex items-center gap-2">
-                            마지막 결산 확정일: <span className="text-indigo-400">{latestPeriod ? `${latestPeriod.period} (CLOSED)` : '내역 없음'}</span>
-                        </p>
+                        <h1 className="text-3xl font-black text-white tracking-tighter">경영 대시보드 (Dashboard)</h1>
+                        {((window as any).isDemoMode || import.meta.env.VITE_APP_MODE === 'demo') ? (
+                            <p className="text-sm font-bold text-rose-400 mt-2 flex items-center gap-2">
+                                <ShieldAlert size={16} /> DemoCo는 매출 성장 중이나, 현금 회수 지연으로 인해 3.4개월 내 유동성 리스크가 예상됩니다.
+                            </p>
+                        ) : (
+                            <p className="text-[10px] font-black text-slate-500 mt-1 uppercase tracking-widest flex items-center gap-2">
+                                Snapshot as of: <span className="text-indigo-400">{systemNow || 'REALTIME'}</span>
+                            </p>
+                        )}
                     </div>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                    {/* Date Picker for Historical View */}
-                    <PremiumDatePicker
-                        value={systemNow}
-                        onChange={setSystemNow}
-                    />
+                    <PremiumDatePicker value={systemNow} onChange={setSystemNow} />
 
-                    <div className="flex bg-[#151D2E] p-1 rounded-2xl border border-white/5 shadow-xl">
+                    <div className="flex bg-[#151D2E] p-1 rounded-xl border border-white/10 shadow-inner">
                         {(['week', 'day', 'month', 'year'] as const).map((r) => (
                             <button
                                 key={r}
                                 onClick={() => setTimeRange(r)}
-                                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${timeRange === r ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'text-slate-500 hover:text-white'}`}
+                                className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${timeRange === r ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'text-slate-500 hover:text-white'}`}
                             >
-                                {r === 'week' ? '주간 (7일)' : r === 'day' ? '단기 (14일)' : r === 'month' ? '월간' : '연간'}
+                                {r === 'week' ? '7D' : r === 'day' ? '14D' : r === 'month' ? '1M' : '1Y'}
                             </button>
                         ))}
                     </div>
 
                     <button
-                        onClick={() => runPhase2IntegrationTest([], clearAllData, addAsset, addLease, addEntries, performClosing)}
-                        className="flex items-center gap-2 px-6 py-3 bg-[#151D2E] text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 text-[10px] font-black uppercase rounded-2xl transition-all border border-emerald-500/20"
-                    >
-                        <ShieldAlert size={16} />
-                        Phase 2 엔진 검증
-                    </button>
-
-                    <button
-                        onClick={() => runSystemIntegrityTest(ledger, systemNow || new Date().toISOString().split('T')[0], addEntries as any, clearAllData, setSystemNow)}
-                        className="flex items-center gap-2 px-6 py-3 bg-[#151D2E] text-indigo-400 hover:text-white hover:bg-indigo-500/10 text-[10px] font-black uppercase rounded-2xl transition-all border border-indigo-500/40 animate-pulse shadow-lg shadow-indigo-500/10"
-                    >
-                        <Activity size={16} />
-                        SIT: 시스템 정합성 테스트 (v9)
-                    </button>
-
-                    <button
-                        onClick={() => runPhase3BvATest(addEntries, setBudget, performClosing)}
-                        className="flex items-center gap-2 px-6 py-3 bg-[#151D2E] text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 text-[10px] font-black uppercase rounded-2xl transition-all border border-rose-500/20"
-                    >
-                        <Target size={16} />
-                        Phase 3 엔진 검증 (BvA)
-                    </button>
-
-                    <button
                         onClick={() => setTab('closing-manager')}
-                        className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-2xl transition-all shadow-xl shadow-emerald-600/20 active:scale-95 border border-white/10"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl transition-all shadow-xl shadow-emerald-600/20 active:scale-95 border border-white/10"
                     >
                         <Lock size={16} />
-                        실시간 월마감 실행
+                        결산 실행 (Finalize)
                     </button>
                 </div>
+            </header>
+
+            <div className="space-y-6">
+                {import.meta.env.VITE_APP_MODE !== 'demo' && !(window as any).isDemoMode && (
+                    <div className="flex flex-wrap gap-3 pb-2 border-b border-white/5">
+                        <button
+                            onClick={() => runPhase2IntegrationTest([], clearAllData, addAsset, addLease, addEntries, performClosing)}
+                            className="flex items-center gap-2 px-4 py-2 bg-[rgba(21,29,46,0.5)] text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 text-[10px] font-black uppercase rounded-lg transition-all border border-emerald-500/20"
+                        >
+                            <ShieldAlert size={14} />
+                            VALIDATE Phase 2
+                        </button>
+
+                        <button
+                            onClick={() => runSystemIntegrityTest(ledger, systemNow || new Date().toISOString().split('T')[0], addEntries as any, clearAllData, setSystemNow)}
+                            className="flex items-center gap-2 px-4 py-2 bg-[rgba(21,29,46,0.5)] text-indigo-400 hover:text-white hover:bg-indigo-500/10 text-[10px] font-black uppercase rounded-lg transition-all border border-indigo-500/40 shadow-lg shadow-indigo-500/10"
+                        >
+                            <Activity size={14} />
+                            Integrity Check
+                        </button>
+
+                        <button
+                            onClick={() => runPhase3BvATest(addEntries, setBudget, performClosing)}
+                            className="flex items-center gap-2 px-4 py-2 bg-[rgba(21,29,46,0.5)] text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 text-[10px] font-black uppercase rounded-lg transition-all border border-rose-500/20"
+                        >
+                            <Target size={14} />
+                            VALIDATE Phase 3
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                const testEntries = [
+                                    { id: crypto.randomUUID(), sequenceNumber: 9991, date: systemNow || new Date().toISOString().split('T')[0], type: 'Revenue', description: '[테스트] 대규모 허위/외상 매출 발생 (흑자부도 트리거)', amount: 500000000, vat: 50000000, debitAccount: '외상매출금', creditAccount: '제품매출', status: 'Approved', vendor: '악성거래처A' },
+                                    { id: crypto.randomUUID(), sequenceNumber: 9992, date: systemNow || new Date().toISOString().split('T')[0], type: 'Expense', description: '[테스트] 대규모 영업비용 발생 (지출 지연 - 흑자부도 트리거)', amount: 450000000, vat: 45000000, debitAccount: '지급수수료', creditAccount: '미지급금', status: 'Approved', vendor: '악성거래처B' }
+                                ];
+                                addEntries(testEntries as any);
+                                alert('흑자부도(Profitable Bankruptcy) 유발 데이터 2건이 장부에 주입되었습니다.\n우측의 [Risk Briefing] 버튼을 눌러 구조적 리스크 탐지를 확인하세요.');
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-[rgba(21,29,46,0.5)] text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 text-[10px] font-black uppercase rounded-lg transition-all border border-amber-500/20 shadow-lg shadow-amber-500/10 ml-auto"
+                        >
+                            <Siren size={14} />
+                            Inject Bankruptcy Risk (흑자부도 테스트)
+                        </button>
+                    </div>
+                )}
 
                 <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-3 bg-[#111827]/80 p-2 rounded-2xl border border-white/5 backdrop-blur-md">
+                    <div className="flex items-center gap-3 bg-[#111827]/80 p-2 rounded-2xl border border-white/5 backdrop-blur-md w-fit">
                         <span className="text-[10px] font-bold text-slate-400 px-3 uppercase tracking-widest">Scenario Mode:</span>
                         {(['SURVIVAL', 'STANDARD', 'GROWTH'] as BusinessScenario[]).map(s => (
                             <button
@@ -320,14 +346,10 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                                 onClick={() => {
                                     const label = s === 'SURVIVAL' ? '자생적 생존(Lean)' : s === 'GROWTH' ? '공격 확장' : '표준 성장';
                                     if (window.confirm(`${label}로 전환하시겠습니까? \n\n기존 기간 데이터를 유지한 채 시나리오를 변경합니다.`)) {
-                                        // Intelligence: Detect current years to maintain continuity
                                         const currentYears = Array.from(new Set(ledger.map(e => parseInt(e.date.substring(0, 4)))));
                                         const targetYears = currentYears.length > 0 ? currentYears : [2026];
-
                                         setSelectedScenario(s);
                                         seedScenarioSimulation(s, targetYears);
-
-                                        // Auto-sync systemNow to the end of the newly generated timeline
                                         const lastYear = Math.max(...targetYears);
                                         setSystemNow(`${lastYear}-12-31`);
                                     }
@@ -337,12 +359,27 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                                     : 'bg-white/5 text-slate-400 hover:bg-white/10'
                                     }`}
                             >
-                                {s === 'SURVIVAL' ? '자생(Lean/Survival)' : s === 'STANDARD' ? '표준(Grant)' : '공격(Growth)'}
+                                {s === 'SURVIVAL' ? 'SURVIVAL' : s === 'STANDARD' ? 'STANDARD' : 'GROWTH'}
                             </button>
                         ))}
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => {
+                                if (window.confirm('3개년 전체 사업 시뮬레이션을 실행하시겠습니까?\n(2026~2028년 전체 데이터가 생성되며 기존 데이터는 초기화됩니다)')) {
+                                    seedThreeYearSimulation(selectedScenario);
+                                    setSystemNow('2028-12-31');
+                                }
+                            }}
+                            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase rounded-2xl transition-all shadow-xl shadow-indigo-600/30 border border-white/10"
+                        >
+                            <Zap size={16} />
+                            Full 3Y Simulation
+                        </button>
+
+                        <div className="w-px h-10 bg-white/10 mx-1" />
+
                         <button
                             onClick={() => {
                                 if (window.confirm(`2026년 [${selectedScenario}] 시나리오를 시작하시겠습니까? (기존 데이터 초기화)\n\nSelected path: ${selectedScenario}`)) {
@@ -352,19 +389,15 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                             }}
                             className="flex items-center gap-2 px-6 py-3 bg-[#1E293B] text-white text-[10px] font-black uppercase rounded-2xl transition-all border border-indigo-500/30 hover:bg-indigo-600 shadow-lg shadow-indigo-600/10"
                         >
-                            <Zap size={16} />
-                            Run 2026 Pack
+                            <Activity size={16} />
+                            Run 2026
                         </button>
 
                         <button
                             onClick={() => {
-                                // Integrity Check
                                 const has2026 = ledger.some(e => e.date.startsWith('2026'));
-                                if (!has2026) {
-                                    alert('2026년 데이터가 먼저 필요합니다.\nPlease Run 2026 Pack First.');
-                                    return;
-                                }
-                                if (window.confirm(`2027년 [${selectedScenario}] 비즈니스 시나리오를 진행하시겠습니까? (BEP 도전)\n\nMoving to Scale-up Phase.`)) {
+                                if (!has2026) { alert('2026년 데이터가 먼저 필요합니다.'); return; }
+                                if (window.confirm(`2027년 [${selectedScenario}] 비즈니스 시나리오를 진행하시겠습니까?`)) {
                                     seedScenarioSimulation(selectedScenario, [2026, 2027]);
                                     setSystemNow('2027-12-31');
                                 }
@@ -372,18 +405,14 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                             className="flex items-center gap-2 px-6 py-3 bg-[#1E293B] text-white text-[10px] font-black uppercase rounded-2xl transition-all border border-indigo-500/30 hover:bg-indigo-600 shadow-lg shadow-indigo-600/10"
                         >
                             <TrendingUp size={16} />
-                            Run 2027 Pack
+                            Run 2027
                         </button>
 
                         <button
                             onClick={() => {
-                                // Integrity Check
                                 const has2027 = ledger.some(e => e.date.startsWith('2027'));
-                                if (!has2027) {
-                                    alert('2027년 데이터가 먼저 필요합니다.\nPlease Run 2027 Pack First.');
-                                    return;
-                                }
-                                if (window.confirm(`2028년 [${selectedScenario}] 시장 우위 시나리오를 진행하시겠습니까?\n\nDominating the Market.`)) {
+                                if (!has2027) { alert('2027년 데이터가 먼저 필요합니다.'); return; }
+                                if (window.confirm(`2028년 [${selectedScenario}] 시장 우위 시나리오를 진행하시겠습니까?`)) {
                                     seedScenarioSimulation(selectedScenario, [2026, 2027, 2028]);
                                     setSystemNow('2028-12-31');
                                 }
@@ -391,19 +420,19 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                             className="flex items-center gap-2 px-6 py-3 bg-[#1E293B] text-white text-[10px] font-black uppercase rounded-2xl transition-all border border-indigo-500/30 hover:bg-indigo-600 shadow-lg shadow-indigo-600/10"
                         >
                             <Target size={16} />
-                            Run 2028 Pack
+                            Run 2028
+                        </button>
+
+                        <button
+                            onClick={() => setShowRiskReport(true)}
+                            className="flex items-center gap-2 px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-2xl transition-all shadow-xl shadow-rose-600/20 active:scale-95 border border-white/10 ml-auto"
+                        >
+                            <Target size={16} />
+                            Risk Briefing
                         </button>
                     </div>
-
-                    <button
-                        onClick={() => setShowRiskReport(true)}
-                        className="flex items-center gap-2 px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-2xl transition-all shadow-xl shadow-rose-600/20 active:scale-95 border border-white/10 animate-pulse"
-                    >
-                        <Target size={16} />
-                        Risk Briefing (Phase 4.5)
-                    </button>
                 </div>
-            </header>
+            </div>
 
             {/* [Phase 11] Liability Management via Journal Badge System */}
             {/* LiabilityAlertBanner removed - CEO loans are normal operations, not "unplanned liabilities" */}
@@ -411,8 +440,32 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
 
             {showRiskReport && <ManagementRiskReport onClose={() => setShowRiskReport(false)} />}
 
+            {/* --- Phase 5: CFO Report Card (Section 1) --- */}
+            <CFOReportCard
+                ledger={ledger}
+                systemNow={systemNow}
+                initialCashBalance={initialCashBalance}
+                onNavigate={(riskId) => setSelectedRiskEvidence(riskId as any)}
+            />
+
+            {/* --- Phase 5: Drill-down Evidence Modal --- */}
+            {
+                selectedRiskEvidence && (
+                    <RiskEvidenceModal
+                        riskId={selectedRiskEvidence}
+                        ledger={ledger}
+                        systemNow={systemNow}
+                        onNavigate={setTab}
+                        onClose={() => setSelectedRiskEvidence(null)}
+                    />
+                )
+            }
+
             <CEOQuickBar
-                financials={rangeFinancials}
+                financials={{
+                    ...rangeFinancials,
+                    earliestExpenseDate: analytics.earliestExpenseDate
+                }}
                 avgMonthlyBurn={analytics.avgBurnRate * 30.41}
                 runwayMonths={getRunway().runwayMonths}
                 isProfitable={rangeFinancials.netIncome > 0}
@@ -421,20 +474,14 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                 timeRange={timeRange}
             />
 
-            <AIForecastPanel referenceDate={systemNow} />
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-                <CFOReportCard
-                    metrics={{
-                        overdueReceivables: unsettledMetrics.ar,
-                        upcomingPayments: unsettledMetrics.ap
-                    }}
-                    onViewReport={() => setTab('arap-management')}
-                />
-                <div className="lg:col-span-2">
-                    <ManagementReportPanel ledger={ledger} viewDate={systemNow} />
-                </div>
+            {/* --- Phase 13: AI Financial Forecast (Restored) --- */}
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
+                <AIForecastPanel referenceDate={systemNow} />
             </div>
+
+
+
+
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 <div className="xl:col-span-2 bg-[#151D2E] p-8 rounded-[2.5rem] border border-white/5 h-[480px] relative overflow-hidden">
@@ -548,6 +595,6 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                     onNavigate={setTab}
                 />
             </div>
-        </div>
+        </div >
     );
 };

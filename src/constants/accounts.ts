@@ -96,8 +96,8 @@ export const getAccountNature = (accountName: string): AccountNature => {
 
     // Heuristics
     if (['매출', '수익', 'revenue', 'sales'].some(k => n.includes(k))) return AccountNature.REVENUE;
-    if (['원가', 'cost'].some(k => n.includes(k))) return AccountNature.COGS;
-    if (['비용', '급여', '임차', '수수료', 'expense', 'fee', '전력', '세금', '공과', '여비', '교통', '광고', '복리', '통신', '식비', '식사', '접대'].some(k => n.includes(k))) return AccountNature.SG_AND_A;
+    if (['원가', 'cost', 'infra', 'server', 'cloud', 'hosting', '인프라', '서버'].some(k => n.includes(k))) return AccountNature.COGS;
+    if (['비용', '급여', '임차', '수수료', 'expense', 'fee', '전력', '세금', '공과', '여비', '교통', '광고', '복리', '통신', '식비', '식사', '접대', '운반', '관리'].some(k => n.includes(k))) return AccountNature.SG_AND_A;
     if (['익', '영업외'].some(k => n.includes(k)) && n.includes('이익') === false) return AccountNature.NON_OPERATING;
     if (['채무', '미지급', '예수금', '부채', 'payable', 'liability'].some(k => n.includes(k))) return AccountNature.LIABILITY;
     if (['자본', '자본금', '잉여금', 'equity'].some(k => n.includes(k))) return AccountNature.EQUITY;

@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { Upload, ArrowRight, Settings, Check, CreditCard, Landmark, FileSpreadsheet, Sparkles, X } from 'lucide-react';
 import { JournalEntry, MappingRule, ClassificationStatus, DocumentType } from '../types';
 import { AccountingContext } from '../context/AccountingContext';
+import { ALL_ACCOUNTS } from '../constants/accounts';
 
 interface SmartExcelUploaderProps {
     onUpload: (entries: JournalEntry[]) => void;
@@ -135,18 +136,26 @@ export const SmartExcelUploader: React.FC<SmartExcelUploaderProps> = ({ onUpload
         } else if (text.includes('수도') || text.includes('관리비')) {
             suggestedAccount = '수도광열비';
             reasoning.push('수도요금 등 면세 항목 확인 필요');
-        } else if (text.includes('급여') || text.includes('월급') || text.includes('상여') || text.includes('salary') || text.includes('payroll')) {
+        } else if (text.includes('급여') || text.includes('salary') || text.includes('payroll')) {
             suggestedAccount = '급여';
             confidence = 0.95;
             status = 'AUTO_CLASSIFIED';
             reasoning.push('급여/상여금 관련 키워드 감지');
-            reasoning.push('임직원 인건비로 자동 분류 (원천세 신고 대상)');
-        } else if (text.includes('국민연금') || text.includes('건강보험') || text.includes('고용보험') || text.includes('산재보험') || text.includes('근로복지') || text.includes('보험공단')) {
-            suggestedAccount = '예수금';
+            reasoning.push('임직원 인건비로 자동 분류');
+        } else if (text.includes('매출') || text.includes('구독') || text.includes('수입') || text.includes('컨설팅')) {
+            suggestedAccount = '상품매출';
             confidence = 0.95;
             status = 'AUTO_CLASSIFIED';
-            reasoning.push('4대보험 공단 키워드 감지');
-            reasoning.push('급여 지급 시 원천징수한 보험료 납부로 처리 (면세)');
+            reasoning.push('매출/수입 관련 키워드 감지');
+            reasoning.push('영업 수익(매출)으로 분류');
+        } else if (text.includes('임차') || text.includes('빌딩') || text.includes('사무실')) {
+            suggestedAccount = '지급임차료';
+            confidence = 0.9;
+            reasoning.push('업종 식별: 부동산/임대');
+        } else if (text.includes('비품') || text.includes('애플') || text.includes('이케아') || text.includes('가구') || text.includes('pc')) {
+            suggestedAccount = '비품';
+            confidence = 0.85;
+            reasoning.push('자산성 지출 식별: 비품/장비');
         }
 
         // Tax Type Inference
@@ -318,14 +327,17 @@ export const SmartExcelUploader: React.FC<SmartExcelUploaderProps> = ({ onUpload
             };
 
             const usage = parseSafeFloat(getVal(mapping.withdrawal));
+            const deposit = parseSafeFloat(getVal(mapping.deposit));
             const benefit = parseSafeFloat(mapping.benefit ? getVal(mapping.benefit) : 0);
 
-            // --- Phase 1 & 2 Restored: Single Source of Truth ---
-            const netAmount = usage + benefit;
-            if (Math.abs(netAmount) < 0.01) return; // Skip invalid or zero rows
+            // Determine if it's an expense or revenue
+            const isRevenue = deposit > 0 && usage === 0;
+            const netAmount = isRevenue ? deposit : (usage + benefit);
+
+            if (Math.abs(netAmount) < 0.01) return;
 
             const decision = inferAccountingDecision(descStr, vendorStr);
-            const isReversal = netAmount < 0;
+            const isReversal = !isRevenue && netAmount < 0; // Negative expense is a reversal
             const finalTotal = Math.abs(netAmount);
 
             // VAT Logic
@@ -335,34 +347,56 @@ export const SmartExcelUploader: React.FC<SmartExcelUploaderProps> = ({ onUpload
             if (mappedVat > 0) {
                 finalVat = mappedVat;
             } else {
-                // Infer VAT (10/110) if not exempt
-                const isExempt = decision.reasoning.some(r => r.includes('면세'));
-                if (!isExempt) {
-                    finalVat = Math.floor(finalTotal * 10 / 110); // Floor/Round preference
+                const isExempt = decision.reasoning.some(r => r.includes('면세')) || (isRevenue && decision.reasoning.some(r => r.includes('면세')));
+                if (!isExempt && (decision.account !== '예수금')) {
+                    finalVat = Math.floor(finalTotal * 10 / 110);
                 }
             }
 
             const mainId = crypto.randomUUID();
             suggestionsMap[mainId] = decision.account;
 
+            // Debit/Credit alignment
+            // Expense: Debit(Category e.g 지급임차료) / Credit(Payment e.g 보통예금/미지급금)
+            // Revenue: Debit(Payment e.g 보통예금/외상매출금) / Credit(Category e.g 상품매출)
+            let debitAcc = isRevenue ? paymentAccount : decision.account;
+            let creditAcc = isRevenue ? decision.account : paymentAccount;
+
+            // [추가] 매출/매입 부가세 자동 분개 로직
+            const reasoningList = [
+                ...decision.reasoning,
+                isRevenue ? '[수입 식별] 입금 항목으로 감지됨' : '',
+                benefit !== 0 ? `[정산 반영] 원금(₩${usage.toLocaleString()}) ${benefit < 0 ? '할인' : '추가'} 정산됨` : ''
+            ];
+
+            if (finalVat > 0) {
+                if (isRevenue) {
+                    reasoningList.push(`[매출부가세 분리] 부가가치세예수금 ₩${finalVat.toLocaleString()} 반영됨`);
+                } else {
+                    reasoningList.push(`[매입부가세 분리] 부가가치세대급금 ₩${finalVat.toLocaleString()} 인식`);
+                }
+            } else {
+                reasoningList.push(`[부가세 ${isRevenue ? '제외' : '면제'}]`);
+            }
+
+            if (isReversal) {
+                [debitAcc, creditAcc] = [creditAcc, debitAcc];
+            }
+
             entries.push({
                 id: mainId,
                 date: String(rawDate),
-                debitAccount: isReversal ? paymentAccount : decision.account,
-                creditAccount: isReversal ? decision.account : paymentAccount,
-                amount: finalTotal - finalVat, // Supply Value
+                debitAccount: debitAcc, // This maps to the main category, UI allows modifying this directly
+                creditAccount: creditAcc, // This maps to the offset, UI allows modifying this directly
+                amount: finalTotal - finalVat,
                 description: descStr,
                 vendor: vendorStr,
                 status: 'Unconfirmed',
-                type: 'Expense',
+                type: isRevenue ? 'Revenue' : 'Expense',
                 vat: finalVat,
                 classificationStatus: decision.status,
                 confidence: decision.confidence,
-                reasoning: [
-                    ...decision.reasoning,
-                    benefit !== 0 ? `[정산 반영] 원금(₩${usage.toLocaleString()}) ${benefit < 0 ? '할인' : '추가'} 정산됨` : '',
-                    finalVat > 0 ? `[부가세 분리] 과세 매입세액 ₩${finalVat.toLocaleString()} 인식` : '[부가세 면제] 면세 거래로 인식'
-                ].filter(Boolean)
+                reasoning: reasoningList.filter(Boolean)
             });
         });
 
@@ -440,12 +474,24 @@ export const SmartExcelUploader: React.FC<SmartExcelUploaderProps> = ({ onUpload
                                 onChange={e => {
                                     const val = e.target.value;
                                     setPaymentAccount(val);
-                                    setPreviewEntries(prev => prev.map(en => ({ ...en, creditAccount: val })));
+                                    setPreviewEntries(prev => prev.map(en => ({
+                                        ...en,
+                                        creditAccount: en.type === 'Expense' ? val : en.creditAccount,
+                                        debitAccount: en.type === 'Revenue' ? val : en.debitAccount
+                                    })));
                                 }}
-                                className="bg-[#0B1221] border border-emerald-500/30 rounded-lg px-3 py-1 text-xs text-white"
+                                className="bg-[#0B1221] border border-emerald-500/30 rounded-lg px-3 py-1 text-[10px] text-white outline-none focus:border-indigo-500 transition-colors max-w-[150px]"
                             >
-                                <option value="미지급금">미지급금</option>
-                                <option value="현금">현금</option>
+                                <optgroup label="상대 계정 (Payment/Offset)">
+                                    {ALL_ACCOUNTS.filter(a => ['보통예금', '현금', '미지급금', '외상매출금', '매입채무', '미수금'].includes(a.name)).map(a => (
+                                        <option key={a.name} value={a.name}>{a.name}</option>
+                                    ))}
+                                </optgroup>
+                                <optgroup label="전체 계정 과목 (Full COA)">
+                                    {ALL_ACCOUNTS.filter(a => !['보통예금', '현금', '미지급금', '외상매출금', '매입채무', '미수금'].includes(a.name)).map(a => (
+                                        <option key={a.name} value={a.name}>{a.name}</option>
+                                    ))}
+                                </optgroup>
                             </select>
                             {onClose && <button onClick={onClose} className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-full transition-all"><X size={20} /></button>}
                         </div>
@@ -470,26 +516,36 @@ export const SmartExcelUploader: React.FC<SmartExcelUploaderProps> = ({ onUpload
                                             <div className="text-white font-bold">{entry.vendor}</div>
                                         </td>
                                         <td className="p-4 space-y-1">
-                                            <input
-                                                type="text"
-                                                value={entry.debitAccount}
-                                                onChange={e => {
-                                                    const next = [...previewEntries];
-                                                    next[i].debitAccount = e.target.value;
-                                                    setPreviewEntries(next);
-                                                }}
-                                                className={`bg-white/5 border border-white/10 rounded px-2 py-1 font-bold outline-none w-full text-[11px] ${entry.debitAccount === '미분류 (Unclassified)' ? 'text-amber-400' : 'text-emerald-400'}`}
-                                            />
-                                            <input
-                                                type="text"
-                                                value={entry.creditAccount}
-                                                onChange={e => {
-                                                    const next = [...previewEntries];
-                                                    next[i].creditAccount = e.target.value;
-                                                    setPreviewEntries(next);
-                                                }}
-                                                className="bg-white/5 border border-white/10 rounded px-2 py-1 font-bold outline-none w-full text-[11px] text-slate-500"
-                                            />
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[8px] text-emerald-500 font-bold opacity-50 uppercase min-w-[15px]">Dr.</span>
+                                                    <select
+                                                        value={entry.debitAccount}
+                                                        onChange={e => {
+                                                            const next = [...previewEntries];
+                                                            next[i].debitAccount = e.target.value;
+                                                            setPreviewEntries(next);
+                                                        }}
+                                                        className={`bg-[#161B22] border border-white/5 rounded px-2 py-1 font-bold outline-none w-full text-[10px] ${entry.debitAccount === '미분류 (Unclassified)' ? 'text-amber-400' : 'text-emerald-400'}`}
+                                                    >
+                                                        {ALL_ACCOUNTS.map(a => <option key={a.name} value={a.name}>{a.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[8px] text-slate-500 font-bold opacity-50 uppercase min-w-[15px]">Cr.</span>
+                                                    <select
+                                                        value={entry.creditAccount}
+                                                        onChange={e => {
+                                                            const next = [...previewEntries];
+                                                            next[i].creditAccount = e.target.value;
+                                                            setPreviewEntries(next);
+                                                        }}
+                                                        className="bg-[#161B22] border border-white/5 rounded px-2 py-1 font-bold outline-none w-full text-[10px] text-slate-400"
+                                                    >
+                                                        {ALL_ACCOUNTS.map(a => <option key={a.name} value={a.name}>{a.name}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td className="p-4 text-right text-white font-bold font-mono">
                                             ₩{entry.amount.toLocaleString()}

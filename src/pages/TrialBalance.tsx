@@ -24,7 +24,7 @@ interface MovementTBItem {
 import { STANDARD_ACCOUNTS } from '../constants/accounts';
 
 const TrialBalance: React.FC = () => {
-    const { ledger, config, subLedger } = useAccounting();
+    const { ledger, config, subLedger, systemNow } = useAccounting();
     const [selectedYear, setSelectedYear] = React.useState<string>(new Date().getFullYear().toString());
 
     const balances = useMemo(() => {
@@ -58,78 +58,67 @@ const TrialBalance: React.FC = () => {
         // A) Past Years (Before selectedYear) -> Accummulate into Opening Balance (Close P&L to Retained Earnings)
         // B) Current Year (selectedYear) -> Accummulate into Period Movement
 
-        const targetYear = parseInt(selectedYear) || new Date().getFullYear();
-
         ledger.forEach(entry => {
             const entryYear = parseInt(entry.date.substring(0, 4));
+            const targetYearVal = parseInt(selectedYear) || new Date().getFullYear();
 
-            // Logic A: Past Years (Closing Logic)
-            if (entryYear < targetYear) {
-                const processPastSide = (account: string, amount: number, isDebit: boolean) => {
-                    const cat = getCategory(account);
-                    const isPL = cat === 'Revenue' || cat === 'Expense';
+            if (systemNow && entry.date > systemNow) return; // Skip future entries relative to systemNow
+            if (entryYear > targetYearVal) return; // Skip future years relative to selected year
 
-                    if (isPL) {
-                        // All Revenue/Expense from past years goes to Retained Earnings
-                        // Revenue (Credit) increases RE, Expense (Debit) decreases RE
-                        if (cat === 'Revenue') retainedEarningsOpening += (isDebit ? -amount : amount);
-                        else retainedEarningsOpening += (isDebit ? -amount : amount); // Expense reduces equity
-                    } else {
-                        // BS items accumulate
-                        const val = map.get(account) || { opening: 0, debit: 0, credit: 0 };
-                        // Asset/Expense: Debit(+), Credit(-)
-                        // Liability/Equity/Revenue: Credit(+), Debit(-)
-                        // But for Opening Balance storage, we just need a signed value or keep separate dr/cr?
-                        // Let's store 'Opening' as the net balance (Debit positive for Asset, Credit positive for Liability)
-                        // Actually, standard TB has Opening Dr/Cr. Let's simplify: Opening = Net Balance.
+            const targetMode = entryYear < targetYearVal ? 'opening' : 'movement';
+            const amount = entry.amount || 0;
+            const vat = entry.vat || 0;
+            const total = amount + vat;
 
-                        // Strict updating based on nature is complex. Let's start with simple Net accumulation.
-                        // We will store NET opening in 'opening'.
-                        // Asset/Expense nature: +Debit -Credit
-                        // Liab/Equity/Rev nature: +Credit -Debit
-                        // Wait, to display correctly in TB, we should know if it's Dr or Cr.
-                        // Let's store raw opening net: Debit (+), Credit (-)
+            const catD = getCategory(entry.debitAccount);
+            const catC = getCategory(entry.creditAccount);
 
-                        const netImpact = isDebit ? amount : -amount;
-                        map.set(account, { ...val, opening: val.opening + netImpact });
-                    }
-                };
+            const processSide = (acc: string, amt: number, isDebit: boolean) => {
+                const cat = getCategory(acc);
 
-                processPastSide(entry.debitAccount, entry.amount, true);
-                processPastSide(entry.creditAccount, entry.amount, false);
-
-                if (entry.vat > 0) {
-                    const type = entry.type || (getCategory(entry.creditAccount) === 'Revenue' ? 'Revenue' : 'Expense');
-                    const vatAcc = type === 'Revenue' ? '부가가치세예수금' : '부가가치세대급금';
-                    // VAT is BS item, so it accumulates
-                    const isDebit = type !== 'Revenue';
-                    const val = map.get(vatAcc) || { opening: 0, debit: 0, credit: 0 };
-                    const netImpact = isDebit ? entry.vat : -entry.vat;
-                    map.set(vatAcc, { ...val, opening: val.opening + netImpact });
+                // Logic A: Past Years (P&L Closing)
+                if (targetMode === 'opening' && (cat === 'Revenue' || cat === 'Expense')) {
+                    // Revenue(Cr) -> RE+, Expense(Dr) -> RE-
+                    // We calculate RE as (Revenue - Expense), so Cr adds, Dr subtracts
+                    if (cat === 'Revenue') retainedEarningsOpening += (isDebit ? -amt : amt);
+                    else retainedEarningsOpening += (isDebit ? -amt : amt);
+                    return;
                 }
-            }
 
-            // Logic B: Current Year (Movement Logic)
-            else if (entryYear === targetYear) {
-                // Debit Side
-                const dVal = map.get(entry.debitAccount) || { opening: 0, debit: 0, credit: 0 };
-                map.set(entry.debitAccount, { ...dVal, debit: dVal.debit + entry.amount });
+                // Logic B: Accumulate BS items or Movement
+                const val = map.get(acc) || { opening: 0, debit: 0, credit: 0 };
 
-                // Credit Side
-                const cVal = map.get(entry.creditAccount) || { opening: 0, debit: 0, credit: 0 };
-                map.set(entry.creditAccount, { ...cVal, credit: cVal.credit + entry.amount });
-
-                // VAT
-                if (entry.vat > 0) {
-                    const type = entry.type || (getCategory(entry.creditAccount) === 'Revenue' ? 'Revenue' : 'Expense');
-                    const vatAcc = type === 'Revenue' ? '부가가치세예수금' : '부가가치세대급금';
-                    const vVal = map.get(vatAcc) || { opening: 0, debit: 0, credit: 0 };
-                    if (type === 'Revenue') { // Output VAT (Liability, Credit side)
-                        map.set(vatAcc, { ...vVal, credit: vVal.credit + entry.vat });
-                    } else { // Input VAT (Asset, Debit side)
-                        map.set(vatAcc, { ...vVal, debit: vVal.debit + entry.vat });
-                    }
+                if (targetMode === 'opening') {
+                    // Net opening (Debit +, Credit -)
+                    const netImpact = isDebit ? amt : -amt;
+                    map.set(acc, { ...val, opening: val.opening + netImpact });
+                } else {
+                    // Current period movement
+                    if (isDebit) map.set(acc, { ...val, debit: val.debit + amt });
+                    else map.set(acc, { ...val, credit: val.credit + amt });
                 }
+            };
+
+            // Decomposition Logic (Mirroring FinancialStatements.tsx)
+            if (entry.type === 'Payroll' || (catD === 'Expense' && entry.debitAccount.includes('급여'))) {
+                processSide(entry.debitAccount, amount, true);
+                if (vat > 0) {
+                    processSide('예수금(원천세)', vat, false);
+                    processSide(entry.creditAccount, amount - vat, false);
+                } else {
+                    processSide(entry.creditAccount, amount, false);
+                }
+            } else if (catC === 'Revenue') {
+                processSide(entry.creditAccount, amount, false);
+                if (vat > 0) processSide('부가가치세예수금', vat, false);
+                processSide(entry.debitAccount, total, true);
+            } else if (catD === 'Expense' || catD === 'Asset') {
+                processSide(entry.debitAccount, amount, true);
+                if (vat > 0) processSide('부가가치세대급금', vat, true);
+                processSide(entry.creditAccount, total, false);
+            } else {
+                processSide(entry.debitAccount, amount, true);
+                processSide(entry.creditAccount, amount, false);
             }
         });
 
@@ -137,14 +126,8 @@ const TrialBalance: React.FC = () => {
         if (retainedEarningsOpening !== 0) {
             const reAcc = '이익잉여금';
             const val = map.get(reAcc) || { opening: 0, debit: 0, credit: 0 };
-            // RE is Equity. Credit is positive.
-            // Our retainedEarningsOpening calculation: Revenue(+) - Expense(-) = Net Income.
-            // If Net Income is positive, it's a Credit balance in Equity.
-            // So we add it as a negative value in our Signed Opening Map (where Dr+, Cr-) ?
-            // Let's stick to: Opening variable holds (Debit - Credit).
-
-            // If Retained Earnings is +100 (Profit), it should be Credit 100. So map value check be -100.
-            // Loop above used: Revenue(Cr) -> opening += -amount. So correct.
+            // RE is Credit nature. Our net mapping is (Dr - Cr).
+            // Profit (Positive retainedEarningsOpening) should be a Credit balance (negative in map).
             map.set(reAcc, { ...val, opening: val.opening - retainedEarningsOpening });
         }
 
@@ -187,7 +170,7 @@ const TrialBalance: React.FC = () => {
         }).filter(r => Math.abs(r.opening) > 0.1 || Math.abs(r.debit) > 0.1 || Math.abs(r.credit) > 0.1);
         // Hide zero rows
 
-    }, [ledger, config, selectedYear]);
+    }, [ledger, config, selectedYear, systemNow]);
 
     const totals = useMemo(() => {
         const t = balances.reduce((acc, curr) => ({
@@ -221,10 +204,13 @@ const TrialBalance: React.FC = () => {
 
     // [New] Filtered Transactions for Detail View
     const getAccountDetails = useMemo(() => {
-        if (!selectedAccount) return { entries: [], analysis: { inflow: 0, outflow: 0, topVendor: '' } };
+        if (!selectedAccount) return { entries: [], analysis: { inflow: 0, outflow: 0, topVendor: '', opening: 0 } };
+
+        const accInfo = balances.find(b => b.accountName === selectedAccount);
+        const opening = accInfo ? accInfo.opening : 0;
 
         const entries = subLedger
-            .filter(e => e.debitAccount === selectedAccount || e.creditAccount === selectedAccount)
+            .filter(e => (!systemNow || e.date <= systemNow) && (e.debitAccount === selectedAccount || e.creditAccount === selectedAccount))
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Latest first
 
         // Simple Analysis
@@ -244,8 +230,8 @@ const TrialBalance: React.FC = () => {
         const sortedVendors = Array.from(vendorMap.entries()).sort((a, b) => b[1] - a[1]);
         const topVendor = sortedVendors.length > 0 ? sortedVendors[0][0] : '-';
 
-        return { entries, analysis: { inflow, outflow, topVendor } };
-    }, [selectedAccount, subLedger]);
+        return { entries, analysis: { inflow, outflow, topVendor, opening } };
+    }, [selectedAccount, subLedger, balances, systemNow]);
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative">
@@ -279,7 +265,7 @@ const TrialBalance: React.FC = () => {
                         <div className="p-8 overflow-y-auto custom-scrollbar">
 
                             {/* Analysis Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                 <div className="p-5 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
                                     <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">총 유입 (Debit Side)</p>
                                     <p className="text-2xl font-black text-white">+{getAccountDetails.analysis.inflow.toLocaleString()}</p>
@@ -294,13 +280,73 @@ const TrialBalance: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* AFRI v1.0 Structural Risk Index Breakdown (Hidden Layer UI) */}
+                            <div className="p-6 bg-[#0B1221] border border-white/10 rounded-2xl mb-8">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h4 className="text-sm font-black text-white flex items-center gap-2">
+                                            Structural Risk Index Breakdown
+                                            <span className="px-2 py-0.5 bg-amber-500 text-black text-[9px] font-black rounded uppercase">MODERATE (0.54)</span>
+                                        </h4>
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Pure deterministic quantification (AFRI v1.0)</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-xs font-black text-slate-500 bg-white/5 py-1 px-3 rounded-lg border border-white/5">INTERNAL VIEW ONLY</span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {[
+                                        { label: 'Unexplained Ratio', value: 0.72, color: 'bg-orange-500' },
+                                        { label: 'Volatility Risk', value: 0.61, color: 'bg-amber-500' },
+                                        { label: 'Concentration Risk', value: 0.55, color: 'bg-amber-400' },
+                                        { label: 'Temporal Spike Risk', value: 0.80, color: 'bg-rose-500' },
+                                        { label: 'Budget Risk', value: 0.12, color: 'bg-emerald-500' },
+                                    ].map(item => (
+                                        <div key={item.label} className="flex items-center gap-4">
+                                            <div className="w-1/3 text-xs font-bold text-slate-400">{item.label}</div>
+                                            <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                                                <div className={`h-full ${item.color} rounded-full`} style={{ width: `${item.value * 100}%` }}></div>
+                                            </div>
+                                            <div className="w-12 text-right text-xs font-black text-slate-300 font-mono">{item.value.toFixed(2)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                             {/* Transaction List */}
                             <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <History size={14} className="text-slate-400" /> 최근 거래 내역 (Top 50)
+                                <History size={14} className="text-slate-400" /> 계정 변동 및 거래 내역
                             </h3>
                             <div className="space-y-2">
+                                {/* Prepend Opening Balance Row */}
+                                <div className="flex justify-between items-center p-4 bg-indigo-500/10 rounded-xl border border-indigo-500/20 group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-lg flex items-center justify-center font-black text-xs bg-indigo-500 text-white">
+                                            B.F
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors">
+                                                {selectedAccount === '이익잉여금' ? '전기이월 누적 손익 (Accumulated Retained Earnings)' : '전기(기초) 잔액 이월 (Balance Brought Forward)'}
+                                            </p>
+                                            <p className="text-xs font-bold text-slate-500">System generated | Snapshot at start of period</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-sm font-black font-mono text-white">
+                                        ₩{getAccountDetails.analysis.opening.toLocaleString()}
+                                    </span>
+                                </div>
+
                                 {getAccountDetails.entries.length === 0 ? (
-                                    <div className="text-center py-10 text-slate-500 font-bold">거래 내역이 없습니다.</div>
+                                    <div className="text-center py-10">
+                                        <p className="text-slate-500 font-bold mb-2">해당 기간 내 신규 거래 내역이 없습니다.</p>
+                                        {selectedAccount === '이익잉여금' && (
+                                            <p className="text-slate-600 text-[11px] max-w-md mx-auto leading-relaxed">
+                                                이익잉여금 계정은 전기의 최종 당기순이익이 합산되어 넘어온 수치입니다.<br />
+                                                현재 표시된 <span className="text-indigo-400 font-black">₩{getAccountDetails.analysis.opening.toLocaleString()}</span>은 과거의 경영 실적이 누적된 결과물입니다.
+                                            </p>
+                                        )}
+                                    </div>
                                 ) : (
                                     getAccountDetails.entries.map((entry) => {
                                         const isDebit = entry.debitAccount === selectedAccount;

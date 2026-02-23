@@ -3,11 +3,11 @@ import { calculateFinancials } from '../core_engine/trialBalance';
 import { EXPECTED_BASELINE_RESULTS } from '../core_engine/baselineScenario';
 
 export type DeviationSeverity = 'STABLE' | 'WATCH' | 'CRITICAL';
-export type DeviationCategory = 'GROWTH' | 'PROFITABILITY' | 'STABILITY';
+export type DeviationCategory = 'GROWTH' | 'PROFITABILITY' | 'STABILITY' | 'RISK';
 
 export interface StrategicDeviation {
     id: string;
-    metric: 'Revenue' | 'Expense' | 'Cash' | 'NetIncome' | 'BurnRate';
+    metric: 'Revenue' | 'Expense' | 'Cash' | 'NetIncome' | 'BurnRate' | 'SalesConcentration' | 'InfraEfficiency';
     baseline: number;
     actual: number;
     delta: number;
@@ -38,11 +38,23 @@ export const analyzeStrategicDeviation = (ledger: JournalEntry[]): StrategicDevi
         if (absVar >= thresholds.critical) severity = 'CRITICAL';
         else if (absVar >= thresholds.watch) severity = 'WATCH';
 
+        // Handle name mapping for Korean
+        const metricNameMap: Record<StrategicDeviation['metric'], string> = {
+            'Revenue': '매출',
+            'Expense': '비용',
+            'Cash': '현금',
+            'NetIncome': '순이익',
+            'BurnRate': '현금 연소율',
+            'SalesConcentration': '매출 집중도',
+            'InfraEfficiency': '인프라 효율성'
+        };
+        const metricKo = metricNameMap[metric] || metric;
+
         // Static Insight Generation (No AI yet)
         const direction = delta > 0 ? '초과' : '미달';
-        const quality = (metric === 'Expense' || metric === 'BurnRate')
-            ? (delta > 0 ? '악화' : '개선')
-            : (delta > 0 ? '호조' : '부진');
+        const quality = (metric === 'Expense' || metric === 'BurnRate' || metric === 'SalesConcentration' || metric === 'InfraEfficiency')
+            ? (delta > 0 ? '경계가 필요합니다 (Risk)' : '안정적입니다 (Safe)')
+            : (delta > 0 ? '매우 양호합니다 (Good)' : '관리가 필요합니다 (Warning)');
 
         results.push({
             id: `DEV-${metric}-${Date.now()}`,
@@ -53,7 +65,7 @@ export const analyzeStrategicDeviation = (ledger: JournalEntry[]): StrategicDevi
             variancePercent: Math.round(variancePercent * 10) / 10,
             severity,
             category,
-            insight: `${metric}이(가) 목표 대비 ${Math.abs(Math.round(variancePercent))}% ${direction}하여 ${quality} 상태입니다.`
+            insight: `${metricKo}이(가) 기준치 대비 ${Math.abs(Math.round(variancePercent))}% ${direction}하여 ${quality}.`
         });
     };
 
@@ -66,8 +78,38 @@ export const analyzeStrategicDeviation = (ledger: JournalEntry[]): StrategicDevi
 
     // 3. Stability Metrics
     analyze('Cash', actuals.cash, EXPECTED_BASELINE_RESULTS.cash, 'STABILITY', { watch: 5, critical: 10 }); // Cash is King
-    // Burn Rate (Proxy: Expense - Revenue, if negative)
-    // For now, simpler implementation handled via Cash/NetIncome
+
+    // 4. Advanced Risk Metrics
+
+    // Burn Rate: Monthly average operating cash out (simplified as Expense - Revenue if losing money)
+    const burnRate = actuals.expenses > actuals.revenue ? (actuals.expenses - actuals.revenue) : 0;
+    // Assume baseline burn rate from standard scenario
+    const baselineBurnRate = EXPECTED_BASELINE_RESULTS.expenses > EXPECTED_BASELINE_RESULTS.revenue
+        ? EXPECTED_BASELINE_RESULTS.expenses - EXPECTED_BASELINE_RESULTS.revenue
+        : 0;
+    analyze('BurnRate', burnRate, baselineBurnRate, 'STABILITY', { watch: 10, critical: 20 });
+
+    // Sales Concentration: Top vendor revenue / Total Revenue (Simulated as checking high impact transactions)
+    // Basic calculation for visual impact
+    const revenues = ledger.filter(e => e.type === 'Revenue' && e.status === 'Approved');
+    const vendorSales: Record<string, number> = {};
+    revenues.forEach(r => {
+        const v = r.vendor || 'Unknown';
+        vendorSales[v] = (vendorSales[v] || 0) + r.amount;
+    });
+    const topVendor = Object.entries(vendorSales).sort((a, b) => b[1] - a[1])[0];
+    const topVendorAmount = topVendor ? topVendor[1] : 0;
+    const salesConcentration = actuals.revenue > 0 ? (topVendorAmount / actuals.revenue) * 100 : 0;
+    // Set baseline concentration to 30% ideally
+    analyze('SalesConcentration', salesConcentration, 30, 'RISK', { watch: 20, critical: 50 });
+
+    // Infrastructure Efficiency: IT/Infra costs / Total Revenue
+    const infraCosts = ledger
+        .filter(e => e.debitAccount.includes('통신비') || e.debitAccount.includes('소프트웨어') || e.debitAccount.includes('인프라'))
+        .reduce((sum, e) => sum + e.amount, 0);
+    const infraPerRev = actuals.revenue > 0 ? (infraCosts / actuals.revenue) * 100 : 0;
+    // Target 5% infra to rev ratio
+    analyze('InfraEfficiency', infraPerRev, 5, 'PROFITABILITY', { watch: 20, critical: 50 });
 
     return results;
 };

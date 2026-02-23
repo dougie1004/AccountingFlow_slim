@@ -10,6 +10,7 @@ const Settings: React.FC = () => {
     const [newAmount, setNewAmount] = useState('');
     const [newCustomAccount, setNewCustomAccount] = useState('');
     const [newAccountNature, setNewAccountNature] = useState<AccountNature>(AccountNature.SG_AND_A);
+    const [apiKeyName, setApiKeyName] = useState(() => localStorage.getItem('user_gemini_api_key') || '');
 
     const handleAddInitialBalance = () => {
         if (!newAccount || !newAmount) return;
@@ -38,42 +39,126 @@ const Settings: React.FC = () => {
             </datalist>
 
             <div>
-                <h1 className="text-3xl font-black text-white tracking-tight">설정 (Settings)</h1>
-                <p className="mt-2 text-slate-400 font-bold text-lg">시스템 데이터 및 기초 설정을 관리합니다.</p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-black text-white tracking-tight">설정 (Settings)</h1>
+                        <p className="mt-2 text-slate-400 font-bold text-lg">시스템 데이터 및 기초 설정을 관리합니다.</p>
+                    </div>
+                    {((window as any).isDemoMode || import.meta.env.VITE_APP_MODE === 'demo') && (
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-2xl">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                                <span className="text-emerald-400 font-black text-xs uppercase tracking-widest">Demo Sandbox Active</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* 1. Data Control Center */}
-            <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 shadow-2xl space-y-6">
+            {/* AI Configuration Section (Demo focus) */}
+            <div className="bg-indigo-600/10 p-8 rounded-[2rem] border border-indigo-500/20 shadow-2xl space-y-6">
                 <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-500/10 rounded-2xl"><Database className="w-6 h-6 text-indigo-400" /></div>
-                    <h3 className="text-xl font-black text-white">데이터 제어 센터 (Data Control)</h3>
+                    <div className="p-3 bg-indigo-500/20 rounded-2xl"><Lock className="w-6 h-6 text-indigo-400" /></div>
+                    <div className="flex-1">
+                        <h3 className="text-xl font-black text-white">AI 엔진 설정 (AI Configuration)</h3>
+                        <p className="text-slate-500 text-xs font-bold">데모 버전 시연을 위해 본인의 Gemini API Key를 입력해 주세요.</p>
+                    </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button
-                        onClick={() => {
-                            if (window.confirm('기존 데이터를 모두 삭제하고 데모 데이터(부서별 급여, 비용 등)를 로드하시겠습니까?')) {
-                                loadDemoData();
-                            }
-                        }}
-                        className="p-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all text-left group"
-                    >
-                        <div className="text-emerald-400 font-black text-lg mb-2 group-hover:translate-x-1 transition-transform">🚀 데모 데이터 로드 (Load Demo)</div>
-                        <p className="text-slate-400 text-xs">전표, 부서, 기초 잔액을 포함한 풀 세트 테스트 데이터를 생성합니다. (기존 데이터 삭제됨)</p>
-                    </button>
 
-                    <button
-                        onClick={() => {
-                            if (window.confirm('정말로 모든 데이터를 영구 삭제하고 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-                                clearAllData();
-                            }
-                        }}
-                        className="p-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 transition-all text-left group"
-                    >
-                        <div className="text-rose-400 font-black text-lg mb-2 group-hover:translate-x-1 transition-transform">🗑️ 전체 데이터 삭제 (Delete All Data)</div>
-                        <p className="text-slate-400 text-xs">모든 전표와 설정을 삭제하고 빈 상태로 만듭니다.</p>
-                    </button>
+                <div className="space-y-4">
+                    <div className="flex flex-col gap-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Google Gemini API Key</label>
+                        <div className="flex gap-3">
+                            <input
+                                type="password"
+                                placeholder="AI 기능을 사용하려면 API Key를 입력하세요..."
+                                className="flex-1 bg-[#0B1221] border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-mono focus:border-indigo-500 transition-colors"
+                                value={apiKeyName}
+                                onChange={(e) => {
+                                    setApiKeyName(e.target.value);
+                                    localStorage.setItem('user_gemini_api_key', e.target.value);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        window.alert('API Key가 성공적으로 저장되었습니다.');
+                                    }
+                                }}
+                            />
+                            <a
+                                href="https://aistudio.google.com/app/apikey"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2 text-xs font-bold"
+                            >
+                                Get Key <Plus size={14} />
+                            </a>
+                        </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-white/5 flex items-center justify-between gap-6">
+                        <div className="flex-1">
+                            <h4 className="text-sm font-black text-white">플랜 전환 데모 (Tier Simulation)</h4>
+                            <p className="text-xs text-slate-500 font-bold mt-1">체험판(Free)과 엔터프라이즈(Professional) 간의 UI 차이를 즉시 확인할 수 있습니다.</p>
+                        </div>
+                        <div className="flex bg-[#0B1221] p-1 rounded-xl border border-white/5">
+                            {(['Free', 'Professional'] as const).map(p => (
+                                <button
+                                    key={p}
+                                    onClick={() => {
+                                        const limits = { Free: 5, Professional: 1000 };
+                                        let t = JSON.parse(localStorage.getItem('accounting_flow_tenant') || '{}');
+                                        t.plan = p;
+                                        t.aiUsageLimit = limits[p];
+                                        localStorage.setItem('accounting_flow_tenant', JSON.stringify(t));
+                                        window.location.reload(); // Refresh to apply access changes
+                                    }}
+                                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${JSON.parse(localStorage.getItem('accounting_flow_tenant') || '{}').plan === p
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'text-slate-500 hover:text-slate-300'
+                                        }`}
+                                >
+                                    {p}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            {/* 1. Data Control Center (Hidden in Deploy Mode) */}
+            {import.meta.env.VITE_APP_MODE !== 'demo' && !(window as any).isDemoMode && (
+                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 shadow-2xl space-y-6">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-indigo-500/10 rounded-2xl"><Database className="w-6 h-6 text-indigo-400" /></div>
+                        <h3 className="text-xl font-black text-white">데이터 제어 센터 (Data Control)</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button
+                            onClick={() => {
+                                if (window.confirm('기존 데이터를 모두 삭제하고 데모 데이터(부서별 급여, 비용 등)를 로드하시겠습니까?')) {
+                                    loadDemoData();
+                                }
+                            }}
+                            className="p-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all text-left group"
+                        >
+                            <div className="text-emerald-400 font-black text-lg mb-2 group-hover:translate-x-1 transition-transform">🚀 데모 데이터 로드 (Load Demo)</div>
+                            <p className="text-slate-400 text-xs">전표, 부서, 기초 잔액을 포함한 풀 세트 테스트 데이터를 생성합니다. (기존 데이터 삭제됨)</p>
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                if (window.confirm('정말로 모든 데이터를 영구 삭제하고 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+                                    clearAllData();
+                                }
+                            }}
+                            className="p-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 transition-all text-left group"
+                        >
+                            <div className="text-rose-400 font-black text-lg mb-2 group-hover:translate-x-1 transition-transform">🗑️ 전체 데이터 삭제 (Delete All Data)</div>
+                            <p className="text-slate-400 text-xs">모든 전표와 설정을 삭제하고 빈 상태로 만듭니다.</p>
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* 1.2 Custom Chart of Accounts */}
             <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 shadow-2xl space-y-6">

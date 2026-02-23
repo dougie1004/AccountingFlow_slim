@@ -154,34 +154,35 @@ export const ArApManagement: React.FC = () => {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-            <header className="flex justify-between items-end">
+            {/* Sticky Page Header */}
+            <header className="sticky top-0 z-40 bg-[#0B1221]/80 backdrop-blur-md py-6 -mx-8 px-8 border-b border-white/5 flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                     <h2 className="text-3xl font-black text-white flex items-center gap-3">
                         {view === 'AR' ? <ArrowDownLeft className="text-emerald-400" /> : <ArrowUpRight className="text-rose-400" />}
                         {view === 'AR' ? '매출채권(AR) 관리' : view === 'AP' ? '매입채무(AP) 관리' : '가계정(Suspense) 정산'}
                     </h2>
-                    <p className="text-slate-500 font-bold mt-1">
-                        {view === 'SUS' ? '미결산 항목(가지급금, 가수금 등)을 정식 계정으로 정산합니다.' : '미결제 항목 및 연체 현황을 분석합니다.'}
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                        {view === 'SUS' ? 'Suspense Account Clearing & Management' : 'Outstanding Invoices & Aging Analysis'}
                     </p>
                 </div>
-                <div className="flex bg-[#151D2E] p-1 rounded-2xl border border-white/5">
+                <div className="flex bg-[#151D2E] p-1 rounded-2xl border border-white/10 shadow-inner">
                     <button
                         onClick={() => setView('AR')}
-                        className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${view === 'AR' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 hover:text-white'}`}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${view === 'AR' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                     >
-                        매출채권 (Receivables)
+                        RECEIVABLES
                     </button>
                     <button
                         onClick={() => setView('AP')}
-                        className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${view === 'AP' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'text-slate-500 hover:text-white'}`}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${view === 'AP' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                     >
-                        매입채무 (Payables)
+                        PAYABLES
                     </button>
                     <button
                         onClick={() => setView('SUS')}
-                        className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${view === 'SUS' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-slate-500 hover:text-white'}`}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${view === 'SUS' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                     >
-                        가계정 (Suspense)
+                        SUSPENSE
                     </button>
                 </div>
             </header>

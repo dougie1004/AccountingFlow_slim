@@ -1,0 +1,139 @@
+﻿cargo :     Checking accountin
+g-flow v0.1.0 (C:\Projects\Acc
+ountingFlow\src-tauri)
+위치 줄:1 문자:1
++ cargo check > cargo_check_er
+r.txt 2>&1; Get-Content cargo_
+check_err.t ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
+    + CategoryInfo          : 
+    NotSpecified: (    Check  
+  ing ac...Flow\src-tauri):   
+ String) [], RemoteExcepti    
+on
+    + FullyQualifiedErrorId : 
+    NativeCommandError
+ 
+warning: unused doc comment
+  --> src\core\security.rs:7:1
+   |
+ 7 | / /**
+ 8 | |  * [Security Module] Te
+nant Isolation & KMS (Key Mana
+gement System)
+ 9 | |  * 
+10 | |  * ?뷀꽣?꾨씪?댁쫰湲?蹂댁븞 ?붽뎄?ы
+빆??異⑹”?섍린 ?꾪븳 寃⑸━ 諛???愿由?紐⑤뱢?
+낅땲??
+...  |
+15 | |  * 3. In-Memory Vault: 
+?ㅼ쓽 硫붾え由????덉쟾??寃⑸━ 蹂닿? (?ㅼ젣 ?
+댁쁺 ?쒖뿉??Encrypted File/Hardwar
+e HSM ?곕룞 沅뚯옣)
+16 | |  */
+   | |___^ rustdoc does not ge
+nerate documentation for macro
+ invocations
+   |
+   = help: to document an item
+ produced by a macro, the macr
+o must produce the documentati
+on as part of its expansion
+   = note: `#[warn(unused_doc_
+comments)]` (part of `#[warn(u
+nused)]`) on by default
+
+warning: unused import: `std::
+time::Duration`
+ --> src\ai\ai_service.rs:5:5
+  |
+5 | use std::time::Duration;
+  |     ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_impor
+ts)]` (part of `#[warn(unused)
+]`) on by default
+
+error[E0061]: this function ta
+kes 6 arguments but 5 argument
+s were supplied
+  --> src\ai\mass_processor.rs
+:55:11
+   |
+55 |     match ai_service::cal
+l_journal_ai(&input, None, pol
+icy, "default", "Pro").await {
+   |           ^^^^^^^^^^^^^^^
+^^^^^^^^^^^^------------------
+---------------------- argumen
+t #6 of type `std::option::Opt
+ion<std::string::String>` is m
+issing
+   |
+note: function defined here
+  --> src\ai\ai_service.rs:23:
+14
+   |
+23 | pub async fn call_journal
+_ai(
+   |              ^^^^^^^^^^^^
+^^^
+...
+29 |     custom_api_key: Optio
+n<String>,
+   |     ---------------------
+---------
+help: provide the argument
+   |
+55 |     match ai_service::cal
+l_journal_ai(&input, None, pol
+icy, "default", "Pro", /* std:
+:option::Option<std::string::S
+tring> */).await {
+   |                          
+                              
+                     +++++++++
+++++++++++++++++++++++++++++++
++++++++++
+
+warning: unused variable: `per
+iod_start`
+   --> src\accounting\report_e
+ngine.rs:105:5
+    |
+105 |     period_start: String
+,
+    |     ^^^^^^^^^^^^ help: i
+f this is intentional, prefix 
+it with an underscore: `_perio
+d_start`
+    |
+    = note: `#[warn(unused_var
+iables)]` (part of `#[warn(unu
+sed)]`) on by default
+
+warning: unused variable: `net
+_assets`
+   --> src\accounting\report_e
+ngine.rs:156:9
+    |
+156 |     let net_assets: f64 
+= financial_overview.total_rev
+enue - financial_overview.tota
+l_expenses; // Simplified
+    |         ^^^^^^^^^^ help:
+ if this is intentional, prefi
+x it with an underscore: `_net
+_assets`
+
+For more information about thi
+s error, try `rustc --explain 
+E0061`.
+warning: `accounting-flow` (li
+b) generated 4 warnings
+error: could not compile `acco
+unting-flow` (lib) due to 1 pr
+evious error; 4 warnings emitt
+ed
+

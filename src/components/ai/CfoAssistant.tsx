@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Send, X, MessageSquare, Bot, HelpCircle, TrendingUp, ShieldCheck, ChevronDown, Maximize2 } from 'lucide-react';
+import { Sparkles, Send, X, MessageSquare, Bot, HelpCircle, TrendingUp, ShieldCheck, ChevronDown, Maximize2, RotateCcw } from 'lucide-react';
 import { AccountingContext } from '../../context/AccountingContext';
 import { chatWithCfo } from '../../services/aiService';
 import { cleanMarkdown } from '../../utils/textUtils';
@@ -28,15 +28,16 @@ export const CfoAssistant: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [currentTargetDate, setCurrentTargetDate] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
-    const { ledger, config, financials } = useContext(AccountingContext)!;
+    const { ledger, config, financials, closingRecords } = useContext(AccountingContext)!;
 
     const clearMessages = () => {
         setMessages([{
             id: '1',
             role: 'assistant',
-            content: '최신 재무 데이터를 기반으로 대화를 재시작합니다. 질문을 입력해 주세요.',
+            content: '안녕하세요, 대표님. 모든 대화 기록과 조회 컨텍스트가 초기화되었습니다. 새로운 분석을 시작할 준비가 되었습니다.',
             timestamp: new Date()
         }]);
+        setCurrentTargetDate(null); // 날짜 컨텍스트 초기화 (중요)
     };
 
     useEffect(() => {
@@ -63,12 +64,14 @@ export const CfoAssistant: React.FC = () => {
             // 1. Smart Date & Month Detection
             const fullDateRegex = /(\d{2,4})년?\s*(\d{1,2})월\s*(\d{1,2})일/;
             const monthRegex = /(\d{2,4})년?\s*(\d{1,2})월/;
+            const yearRegex = /(\d{2,4})년/;
 
             const fullMatch = inputValue.match(fullDateRegex);
             const monthMatch = inputValue.match(monthRegex);
+            const yearMatch = inputValue.match(yearRegex);
 
             let dateToQuery = currentTargetDate;
-            let queryType: 'day' | 'month' | null = null;
+            let queryType: 'day' | 'month' | 'year' | null = null;
 
             if (fullMatch) {
                 let year = fullMatch[1];
@@ -85,6 +88,12 @@ export const CfoAssistant: React.FC = () => {
                 dateToQuery = `${year}-${month}`; // Format: YYYY-MM
                 setCurrentTargetDate(dateToQuery);
                 queryType = 'month';
+            } else if (yearMatch) {
+                let year = yearMatch[1];
+                if (year.length === 2) year = "20" + year;
+                dateToQuery = year; // Format: YYYY
+                setCurrentTargetDate(dateToQuery);
+                queryType = 'year';
             }
 
             let periodContext = "";
@@ -93,7 +102,10 @@ export const CfoAssistant: React.FC = () => {
             if (dateToQuery) {
                 const targetEntries = approvedLedger.filter(e => e.date.startsWith(dateToQuery!));
 
-                if (targetEntries.length > 0) {
+                // [INTEGRITY] Search for Official Closing Records for this period first
+                const officialRecord = closingRecords.find(r => r.period === dateToQuery || (queryType === 'year' && r.period.startsWith(dateToQuery!)));
+
+                if (officialRecord || targetEntries.length > 0) {
                     const isCashAccount = (name: string) => {
                         const low = name.toLowerCase();
                         return low.includes('예금') || low.includes('현금') || low.includes('cash') || low.includes('bank');
@@ -102,16 +114,31 @@ export const CfoAssistant: React.FC = () => {
                     const totalIn = targetEntries.filter(e => isCashAccount(e.debitAccount)).reduce((s, e) => s + (e.amount + (e.vat || 0)), 0);
                     const totalOut = targetEntries.filter(e => isCashAccount(e.creditAccount)).reduce((s, e) => s + (e.amount + (e.vat || 0)), 0);
 
-                    periodContext = `\n[${dateToQuery} 기간 실제 장부 기록 요약]\n` +
-                        `- 조회 기간: ${dateToQuery}${queryType === 'month' ? ' (해당 월 전체)' : ''}\n` +
-                        `- 총 현금 유입: ${totalIn.toLocaleString()}원\n` +
-                        `- 총 현금 유출: ${totalOut.toLocaleString()}원\n` +
-                        `- 기간 내 거래 건수: ${targetEntries.length}건\n\n` +
-                        `[상세 내역 (최대 15건)]\n` +
-                        targetEntries.slice(0, 15).map(e => `- [${e.date}] ${e.description}: ${e.amount.toLocaleString()}원 (${e.debitAccount}/${e.creditAccount})`).join('\n') +
-                        (targetEntries.length > 15 ? `\n...외 ${targetEntries.length - 15}건 더 있음` : '');
+                    // Categorical Analysis (Revenue vs Expense)
+                    const revenue = targetEntries.filter(e => e.type === 'Revenue').reduce((s, e) => s + e.amount, 0);
+                    const expense = targetEntries.filter(e => e.type === 'Expense' || e.type === 'Payroll').reduce((s, e) => s + e.amount, 0);
+
+                    periodContext = `\n[${dateToQuery} 기간 재무 데이터 분석]\n` +
+                        `- 조회 범위: ${dateToQuery}${queryType === 'month' ? ' (해당 월)' : queryType === 'year' ? ' (해당 연도)' : ''}\n` +
+                        `- 현금 흐름: 유입 ${totalIn.toLocaleString()}원 / 유출 ${totalOut.toLocaleString()}원\n` +
+                        `- 경영 실적(장부): 매출 ${revenue.toLocaleString()}원 / 비용 ${expense.toLocaleString()}원 / 순이익 ${(revenue - expense).toLocaleString()}원\n`;
+
+                    if (officialRecord) {
+                        const s = officialRecord.summary;
+                        periodContext += `\n[🔒 공식 결산 데이터 발견 - 신뢰도 최고]\n` +
+                            `- 결산 마감일: ${new Date(officialRecord.closedAt).toLocaleDateString()}\n` +
+                            `- 공식 매출: ${s.revenue.toLocaleString()}원\n` +
+                            `- 공식 비용: ${s.expense.toLocaleString()}원\n` +
+                            `- 공식 순이익: ${s.profit.toLocaleString()}원\n` +
+                            `- 기말 자산: ${s.totalAssets.toLocaleString()}원 (자본: ${s.equity.toLocaleString()}원)\n` +
+                            `- 이전 CFO 브리핑 요약: ${officialRecord.aiBriefing?.substring(0, 200) || '내역 없음'}...\n`;
+                    }
+
+                    periodContext += `\n[상세 거래 샘플 (최대 10건)]\n` +
+                        targetEntries.slice(0, 10).map(e => `- [${e.date}] ${e.description}: ${e.amount.toLocaleString()}원 (${e.debitAccount}/${e.creditAccount})`).join('\n') +
+                        (targetEntries.length > 10 ? `\n...외 ${targetEntries.length - 10}건 더 있음` : '');
                 } else {
-                    periodContext = `\n[🚨 데이터 경고] 시스템 조회 결과 ${dateToQuery} 기간의 '승인된' 장부 기록이 0건입니다. 이 기간에 대해서는 절대로 임의의 숫자를 만들지 말고, 데이터가 전무함을 정직하게 답변하십시오.`;
+                    periodContext = `\n[🚨 데이터 경고] 시스템 조회 결과 ${dateToQuery} 기간의 '승인된' 장부 기록이나 결산 내역이 0건입니다. 이 기간에 대해서는 절대로 임의의 숫자를 만들지 말고, 데이터가 전무함을 정직하게 답변하십시오.`;
                 }
             }
 
@@ -249,9 +276,10 @@ export const CfoAssistant: React.FC = () => {
                             <div className="flex items-center gap-1">
                                 <button
                                     onClick={clearMessages}
-                                    className="px-3 py-1.5 text-[10px] font-black text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all uppercase tracking-tight"
+                                    className="px-3 py-1.5 text-[10px] font-black text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 rounded-xl transition-all uppercase tracking-widest border border-rose-500/30 flex items-center gap-1.5"
                                     title="임시 기억 및 대화 기록 삭제"
                                 >
+                                    <RotateCcw size={12} />
                                     Clear History
                                 </button>
                                 <button onClick={() => {

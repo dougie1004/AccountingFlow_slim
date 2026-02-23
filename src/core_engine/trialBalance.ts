@@ -13,6 +13,9 @@ export interface FinancialMetrics {
     cashOutflow: number;
     revenue: number;
     expenses: number;
+    cogs: number;
+    sga: number;
+    nonOperatingExpense: number;
     ar: number;
     ap: number;
     vatReceivable: number;
@@ -58,7 +61,7 @@ export function calculateNetCashChange(entries: JournalEntry[], asOfDate?: strin
     approvedEntries.forEach(entry => {
         const amount = entry.amount || 0;
         const vat = entry.vat || 0;
-        const total = amount + vat;
+        const total = entry.type === 'Payroll' ? amount - vat : amount + vat;
 
         const flowType = CashPolicy.isExternalFlow(entry.debitAccount, entry.creditAccount);
 
@@ -91,10 +94,14 @@ export const calculateFinancials = (
     ledger: JournalEntry[],
     asOfDate?: string,
     openingCash: number = 0,
-    sealedNatures?: Record<string, AccountNature>
+    sealedNatures?: Record<string, AccountNature>,
+    isDeltaMode: boolean = false
 ): FinancialMetrics & FinancialFormat => {
     let revenue = 0;
     let expenses = 0;
+    let cogs = 0;
+    let sga = 0;
+    let nonOperatingExpense = 0;
     let ar = 0;
     let ap = 0;
     let vatReceivable = 0;
@@ -133,7 +140,7 @@ export const calculateFinancials = (
     approvedLedger.forEach(e => {
         const amount = e.amount || 0;
         const vat = e.vat || 0;
-        const total = amount + vat;
+        const total = e.type === 'Payroll' ? amount - vat : amount + vat;
 
         const natureD = resolveNature(e.debitAccount);
         const natureC = resolveNature(e.creditAccount);
@@ -148,10 +155,22 @@ export const calculateFinancials = (
                     revenue += isDebitSide ? -amt : amt;
                     break;
                 case AccountNature.COGS:
+                    trackAndCheck(accName, nature);
+                    const cVal = isDebitSide ? amt : -amt;
+                    cogs += cVal;
+                    expenses += cVal;
+                    break;
                 case AccountNature.SG_AND_A:
+                    trackAndCheck(accName, nature);
+                    const sVal = isDebitSide ? amt : -amt;
+                    sga += sVal;
+                    expenses += sVal;
+                    break;
                 case AccountNature.NON_OPERATING:
                     trackAndCheck(accName, nature);
-                    expenses += isDebitSide ? amt : -amt;
+                    const nVal = isDebitSide ? amt : -amt;
+                    nonOperatingExpense += nVal;
+                    expenses += nVal;
                     break;
                 case AccountNature.ASSET:
                 case AccountNature.LIABILITY:
@@ -175,7 +194,7 @@ export const calculateFinancials = (
                 const vatAcc = e.type === 'Payroll' ? '예수금(원천세)' : '부가가치세대급금';
                 if (e.type === 'Payroll') vatPayable += vat; else vatReceivable += vat;
                 accountBalances[vatAcc] = (accountBalances[vatAcc] || 0) + (e.type === 'Payroll' ? -vat : vat);
-                accountBalances[e.creditAccount] = (accountBalances[e.creditAccount] || 0) - vat;
+                accountBalances[e.creditAccount] = (accountBalances[e.creditAccount] || 0) + (e.type === 'Payroll' ? vat : -vat);
             }
         }
 
@@ -184,6 +203,16 @@ export const calculateFinancials = (
         if (isApAccount(e.creditAccount)) ap += total;
         if (isApAccount(e.debitAccount)) ap -= total;
     });
+
+    // ---------------------------------------------------------
+    // [CONSTITUTIONAL CHECK] - Double-Entry Integrity Verification
+    // The algebraic sum of all account balances MUST perfectly equal 0.
+    // ---------------------------------------------------------
+    let algebraSum = 0;
+    Object.values(accountBalances).forEach(b => { algebraSum += b; });
+    if (Math.abs(algebraSum) > 0.01) {
+        throw new ConstitutionViolationError(`[FATAL] Engine Trial Balance Mismatch. Algebraic sum is ${algebraSum}. This means the internal Double-Entry routing is broken.`);
+    }
 
     const netIncome = revenue - expenses;
     const hasActivity = approvedLedger.length > 0;
@@ -194,12 +223,46 @@ export const calculateFinancials = (
     Object.entries(accountBalances).forEach(([acc, balance]) => {
         const nature = accountSectionMap.get(acc) || getAccountNature(acc);
         const cat = getAccountCategory(acc, nature);
+
+        // ---------------------------------------------------------
+        // [CONSTITUTIONAL CHECK 2] - Sign Convention & Type Cross-Validation
+        // ---------------------------------------------------------
+        const isContraAsset = acc.includes('누계액');
+
+        // 1. Sign Convention Check (Tolerance: ±10 for rounding)
+        if (!isDeltaMode) {
+            if (cat === 'Asset') {
+                if (!isContraAsset && balance < -10) {
+                    throw new ConstitutionViolationError(`[FATAL] 자산 계정("${acc}")의 잔액이 음수(${balance})입니다. (Sign Convention 위반)`);
+                }
+            } else if (cat === 'Liability') {
+                if (balance > 10) {
+                    throw new ConstitutionViolationError(`[FATAL] 부채 계정("${acc}")의 잔액이 양수(${balance})입니다. (거꾸로 기장됨)`);
+                }
+            } else if (cat === 'Expense') {
+                if (balance < -10) {
+                    throw new ConstitutionViolationError(`[FATAL] 비용 계정("${acc}")의 잔액이 음수(${balance})입니다. (비정상적 마이너스 비용 발생)`);
+                }
+            }
+
+            // 2. Account Type Cross-Validation
+            if (acc.includes('대급금') && cat !== 'Asset') {
+                throw new ConstitutionViolationError(`[FATAL] 부가가치세대급금이 자산이 아닌 ${cat}로 분류되었습니다. (구조적 무결성 위반)`);
+            }
+            if (acc.includes('예수금') && cat !== 'Liability') {
+                throw new ConstitutionViolationError(`[FATAL] ${acc}이(가) 부채가 아닌 ${cat}로 분류되었습니다. (구조적 무결성 위반)`);
+            }
+            if (cat === 'Revenue' && (acc.includes('대급금') || acc.includes('비용'))) {
+                throw new ConstitutionViolationError(`[FATAL] 비용/VAT 관련 계정명("${acc}")이 수익(Revenue) 계정으로 잘못 분류되었습니다.`);
+            }
+        }
+
         if (cat === 'Asset') totalAssets += balance;
         if (cat === 'Liability') totalLiabilities -= balance;
     });
 
     return {
-        cash, cashInflow, cashOutflow, revenue, expenses, ar, ap, vatReceivable, vatPayable, netIncome, totalAssets, totalLiabilities,
+        cash, cashInflow, cashOutflow, revenue, expenses, cogs, sga, nonOperatingExpense, ar, ap, vatReceivable, vatPayable, netIncome, totalAssets, totalLiabilities,
         displayCash: formatCurrency(cash),
         displayAr: formatCurrency(ar),
         displayAp: formatCurrency(ap),

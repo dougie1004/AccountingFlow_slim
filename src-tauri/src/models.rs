@@ -35,7 +35,7 @@ pub struct Account {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AuditIssue { 
+pub struct ManagementIssue { 
     pub id: i64, 
     pub issue_title: String, 
     pub description: String, 
@@ -45,7 +45,7 @@ pub struct AuditIssue {
     pub detected_at: String,
     pub recommendations: String,
     pub evidence_quote: String,
-    pub audit_id: Option<String>,
+    pub project_id: Option<String>, // Renamed from audit_id
     pub evidence_image: Option<String>,
     pub status: String,
     pub assignee: Option<String>,
@@ -55,14 +55,14 @@ pub struct AuditIssue {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AuditProject {
+pub struct ManagementProject {
     pub id: String, // UUID
     pub title: String,
-    pub status: String, // Planning, Fieldwork, Reporting, Closed
+    pub status: String, // Planning, Execution, Reporting, Closed
     pub progress_pct: i32,
     pub start_date: String,
     pub end_date: String,
-    pub lead_auditor: String,
+    pub lead_reviewer: String, // Renamed from lead_auditor
     // Detailed Editable Fields
     pub planning_start: Option<String>,
     pub planning_end: Option<String>,
@@ -90,10 +90,10 @@ pub struct SystemEvent {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AuditPlan {
+pub struct ManagementPlan {
     pub id: i64,
     pub year: i32,
-    pub audit_domain: String,
+    pub review_domain: String,
     pub risk_score: i32,
     pub strategic_importance: String,
     pub resource_days: i32,
@@ -174,21 +174,22 @@ pub struct AnalysisResult {
 }
 
 // AI 遺꾩꽍 寃곌낵 ?꾩껜瑜??대뒗 援ъ“泥?
+// AI 분석 결과 전체를 담는 구조체
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AuditAnalysisResult {
+pub struct ReviewAnalysisResult {
     pub summary: String,
     pub risk_score: i32,
-    pub findings: Vec<AuditFinding>,
+    pub findings: Vec<ReviewFinding>,
 }
 
-// 媛쒕퀎 諛쒓껄 ?ы빆 (?ш린??梨꾪깮/湲곌컖 ?щ?, 利앸튃 ?깆씠 ?ы븿?섏뼱????
+// 개별 발견 사항 (여기서 채택/기각 여부, 증빙 등이 포함되어야 함)
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AuditFinding {
+pub struct ReviewFinding {
     pub id: String,
     pub category: String,
     pub severity: String, // High, Medium, Low
     pub description: String,
-    pub evidence: String, // ?곸꽭 利앸튃 ?곗씠??
+    pub evidence: String, // 상세 증빙 데이터
     pub recommendation: String,
     pub status: String, // "Pending", "Accepted", "Rejected"
 }
@@ -200,7 +201,7 @@ pub struct SheetData {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AuditScenario {
+pub struct ManagementScenario {
     pub id: String, // e.g., "PR-01", "CC-01"
     pub name: String,
     pub domain: String,
@@ -213,9 +214,9 @@ pub struct AuditScenario {
     pub enabled: bool,
 }
 
-// [CERTIFIED AUDIT] Structure for audit_run_log.json
+// [CERTIFIED REVIEW] Structure for review_run_log.json
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AuditRunLog {
+pub struct ReviewRunLog {
     pub run_id: String,
     pub scan_summary: ScanSummary,
     pub rule_hits: Vec<String>,
@@ -239,4 +240,28 @@ pub struct AiOutputCard {
     pub rationale: Vec<String>, // Why we should look (3 points)
     pub counter_argument: String, // Possible normal scenario
     pub next_action: String, // Single step
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum RiskGrade {
+    Low,
+    Moderate,
+    High,
+    Critical,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RiskBreakdown {
+    pub unexplained_ratio: f64,
+    pub volatility_risk: f64,
+    pub concentration_risk: f64,
+    pub temporal_risk: f64,
+    pub budget_risk: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RiskIndex {
+    pub total_score: f64,
+    pub grade: RiskGrade,
+    pub breakdown: RiskBreakdown,
 }

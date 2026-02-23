@@ -8,6 +8,7 @@ pub mod scm;
 pub mod utils;
 
 mod commands;
+pub mod models;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -53,9 +54,12 @@ pub fn run() {
             commands::batch_export_with_validation,
             commands::generate_journal_id,
             commands::parse_universal_file,
+            commands::parse_excel_file,
             commands::generic_ai_chat,
-            commands::process_audit_context,
-            commands::perform_audit_check,
+            commands::get_management_projects,
+            commands::get_management_tasks,
+            commands::process_review_context,
+            commands::perform_review_check,
             commands::generate_management_report
         ])
         .run(tauri::generate_context!())

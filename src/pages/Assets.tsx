@@ -15,7 +15,8 @@ const DEPRECIATION_RATES: Record<number, number> = {
 };
 
 export const Assets: React.FC = () => {
-    const { assets, addAsset, updateAsset, addEntries, runAutoDepreciation } = useContext(AccountingContext)!;
+    const { assets: rawAssets, addAsset, updateAsset, addEntries, runAutoDepreciation, systemNow } = useContext(AccountingContext)!;
+    const assets = rawAssets.filter(a => !systemNow || a.acquisitionDate <= systemNow);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newAsset, setNewAsset] = useState<Partial<Asset>>({
         name: '',

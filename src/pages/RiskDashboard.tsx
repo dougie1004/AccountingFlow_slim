@@ -21,12 +21,15 @@ import { isSuspenseAccount, isArAccount, isApAccount } from '../constants/accoun
 import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
+import { useConfig } from '../context/ConfigContext';
+import { PremiumFeatureWall } from '../components/common/PremiumFeatureWall';
 import { BLOCKED_REASON } from '../constants/accounts';
 import { analyzeIntelligence } from '../bridge/StrategicBridge';
 import { IntelligenceSnapshot } from '../types/intelligence';
 
 export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab }) => {
     const { ledger = [], financials, systemNow } = useAccounting();
+    const { tenantInfo } = useConfig();
 
     // Safety check for ledger
     const safeLedger = Array.isArray(ledger) ? ledger : [];
@@ -139,8 +142,15 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
             const vendorMap = new Map<string, number>();
             revenueEntries.forEach(e => {
                 const v = e.vendor || 'Unknown';
-                // Intelligence: Skip "Collective SaaS Pools" as they are fragmented by nature
-                if (v.includes('SaaS 정기 구독자') || v.includes('Individual Subscribers')) return;
+                // Intelligence: Skip "Collective SaaS Pools" or "Unknown" as they are fragmented or poor data, not concentration
+                if (
+                    v.includes('SaaS 정기 구독자') ||
+                    v.includes('Individual Subscribers') ||
+                    v.includes('개별 정기 구독자') ||
+                    v === 'Unknown' ||
+                    v === 'N/A' ||
+                    v === ''
+                ) return;
                 vendorMap.set(v, (vendorMap.get(v) || 0) + e.amount);
             });
             const rankedVendors = Array.from(vendorMap.entries()).sort((a, b) => b[1] - a[1]);
@@ -212,13 +222,16 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-            <header className="flex justify-between items-end">
+            {/* Sticky Page Header */}
+            <header className="sticky top-0 z-40 bg-[#0B1221]/80 backdrop-blur-md py-6 -mx-8 px-8 border-b border-white/5 flex justify-between items-center gap-6">
                 <div>
                     <h2 className="text-3xl font-black text-white flex items-center gap-3">
                         <Lock className="text-rose-500" size={32} />
-                        결산 및 자금 통제 센터 (Closing & Fund Control)
+                        결산 및 자금 통제 (Risk Control)
                     </h2>
-                    <p className="text-slate-500 font-bold mt-1">상거래 채권/채무, 선급/선수금 및 가계정 미결 항목의 결산 리스크를 통합 관리합니다.</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                        Unified Settlement Risk & Financial Integrity Dashboard
+                    </p>
                 </div>
                 <div className="flex items-center gap-3 bg-[#151D2E] p-1 rounded-2xl border border-white/5 text-[10px] font-black uppercase tracking-widest text-slate-500 px-4 py-2">
                     <Activity size={12} className="text-emerald-500 animate-pulse" />
@@ -275,40 +288,53 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
                     <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] px-4">Flow Intelligence & Closing Operations</p>
                 </div>
 
-                <div className="lg:col-span-8 bg-[#151D2E] rounded-[2.5rem] border border-indigo-500/20 overflow-hidden shadow-2xl shadow-indigo-500/5">
-                    <div className="p-8 border-b border-white/5 bg-gradient-to-r from-indigo-500/10 to-transparent flex justify-between items-center">
-                        <h3 className="text-xl font-black text-white flex items-center gap-2">
-                            <Sparkles className="text-indigo-400" size={20} />
-                            인텔리전스 경영 통찰 (Intelligence Findings)
-                        </h3>
-                    </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {stats.findings.map((insight) => (
-                            <div key={insight.id} className="bg-[#0B1221] p-6 rounded-[2rem] border border-white/5 flex flex-col justify-between">
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-start">
-                                        <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${insight.severity === 'URGENT' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                                            insight.severity === 'ATTENTION' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                                                insight.severity === 'STABLE' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                                                    'bg-slate-500/20 text-slate-400 border border-slate-500/30'
-                                            }`}>
-                                            {insight.severity}
+                <div className="lg:col-span-8">
+                    <PremiumFeatureWall
+                        plan={tenantInfo?.plan || 'Free'}
+                        minPlan="Professional"
+                        featureName="Strategic Intelligence AI"
+                    >
+                        <div className="bg-[#151D2E] rounded-[2.5rem] border border-indigo-500/20 overflow-hidden shadow-2xl shadow-indigo-500/5 h-full">
+                            <div className="p-8 border-b border-white/5 bg-gradient-to-r from-indigo-500/10 to-transparent flex justify-between items-center">
+                                <h3 className="text-xl font-black text-white flex items-center gap-2">
+                                    <Sparkles className="text-indigo-400" size={20} />
+                                    인텔리전스 경영 통찰 (Intelligence Findings)
+                                </h3>
+                            </div>
+                            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {stats.findings.map((insight) => (
+                                    <div key={insight.id} className="bg-[#0B1221] p-6 rounded-[2rem] border border-white/5 flex flex-col justify-between">
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-start">
+                                                <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${insight.severity === 'URGENT' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                                                    insight.severity === 'ATTENTION' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                                                        insight.severity === 'STABLE' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                                            'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                                                    }`}>
+                                                    {insight.severity}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-white font-black text-lg mb-2">{insight.title}</h4>
+                                                <p className="text-slate-400 text-sm font-medium leading-relaxed">{insight.description}</p>
+                                            </div>
+                                        </div>
+                                        <div className="mt-6 pt-6 border-t border-white/5">
+                                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <Lightbulb size={12} /> 권고 (Recommendation)
+                                            </p>
+                                            <p className="text-slate-300 text-xs font-bold">{insight.recommendation}</p>
                                         </div>
                                     </div>
-                                    <div>
-                                        <h4 className="text-white font-black text-lg mb-2">{insight.title}</h4>
-                                        <p className="text-slate-400 text-sm font-medium leading-relaxed">{insight.description}</p>
+                                ))}
+                                {stats.findings.length === 0 && (
+                                    <div className="col-span-2 py-20 text-center text-slate-500 font-bold">
+                                        분석된 전략적 위험이 없습니다.
                                     </div>
-                                </div>
-                                <div className="mt-6 pt-6 border-t border-white/5">
-                                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        <Lightbulb size={12} /> 권고 (Recommendation)
-                                    </p>
-                                    <p className="text-slate-300 text-xs font-bold">{insight.recommendation}</p>
-                                </div>
+                                )}
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    </PremiumFeatureWall>
                 </div>
 
                 <div className="lg:col-span-4 bg-[#151D2E] p-8 rounded-[2.5rem] border border-white/5 flex flex-col">

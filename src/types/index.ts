@@ -295,8 +295,12 @@ export interface ClosingRecord {
         totalLiabilities: number;
         equity: number;
         revenue: number;
-        expense: number;
+        expense: number; // Total expense (COGS + SG&A + Non-Op)
+        cogs: number;    // [Breakdown] Cost of Goods Sold
+        sga: number;     // [Breakdown] Selling, General and Administrative
+        nonOperatingExpense: number; // [Breakdown] Non-Operating
         profit: number;
+        cash: number; // [Phase 11] Explicit cash position at closing
         // Fixed Asset Metrics
         fixedAssetsGross: number;
         fixedAssetsAccumDep: number;
@@ -382,6 +386,8 @@ export interface ManagementReport {
         totalRisks: number;
         criticalCount: number;
         highCount: number;
+        mediumCount: number;
+        lowCount: number;
         topRisks: BusinessRisk[];
     };
     risks: BusinessRisk[];
@@ -418,6 +424,7 @@ export interface ProjectedCashFlow {
         variableExpensesEstimate: number;
         revenueEstimate: number;
         isBudgetBased?: boolean;
+        unplannedLiabilityAmount?: number; // [Phase 11] Safety adjustment (Officer loans, etc.)
         simulationDisclaimer?: string; // [Phase 2]
     };
 }
@@ -428,4 +435,21 @@ export interface RunwayAnalysis {
     runwayMonths: number; // calculated months left
     scenario: ScenarioType;
     isBudgetBased?: boolean;
+}
+
+// --- AFRI (AccountingFlow Risk Index) V1.0 ---
+export type RiskGrade = 'Low' | 'Moderate' | 'High' | 'Critical';
+
+export interface RiskBreakdown {
+    unexplained_ratio: number;
+    volatility_risk: number;
+    concentration_risk: number;
+    temporal_risk: number;
+    budget_risk: number;
+}
+
+export interface AFRIProfile {
+    totalScore: number;
+    grade: RiskGrade;
+    breakdown: RiskBreakdown;
 }

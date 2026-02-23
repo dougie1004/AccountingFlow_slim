@@ -22,11 +22,16 @@ import { Leases } from './pages/Leases';
 import { OperationPlan } from './pages/OperationPlan';
 import { SimulationReport } from './pages/SimulationReport';
 import ProcessMonitoring from './pages/ProcessMonitoring';
+import { ExecutiveReport } from './pages/ExecutiveReport';
+import AuditWorkspace from './pages/AuditWorkspace';
+
+import { IntegrityCenter } from './pages/IntegrityCenter';
 
 import { AccountingProvider } from './context/AccountingContext';
 import { ConfigProvider } from './context/ConfigContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ConstitutionErrorBoundary } from './constitution/ConstitutionErrorBoundary';
+import { IntegrityGuard } from './components/ui/IntegrityGuard';
 
 
 interface AppContextType {
@@ -61,7 +66,7 @@ const AppContent = () => {
                         {activeTab === 'dashboard' && <Dashboard setTab={setActiveTab} />}
                         {activeTab === 'journal' && <Journal />}
                         {activeTab === 'general-ledger' && <LedgerView />}
-                        {activeTab === 'trial-balance' && <FinancialStatements />}
+                        {activeTab === 'trial-balance' && <FinancialStatements setTab={setActiveTab} />}
                         {activeTab === 'daily-cash' && <DailyCashReport />}
                         {activeTab === 'arap-management' && <ArApManagement />}
                         {activeTab === 'closing-manager' && <ClosingManager />}
@@ -72,17 +77,20 @@ const AppContent = () => {
                         {activeTab === 'tax-report' && <TaxReport />}
                         {activeTab === 'risk-dashboard' && <RiskDashboard setTab={setActiveTab} />}
                         {activeTab === 'operation-plan' && <OperationPlan />}
-                        {activeTab === 'operation-plan' && <OperationPlan />}
                         {activeTab === 'simulation-report' && <SimulationReport />}
                         {activeTab === 'migration' && <DataMigration setTab={setActiveTab} />}
                         {activeTab === 'settings' && <Settings />}
                         {activeTab === 'approval-desk' && <ApprovalDesk />}
                         {activeTab === 'ai-performance' && <AiLab />}
                         {activeTab === 'process-monitoring' && <ProcessMonitoring />}
+                        {activeTab === 'executive-report' && <ExecutiveReport onBack={() => setActiveTab('dashboard')} />}
+                        {activeTab === 'audit-run' && <AuditWorkspace />}
+                        {activeTab === 'integrity-center' && <IntegrityCenter />}
                     </div>
                 </div>
             </main>
             <CfoAssistant />
+            <IntegrityGuard />
         </div>
     );
 };

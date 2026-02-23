@@ -20,11 +20,12 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
     const rangeLabel = timeRange === 'day' ? '14 Days' : timeRange === 'week' ? 'Weekly' : timeRange === 'month' ? 'Monthly' : 'Yearly';
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in slide-in-from-top-4 duration-700">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4 duration-700">
             {/* 1. Net Income (Profitability) */}
             <button
                 onClick={() => {
                     localStorage.setItem('fs_initial_tab', 'pl');
+                    localStorage.setItem('fs_return_tab', 'dashboard');
                     if (financials.startDate) localStorage.setItem('fs_start_date', financials.startDate);
                     if (financials.endDate) localStorage.setItem('fs_end_date', financials.endDate);
                     onNavigate?.('trial-balance');
@@ -93,9 +94,14 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
                 onClick={() => {
                     localStorage.setItem('fs_initial_tab', 'pl');
                     localStorage.setItem('fs_selected_account', 'GROUP:BURN_RATE');
-                    // Burn rate is calculated over a longer baseline, show 'All' time to see the reference
-                    localStorage.setItem('fs_start_date', '2023-01-01');
-                    localStorage.setItem('fs_end_date', financials.endDate || new Date().toISOString().split('T')[0]);
+                    localStorage.setItem('fs_return_tab', 'dashboard');
+
+                    // Use the actual range from the financials or a robust default
+                    const start = financials.earliestExpenseDate || financials.startDate || '2023-01-01';
+                    const end = financials.endDate || new Date().toISOString().split('T')[0];
+
+                    localStorage.setItem('fs_start_date', start);
+                    localStorage.setItem('fs_end_date', end);
                     onNavigate?.('trial-balance');
                 }}
                 className="text-left bg-[#151D2E] p-6 rounded-[2rem] border border-white/5 shadow-xl relative overflow-hidden group hover:scale-[1.02] transition-all"
@@ -121,47 +127,6 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
                 </div>
             </button>
 
-            {/* 4. Runway & Efficiency */}
-            <div className="bg-[#151D2E] p-6 rounded-[2rem] border border-white/5 shadow-xl relative overflow-hidden group">
-                <div className="relative z-10 h-full flex flex-col justify-between">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="p-2 bg-blue-500/10 rounded-xl text-blue-400">
-                            <ReceiptText size={18} />
-                        </div>
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Efficiency & Runway</span>
-                        <InfoTooltip
-                            title="Efficiency & Runway (효율성 및 생존기간)"
-                            content="현재의 현금 잔액과 지출 속도를 바탕으로 기업이 버틸 수 있는 예상 기간과 매출 대비 수익성을 나타냅니다."
-                        />
-                    </div>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center p-2 bg-white/[0.02] rounded-lg border border-white/5">
-                            <div className="flex items-center gap-1">
-                                <span className="text-[10px] font-black text-slate-400 uppercase">현금 소진 기간</span>
-                                <InfoTooltip
-                                    title="Runway (현금 소진 기간)"
-                                    content="현재 가용 현금을 월평균 지출액으로 나눈 값입니다. 추가 수입이 없을 때 얼마나 더 유지 가능한지 보여줍니다."
-                                    contextualTip="안정적인 운영을 위해 최소 6개월 이상의 Runway 확보를 권장합니다."
-                                />
-                            </div>
-                            <span className="text-xs font-black text-blue-400">{runway > 0 ? `${runway}개월` : '분석중'}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-2 bg-white/[0.02] rounded-lg border border-white/5">
-                            <div className="flex items-center gap-1">
-                                <span className="text-[10px] font-black text-slate-400 uppercase">순이익률</span>
-                                <InfoTooltip
-                                    title="Net Profit Margin (순이익률)"
-                                    content="매출액에서 순이익이 차지하는 비율입니다. (순이익 / 매출액 * 100)"
-                                    contextualTip="이익률이 높을수록 사업 모델의 효율성이 높음을 의미합니다."
-                                />
-                            </div>
-                            <span className={`text-xs font-black ${margin >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {margin}%
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };

@@ -2,15 +2,15 @@ import { useState, useEffect } from "react";
 import { safeInvoke } from "../lib/tauri-bridge";
 import { CheckCircle, Clock, Calendar, User, Plus } from "lucide-react";
 
-interface AuditTask { id: number; phase: string; title: string; assignee: string; due_date: string; status: "Pending" | "InProgress" | "Completed"; }
+interface ManagementTask { id: number; phase: string; title: string; assignee: string; due_date: string; status: "Pending" | "InProgress" | "Completed"; }
 
 export default function TaskManagement() {
-    const [tasks, setTasks] = useState<AuditTask[]>([]);
+    const [tasks, setTasks] = useState<ManagementTask[]>([]);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const data: AuditTask[] = await safeInvoke("get_audit_tasks");
+                const data: ManagementTask[] = await safeInvoke("get_management_tasks");
                 setTasks(data);
             } catch (err) { console.error(err); }
         };
@@ -61,13 +61,13 @@ export default function TaskManagement() {
     return (
         <div style={{ padding: "32px", background: "#f8fafc", minHeight: "100vh", fontFamily: "Pretendard" }}>
             <div style={{ marginBottom: "32px" }}>
-                <h2 style={{ fontSize: "24px", fontWeight: "bold", color: "#1e293b", marginBottom: "8px" }}>감사 업무 관리 (Audit Task Management)</h2>
-                <p style={{ color: "#64748b" }}>감사 계획 수립부터 실행, 보고서 작성까지 전체 프로세스를 추적합니다.</p>
+                <h2 style={{ fontSize: "24px", fontWeight: "bold", color: "#1e293b", marginBottom: "8px" }}>경영 검토 업무 관리 (Management Review)</h2>
+                <p style={{ color: "#64748b" }}>전략적 목표 및 재무 지표의 실행 현황을 추적합니다.</p>
             </div>
 
             <div style={{ background: "white", padding: "24px", borderRadius: "12px", border: "1px solid #e2e8f0", marginBottom: "32px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                    <span style={{ fontWeight: "bold", color: "#1e293b" }}>전체 감사 진척도</span>
+                    <span style={{ fontWeight: "bold", color: "#1e293b" }}>전체 검진 진척도</span>
                     <span style={{ fontWeight: "bold", color: "#2563eb" }}>{progress}%</span>
                 </div>
                 <div style={{ width: "100%", height: "10px", background: "#f1f5f9", borderRadius: "5px", overflow: "hidden" }}>
@@ -76,8 +76,8 @@ export default function TaskManagement() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
-                {renderTaskGroup("Planning", "1. 감사 계획 (Planning)")}
-                {renderTaskGroup("Fieldwork", "2. 현장 감사 (Fieldwork)")}
+                {renderTaskGroup("Planning", "1. 경영 검토 계획 (Planning)")}
+                {renderTaskGroup("Fieldwork", "2. 실태 검토 (Review)")}
                 {renderTaskGroup("Reporting", "3. 보고 및 종료 (Reporting)")}
             </div>
         </div>

@@ -44,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    const { tenantInfo, updateTenantInfo, usageStatus } = useConfig();
+    const { tenantInfo, updateTenantInfo, usageStatus, checkPlanAccess } = useConfig();
     const { theme, setTheme, resolvedTheme } = useTheme();
 
     useEffect(() => {
@@ -66,11 +66,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
             title: '경영 및 전략 (Strategy)',
             items: [
                 { id: 'dashboard', label: 'CFO 대시보드', description: '실시간 재무 KPI 및 AI 전략 리포트', icon: LayoutDashboard, minPlan: 'Free' },
+                { id: 'executive-report', label: '경영 성과 리포트', description: '월간 확정 실적 및 VC 대응용 분석 보고서', icon: FileText, minPlan: 'Basic' },
                 { id: 'daily-cash', label: '자금수지 (Cash Flow)', description: '일일 시재 및 현금 흐름 분석', icon: Wallet, minPlan: 'Free' },
                 { id: 'risk-dashboard', label: '리스크 대시보드', description: '이상 거래 및 세무 리스크 탐지', icon: Shield, minPlan: 'Standard' },
+                { id: 'audit-run', label: 'AI 검증 런 (Judgment Run)', description: 'AI 기반 데이터 무결성 및 적정성 정밀 분석', icon: ShieldCheck, minPlan: 'Standard' },
                 { id: 'closing-manager', label: '월마감 센터', description: '회계 마감 및 정밀 검증 센터', icon: Lock, minPlan: 'Basic' },
                 { id: 'simulation-report', label: '월별 손익 현황', description: '사업계획 대비 실적 시뮬레이션 상세', icon: FileSpreadsheet, minPlan: 'Free' },
-            ]
+            ].filter(item => checkPlanAccess(item.minPlan as any))
         },
         {
             title: '회계 및 세무 (Accounting)',
@@ -79,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                 { id: 'general-ledger', label: '총계정원장 (GL)', description: '계정별 원장 및 증빙 관리', icon: FileText, minPlan: 'Free' },
                 { id: 'trial-balance', label: '재무제표 (Financial Statements)', description: '재무제표 및 시산표 기반 보고서', icon: FileSpreadsheet, minPlan: 'Free' },
                 // { id: 'tax-report', label: '세무 및 신고 지원', description: '부가세/원천세 자동 계산 및 리포트', icon: Landmark, minPlan: 'Basic' },
-            ]
+            ].filter(item => checkPlanAccess(item.minPlan as any))
         },
         {
             title: '운영 및 관리 (Operations)',
@@ -90,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                 { id: 'vendor-ledger', label: '거래처 원장', description: '파트너사별 거래 내역 조회', icon: Users, minPlan: 'Free' },
                 { id: 'partners', label: '거래처 정보 관리', description: '주요 거래처 및 파트너 정보 관리', icon: Users, minPlan: 'Free' },
                 { id: 'operation-plan', label: '사업 계획 및 예산', description: '예산 편성 및 실적 대비 분석(BP)', icon: TrendingUp, minPlan: 'Standard' },
-            ]
+            ].filter(item => checkPlanAccess(item.minPlan as any))
         },
         {
             title: '시스템 권한 (Control)',
@@ -98,9 +100,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                 { id: 'approval-desk', label: '결재 센터 (Approval)', description: '전표 승인 및 내부 통제 프로세스', icon: ClipboardCheck, minPlan: 'Standard' },
                 { id: 'ai-performance', label: 'AI 성능 연구소', description: 'AI 모델 성능 및 정확도 분석', icon: Activity, minPlan: 'Professional' },
                 { id: 'process-monitoring', label: '프로세스 모니터링', description: '시스템 스트레스 테스트 및 이상 탐지', icon: Activity, minPlan: 'Professional' },
-            ]
+            ].filter(item => {
+                const demoMode = (window as any).isDemoMode || import.meta.env.VITE_APP_MODE === 'demo';
+                if (demoMode && ['integrity-center', 'ai-performance', 'process-monitoring'].includes(item.id)) return false;
+                return checkPlanAccess(item.minPlan as any);
+            })
         }
-    ];
+    ].filter(group => {
+        const demoMode = (window as any).isDemoMode || import.meta.env.VITE_APP_MODE === 'demo';
+        if (demoMode && group.title === '시스템 권한 (Control)') return false;
+        return group.items.length > 0;
+    });
 
     const switchPlan = (plan: 'Free' | 'Basic' | 'Standard' | 'Professional') => {
         if (!tenantInfo) return;
@@ -121,12 +131,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
             <div className="flex flex-col h-full bg-[#070C18] text-slate-400 border-r border-[#151D2E] shadow-2xl overflow-hidden">
                 {/* Header */}
                 <div className="h-[73px] flex items-center justify-between px-6 border-b border-white/5 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-600/20">
+                    <button
+                        onClick={() => {
+                            setTab('dashboard');
+                            if (isMobile) setIsOpen(false);
+                        }}
+                        className="flex items-center gap-3 hover:opacity-80 transition-opacity group"
+                    >
+                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
                             <Sparkles className="text-white" size={18} />
                         </div>
-                        <span className="text-white font-black text-lg tracking-tight">AccountingFlow</span>
-                    </div>
+                        <div className="flex flex-col">
+                            <span className="text-white font-black text-lg tracking-tight">AccountingFlow</span>
+                            {((window as any).isDemoMode || import.meta.env.VITE_APP_MODE === 'demo') && (
+                                <span className="text-[9px] text-emerald-400 font-black uppercase tracking-widest bg-emerald-400/10 px-1.5 py-0.5 rounded ml-0.5 w-fit">Demo Edition</span>
+                            )}
+                        </div>
+                    </button>
                     {isMobile && (
                         <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
                             <X size={20} />
@@ -136,6 +157,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
 
                 {/* Nav */}
                 <nav className="flex-1 overflow-y-auto py-6 px-3 custom-scrollbar space-y-8">
+                    <div className="space-y-1">
+                        <button
+                            onClick={() => {
+                                setTab('dashboard');
+                                if (isMobile) setIsOpen(false);
+                            }}
+                            className={`w-full group flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 ${activeTab === 'dashboard'
+                                ? 'bg-indigo-600/10 text-indigo-400'
+                                : 'text-slate-500 hover:bg-white/[0.03] hover:text-slate-200'
+                                }`}
+                        >
+                            <LayoutDashboard size={18} className={activeTab === 'dashboard' ? 'text-indigo-400' : 'text-slate-600 group-hover:text-indigo-400'} />
+                            <span className="font-bold text-[13px] tracking-wide">홈 (대시보드 메인)</span>
+                        </button>
+                    </div>
+
                     {menuGroups.map((group, groupIdx) => (
                         <div key={groupIdx} className="space-y-1">
                             <h3 className="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 mb-3">{group.title}</h3>
@@ -154,11 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                                         <div className="flex items-center gap-3 relative z-10">
                                             <div className="relative">
                                                 <item.icon size={18} className={activeTab === item.id ? 'text-white' : 'text-slate-600 group-hover:text-indigo-400 transition-colors'} />
-                                                {item.minPlan !== 'Free' && tenantInfo && tenantInfo.plan === 'Free' && (
-                                                    <div className="absolute -top-1.5 -right-1.5 p-0.5 bg-slate-800 rounded-full border border-white/10 group-hover:scale-110 transition-transform">
-                                                        <Lock size={8} className="text-amber-500" />
-                                                    </div>
-                                                )}
+
                                             </div>
                                             <span className="font-bold text-[13px] tracking-wide">{item.label}</span>
                                         </div>
@@ -242,28 +275,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                         <span className="font-bold text-[13px] tracking-wide">데이터 연동 및 이관</span>
                     </button>
 
-                    <button
-                        onClick={() => {
-                            const nextTheme = theme === 'auto' ? 'light' : theme === 'light' ? 'dark' : 'auto';
-                            setTheme(nextTheme);
-                        }}
-                        className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl hover:bg-white/5 hover:text-slate-200 transition-all duration-300 group"
-                    >
-                        <div className="flex items-center gap-3">
-                            {resolvedTheme === 'dark' ? (
-                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-500 group-hover:text-slate-300">
-                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                                </svg>
-                            ) : (
-                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-500 group-hover:text-slate-300">
-                                    <circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-                                </svg>
-                            )}
-                            <span className="font-bold text-[13px] tracking-wide">
-                                {theme === 'auto' ? '자동 테마' : theme === 'light' ? '라이트' : '다크'}
-                            </span>
-                        </div>
-                    </button>
 
                     <button
                         onClick={() => {

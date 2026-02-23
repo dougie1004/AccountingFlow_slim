@@ -2,3 +2,4 @@
 pub mod assets;
 pub mod batch_export;
 pub mod report_engine;
+pub mod flow_analysis;

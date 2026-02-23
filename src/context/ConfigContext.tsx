@@ -1,12 +1,20 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { TenantConfig, TenantInfo, SubscriptionLevel } from '../types';
 
+const PLAN_HIERARCHY: Record<SubscriptionLevel, number> = {
+    'Free': 0,
+    'Basic': 1,
+    'Standard': 2,
+    'Professional': 3
+};
+
 interface ConfigContextType {
     config: TenantConfig | null;
     tenantInfo: TenantInfo | null;
     updateConfig: (newConfig: TenantConfig) => void;
     updateTenantInfo: (newInfo: TenantInfo) => void;
     checkPermission: (feature: 'NarrativeReport' | 'AuditScenario' | 'AICall') => boolean;
+    checkPlanAccess: (minPlan: SubscriptionLevel) => boolean;
     isInitialized: boolean;
     usageStatus: 'normal' | 'warning' | 'blocked';
 }
@@ -86,6 +94,11 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
     };
 
+    const checkPlanAccess = (minPlan: SubscriptionLevel): boolean => {
+        if (!tenantInfo) return false;
+        return PLAN_HIERARCHY[tenantInfo.plan] >= PLAN_HIERARCHY[minPlan];
+    };
+
     return (
         <ConfigContext.Provider value={{
             config,
@@ -93,6 +106,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             updateConfig,
             updateTenantInfo,
             checkPermission,
+            checkPlanAccess,
             isInitialized,
             usageStatus
         }}>

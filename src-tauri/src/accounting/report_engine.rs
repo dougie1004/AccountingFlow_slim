@@ -224,12 +224,12 @@ fn calculate_asset_insights(assets: &[Asset]) -> AssetInsights {
 
 fn calculate_financial_overview(ledger: &[JournalEntry]) -> FinancialOverview {
     let total_revenue: f64 = ledger.iter()
-        .filter(|e| e.entry_type == "Revenue")
+        .filter(|e| e.entry_type == "Revenue" || e.entry_type == "Sales")
         .map(|e| e.amount)
         .sum();
 
     let total_expenses: f64 = ledger.iter()
-        .filter(|e| e.entry_type == "Expense")
+        .filter(|e| e.entry_type == "Expense" || e.entry_type == "Payroll")
         .map(|e| e.amount)
         .sum();
 
@@ -471,11 +471,13 @@ JSON 형식으로 응답:
         report_mode,
     );
 
-    let pro_model_name = std::env::var("GEMINI_PRO_MODEL").unwrap_or_else(|_| "gemini-2.5-pro".to_string());
+    let config = crate::ai::config::AiConfig::load();
+    let pro_model_name = config.model_pro.clone();
+    let url = config.get_url(&pro_model_name, &api_key);
     
     let client = reqwest::Client::new();
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", pro_model_name, api_key))
+        .post(url)
         .json(&json!({ "contents": [{ "parts": [{ "text": prompt }] }] }))
         .send()
         .await

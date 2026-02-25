@@ -99,15 +99,20 @@ export const RiskEvidenceModal: React.FC<RiskEvidenceModalProps> = ({ riskId, le
         // Extract uncollected long-term AR
         const arAccounts = ['외상매출금', '미수금'];
 
-        const overdueEntries = approved.filter(e =>
-            arAccounts.some(acc => e.debitAccount.includes(acc)) &&
-            !e.isSettled
-        ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        let totalAR = 0;
+        approved.forEach(e => {
+            const totalAmount = e.amount + (e.vat || 0);
+            if (arAccounts.some(acc => e.debitAccount.includes(acc))) totalAR += totalAmount;
+            if (arAccounts.some(acc => e.creditAccount.includes(acc))) totalAR -= totalAmount;
+        });
 
-        const totalAR = overdueEntries.reduce((s, e) => s + e.amount, 0);
         const revenues = approved.filter(e => e.type === 'Revenue');
         const totalRev = revenues.reduce((s, e) => s + e.amount, 0);
         const arRatio = totalRev > 0 ? (totalAR / totalRev) : 0;
+
+        const sampleEntries = approved.filter(e =>
+            arAccounts.some(acc => e.debitAccount.includes(acc))
+        ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         return (
             <div className="space-y-6">
@@ -115,15 +120,15 @@ export const RiskEvidenceModal: React.FC<RiskEvidenceModalProps> = ({ riskId, le
                     <h4 className="text-xs font-black text-slate-400 uppercase mb-3 flex items-center gap-2">
                         <TrendingDown size={14} /> 미회수 채권 리스트 (연령 분석)
                     </h4>
-                    {overdueEntries.length > 0 ? (
+                    {sampleEntries.length > 0 ? (
                         <div className="space-y-3">
-                            {overdueEntries.slice(0, 5).map(e => {
+                            {sampleEntries.slice(0, 5).map(e => {
                                 const daysOverdue = Math.floor((new Date(systemNow).getTime() - new Date(e.date).getTime()) / (1000 * 60 * 60 * 24));
                                 return (
-                                    <div key={e.id} className="flex justify-between items-center p-3 bg-rose-500/5 rounded-xl border border-rose-500/10">
+                                    <div key={e.id} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
                                         <div>
-                                            <div className="text-white font-bold">{e.vendor || '알수없음'}</div>
-                                            <div className="text-[10px] text-rose-400 font-black mt-1">발생일: {e.date} ({daysOverdue}일 경과)</div>
+                                            <div className="text-white font-bold">{e.vendor || 'SaaS 정기 구독자'}</div>
+                                            <div className="text-[10px] text-slate-400 font-black mt-1">거래일: {e.date} ({daysOverdue}일 경과)</div>
                                         </div>
                                         <div className="text-right font-black text-white">
                                             ₩{(e.amount + (e.vat || 0)).toLocaleString()}

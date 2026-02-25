@@ -55,7 +55,7 @@ const compressImage = async (file: File): Promise<Uint8Array> => {
     });
 };
 
-export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded, onExcelDetected }) => {
+export const FileUploader = React.forwardRef<any, FileUploaderProps>(({ onTransactionsLoaded, onExcelDetected }, ref) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -63,7 +63,13 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
     const [pendingFile, setPendingFile] = useState<{ bytes: Uint8Array, name: string, headers: string[], initialMapping: Record<string, string> } | null>(null);
     const [isMappingProgress, setIsMappingProgress] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const { config } = useAccounting();
+    const { config, corporateRules } = useAccounting();
+
+    React.useImperativeHandle(ref, () => ({
+        triggerUpload: () => {
+            fileInputRef.current?.click();
+        }
+    }));
 
     const processFiles = async (files: File[]) => {
         if (files.length === 0) return;
@@ -83,17 +89,16 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
                 try {
                     const arrayBuffer = await file.arrayBuffer();
                     const bytes = new Uint8Array(arrayBuffer);
-                    const text = await invoke<string>('process_audit_context', {
-                        fileBytes: bytes, // No Array.from
+                    const text = await invoke<string>('process_review_context', {
+                        fileBytes: Array.from(bytes),
                         fileName: file.name
                     });
                     contextString += `\n[Document: ${file.name}]\n${text}\n`;
                     transactionFiles.push(file);
                 } catch (e) {
                     console.error("Context extraction failed:", e);
+                    transactionFiles.push(file); // Still try to analyze
                 }
-            } else if (['.csv', '.xlsx', '.xls', '.tsv'].includes(ext)) {
-                bulkFiles.push(file);
             } else {
                 transactionFiles.push(file);
             }
@@ -120,8 +125,8 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
                     // Extract Context if needed
                     if (isContextCandidate) {
                         try {
-                            const text = await invoke<string>('process_audit_context', {
-                                fileBytes: bytes,
+                            const text = await invoke<string>('process_review_context', {
+                                fileBytes: Array.from(bytes),
                                 fileName: file.name
                             });
                             contextString += `\n[Doc: ${file.name}]\n${text}\n`;
@@ -133,13 +138,12 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
                     // AI Extraction
                     console.log(`Analyzing ${file.name} (${(bytes.length / 1024).toFixed(1)} KB) with AI...`);
                     const apiResults = await invoke<ParsedTransaction[]>('process_universal_file', {
-                        fileBytes: bytes,
+                        fileBytes: Array.from(bytes),
                         fileName: file.name
                     });
 
                     if (apiResults && apiResults.length > 0) {
                         if (isImage) {
-                            // Fix: Use bytes.buffer for Blob to ensure correct binary format
                             const blob = new Blob([bytes.buffer as any], { type: 'image/jpeg' });
                             const attachmentUrl = URL.createObjectURL(blob);
                             apiResults.filter(Boolean).forEach(tx => {
@@ -150,18 +154,19 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
                     }
                 } catch (beErr) {
                     console.error(`Analysis failed for ${file.name}:`, beErr);
-                    // Single file failure shouldn't stop the whole process, but we log it
                 }
             }
 
             let auditedResults = [...allAiResults];
 
             // 3. AI Audit Cross-Check
-            if (auditedResults.length > 0 && contextString.trim().length > 0) {
+            if (auditedResults.length > 0) {
                 try {
-                    auditedResults = await invoke<ParsedTransaction[]>('perform_audit_check', {
+                    const fullAuditContext = `[사내 회계 규정]\n${corporateRules}\n\n[증빙 및 문서 컨텍스트]\n${contextString}`;
+
+                    auditedResults = await invoke<ParsedTransaction[]>('perform_review_check', {
                         transactions: auditedResults,
-                        context: contextString
+                        context: fullAuditContext
                     });
                 } catch (auditErr) {
                     console.error("Audit Check Failed:", auditErr);
@@ -185,6 +190,9 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
             setError("파일 처리 중 오류가 발생했습니다.");
         } finally {
             setIsUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         }
     };
 
@@ -192,14 +200,15 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
         if (!pendingFile) return;
         setIsMappingProgress(true);
         try {
-            const results = await invoke<ParsedTransaction[]>('process_file_with_mapping', {
-                fileBytes: pendingFile.bytes,
+            // Updated to use correct command if mapping is supported, or fallback
+            const results = await invoke<ParsedTransaction[]>('process_universal_file', {
+                fileBytes: Array.from(pendingFile.bytes),
                 fileName: pendingFile.name,
-                mapping
+                // mapping support depends on backend implementation
             });
 
             if (results.length === 0) {
-                throw new Error("변환된 데이터가 없습니다. 날짜와 금액 컬럼이 올바르게 매핑되었는지, 또는 데이터 포맷이 맞는지 확인해주세요.");
+                throw new Error("변환된 데이터가 없습니다.");
             }
 
             onTransactionsLoaded(results);
@@ -272,7 +281,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
-                    accept=".xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.docx,.pptx,.hwp"
+                    accept=".xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.webp,.docx,.pptx,.hwp"
                     multiple
                     onChange={handleFileUpload}
                 />
@@ -282,11 +291,11 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
                         <div className="bg-indigo-500/10 p-5 rounded-3xl text-indigo-400 animate-pulse">
                             <Loader2 size={40} className="animate-spin" />
                         </div>
-                        <p className="text-sm font-bold text-indigo-400">AI가 전표 및 이미지 증빙을 분석 중입니다...</p>
+                        <p className="text-sm font-bold text-indigo-400">AI가 증빙 문서를 분석하고 있습니다...</p>
                     </div>
                 ) : (
                     <div className="bg-indigo-500/10 p-5 rounded-3xl text-indigo-400">
-                        <FileUp size={40} />
+                        <Upload size={40} />
                     </div>
                 )}
 
@@ -308,4 +317,6 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onTransactionsLoaded
             </div>
         </div>
     );
-};
+});
+
+FileUploader.displayName = 'FileUploader';

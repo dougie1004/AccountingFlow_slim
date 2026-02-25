@@ -7,6 +7,7 @@ import { isCashAccount, CashPolicy } from '../../constants/accounts';
 import { ProjectedCashFlow, RunwayAnalysis, ScenarioType } from '../../types';
 import { Tooltip as MyTooltip } from '../common/Tooltip';
 import { formatCurrency } from '../../utils/formatUtils';
+import { InfoTooltip } from '../ui/InfoTooltip';
 
 export const AIForecastPanel: React.FC<{ referenceDate?: string }> = ({ referenceDate }) => {
     const { getForecast, getRunway, ledger, simulationViewMode, setSimulationViewMode } = useAccounting();
@@ -210,43 +211,52 @@ export const AIForecastPanel: React.FC<{ referenceDate?: string }> = ({ referenc
 
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1 bg-[#0B1221] p-1.5 rounded-xl border border-white/5">
-                        <button
-                            onClick={() => setSimulationViewMode('REALITY')}
-                            title="현실적 가디언: 성장이 정체되고 지출이 예상보다 늘어나는 스트레스 테스트 상황"
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${simulationViewMode === 'REALITY'
-                                ? 'bg-slate-700 text-white shadow-lg shadow-slate-900/40'
-                                : 'text-slate-500 hover:text-white hover:bg-white/5'
-                                }`}
-                        >
-                            REALITY
-                        </button>
-                        <button
-                            onClick={() => setSimulationViewMode('ROSE')}
-                            title="장밋빛 희망: 공격적 성장과 비용 절감이 동시에 달성되는 낙관적 상황"
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${simulationViewMode === 'ROSE'
-                                ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40'
-                                : 'text-slate-500 hover:text-white hover:bg-white/5'
-                                }`}
-                        >
-                            ROSE-COLORED
-                        </button>
-                    </div>
-
-                    <div className="flex items-center gap-1 bg-[#0B1221] p-1.5 rounded-xl border border-white/5">
-                        {(['Baseline', 'Optimistic', 'Conservative'] as const).map(s => (
+                        <MyTooltip content="현실적 가디언: 보수적인 성장 지표와 지출 증가를 가정한 스트레스 테스트 상황입니다.">
                             <button
-                                key={s}
-                                onClick={() => setScenario(s)}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${scenario === s
-                                    ? s === 'Optimistic' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-lg shadow-emerald-900/20'
-                                        : s === 'Conservative' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50 shadow-lg shadow-rose-900/20'
-                                            : 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
+                                onClick={() => setSimulationViewMode('REALITY')}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${simulationViewMode === 'REALITY'
+                                    ? 'bg-slate-700 text-white shadow-lg shadow-slate-900/40'
                                     : 'text-slate-500 hover:text-white hover:bg-white/5'
                                     }`}
                             >
-                                {s === 'Baseline' ? '기본' : s === 'Optimistic' ? '낙관적' : '보수적'}
+                                REALITY
                             </button>
-                        ))}
+                        </MyTooltip>
+                        <MyTooltip content="장밋빛 희망: 공격적인 매출 성장과 비용 최적화가 동시에 달성되는 낙관적 상황입니다.">
+                            <button
+                                onClick={() => setSimulationViewMode('ROSE')}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${simulationViewMode === 'ROSE'
+                                    ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40'
+                                    : 'text-slate-500 hover:text-white hover:bg-white/5'
+                                    }`}
+                            >
+                                ROSE-COLORED
+                            </button>
+                        </MyTooltip>
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-[#0B1221] p-1.5 rounded-xl border border-white/5">
+                        {(['Baseline', 'Optimistic', 'Conservative'] as const).map(s => {
+                            const tooltipContent = s === 'Baseline' ? '표준 예측: 과거 트렌드를 기반으로 한 가장 확률 높은 미래 시나리오입니다.' :
+                                s === 'Optimistic' ? '성장 가속: 시장 우호적 상황과 마케팅 효율 극대화가 가정된 시나리오입니다.' :
+                                    '위험 대비: 경기 침체 및 운영비 상승을 가정한 최악의 상황 시뮬레이션입니다.';
+
+                            return (
+                                <MyTooltip key={s} content={tooltipContent}>
+                                    <button
+                                        onClick={() => setScenario(s)}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${scenario === s
+                                            ? s === 'Optimistic' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-lg shadow-emerald-900/20'
+                                                : s === 'Conservative' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50 shadow-lg shadow-rose-900/20'
+                                                    : 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
+                                            : 'text-slate-500 hover:text-white hover:bg-white/5'
+                                            }`}
+                                    >
+                                        {s === 'Baseline' ? '기본' : s === 'Optimistic' ? '낙관적' : '보수적'}
+                                    </button>
+                                </MyTooltip>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -281,7 +291,12 @@ export const AIForecastPanel: React.FC<{ referenceDate?: string }> = ({ referenc
                 <div className="bg-[#0B1221] p-5 rounded-2xl border border-white/5 flex flex-col justify-center relative overflow-hidden group">
                     <p className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
                         <Activity size={12} className={runway.runwayMonths <= 3 ? 'text-rose-400' : 'text-emerald-400'} />
-                        런웨이(Runway) 분석
+                        전략적 Runway (Forecast)
+                        <InfoTooltip
+                            title="Strategic Runway"
+                            content="현재 시나리오별 매출 성장 및 비용 발생 패턴이 유지된다는 가정하의 예상 버퍼입니다."
+                            contextualTip="대시보드의 'Survival Runway'가 0-매출 상황의 최악 방어선이라면, 이는 비즈니스가 지속될 때의 전략적 목표치입니다."
+                        />
                     </p>
                     <div className="flex items-end gap-2">
                         <p className={`text-2xl font-black ${runway.runwayMonths >= 99 ? 'text-emerald-400' : (runway.runwayMonths <= 3 ? 'text-rose-400' : 'text-amber-400')

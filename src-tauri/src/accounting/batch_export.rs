@@ -151,11 +151,13 @@ pub async fn detect_anomalies_with_ai(entries: &[JournalEntry]) -> Result<Vec<St
         summary
     );
 
-    let pro_model_name = std::env::var("GEMINI_PRO_MODEL").unwrap_or_else(|_| "gemini-2.5-pro".to_string());
+    let config = crate::ai::config::AiConfig::load();
+    let pro_model_name = config.model_pro.clone();
+    let url = config.get_url(&pro_model_name, &api_key);
     
     let client = reqwest::Client::new();
     let response = client
-        .post(format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", pro_model_name, api_key))
+        .post(url)
         .json(&serde_json::json!({ "contents": [{ "parts": [{ "text": prompt }] }] }))
         .send()
         .await

@@ -13,7 +13,8 @@ export const SimulationReport: React.FC = () => {
     const [selectedYear, setSelectedYear] = useState<string>('all');
     // Map BusinessScenario ID to Label
     const scenarioLabels = {
-        'SURVIVAL': '자생적 생존 (Lean/Survival)',
+        'SURVIVAL': '생존 모드 (Survival)',
+        'LEAN_STANDARD': '자력 표준 (Lean Standard)',
         'STANDARD': '표준 성장 (Standard)',
         'GROWTH': '공격 확장 (Growth)',
         'DEATH_VALLEY': '☠️ 데스밸리 (Death Valley)'
@@ -73,10 +74,7 @@ export const SimulationReport: React.FC = () => {
 
             // Detailed Breakdown - Real Sales Revenue (Exclude non-operating grants)
             const revenue = rangeEntries.filter(e =>
-                e.type === 'Revenue' &&
-                e.creditAccount !== '국고보조금수익' &&
-                e.creditAccount !== '영업외수익(국고보조금)' &&
-                e.creditAccount !== '잡이익'
+                getAccountNature(e.creditAccount) === 'REVENUE'
             ).reduce((s, e) => s + e.amount, 0);
 
             // [CONSTITUTIONAL NATURE] COGS
@@ -257,19 +255,23 @@ export const SimulationReport: React.FC = () => {
             {monthlyData.length > 0 && (() => {
                 const lifetimeData = (window as any)._simulation_lifetime || monthlyData;
                 let cumulativeNetIncome = 0;
-                let firstMonthlyProfit: string | null = null;
+                let cumulativeOpProfit = 0;
+                let firstMonthlyOpProfit: string | null = null;
                 let firstCumulativeProfit: string | null = null;
                 let lastMonthRevenue = 0;
                 let lastMonthExpense = 0;
 
                 lifetimeData.forEach((row: any, idx: number) => {
                     cumulativeNetIncome += row.netIncome;
-                    // Monthly BEP: First month of positive P&L (excluding zero-activity startup months)
-                    if (row.netIncome > 0 && !firstMonthlyProfit && (row.revenue > 0 || row.expenses > 0)) {
-                        firstMonthlyProfit = row.period;
+                    cumulativeOpProfit += row.opProfit;
+
+                    // Monthly BEP: First month of positive OPERATING Profit (Business Viability)
+                    if (row.opProfit > 0 && !firstMonthlyOpProfit) {
+                        firstMonthlyOpProfit = row.period;
                     }
-                    // Cumulative BEP: When total lifetime P&L crosses zero
-                    if (cumulativeNetIncome > 0 && !firstCumulativeProfit) {
+                    // Cumulative BEP: When total lifetime P&L crosses zero THROUGH business operations
+                    // Check if it crosses 0 and looks like a sustainable recovery (not just a grant spike)
+                    if (cumulativeNetIncome > 0 && !firstCumulativeProfit && row.opProfit >= 0) {
                         firstCumulativeProfit = row.period;
                     }
 
@@ -309,11 +311,11 @@ export const SimulationReport: React.FC = () => {
                             <div className="absolute top-0 right-0 p-4 opacity-5 text-emerald-500 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform">
                                 <TrendingUp size={80} />
                             </div>
-                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Monthly BEP</div>
+                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Operating BEP (Monthly)</div>
                             <div className="text-xl font-black text-white">
-                                {firstMonthlyProfit ? <span className="text-emerald-400">{firstMonthlyProfit}</span> : <span className="text-slate-600">N/A</span>}
+                                {firstMonthlyOpProfit ? <span className="text-emerald-400">{firstMonthlyOpProfit}</span> : <span className="text-slate-600">N/A</span>}
                             </div>
-                            <p className="text-[10px] text-slate-500 font-bold mt-1">월 단위 흑자 시점</p>
+                            <p className="text-[10px] text-slate-500 font-bold mt-1">영업 흑자 전환 시점</p>
 
                             {/* BEP Tooltip */}
                             <div className="absolute inset-0 bg-[#0B1221]/95 z-20 opacity-0 group-hover:opacity-100 transition-opacity p-4 flex flex-col justify-center rounded-[2.5rem]">
@@ -333,11 +335,11 @@ export const SimulationReport: React.FC = () => {
                             <div className="absolute top-0 right-0 p-4 opacity-5 text-indigo-500 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform">
                                 <Snail size={80} />
                             </div>
-                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Cumulative BEP</div>
+                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Deficit Recovery (Full BEP)</div>
                             <div className="text-xl font-black text-white">
                                 {firstCumulativeProfit ? <span className="text-indigo-400">{firstCumulativeProfit}</span> : <span className="text-slate-600">N/A</span>}
                             </div>
-                            <p className="text-[10px] text-slate-500 font-bold mt-1">누적 손익분기점</p>
+                            <p className="text-[10px] text-slate-500 font-bold mt-1">누적 결손금 회수 시점</p>
 
                             {/* Cumulative Tooltip */}
                             <div className="absolute inset-0 bg-[#0B1221]/95 z-20 opacity-0 group-hover:opacity-100 transition-opacity p-4 flex flex-col justify-center rounded-[2.5rem]">
@@ -409,30 +411,30 @@ export const SimulationReport: React.FC = () => {
                 );
             })()}
 
-            <div className="bg-[#151D2E] rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl">
-                <div className="overflow-x-auto">
+            <div className="bg-[#151D2E] rounded-[2rem] border border-white/5 shadow-2xl overflow-hidden flex flex-col max-h-[70vh]">
+                <div className="overflow-auto custom-scrollbar">
                     <table className="w-full text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-30 shadow-md">
                             <tr className="bg-[#0B1221] text-slate-400 border-b border-white/5">
-                                <th className="px-6 py-4 text-left font-black uppercase tracking-wider sticky left-0 bg-[#0B1221] z-10 w-24">Period</th>
-                                <th className="px-4 py-4 text-right font-black text-emerald-500">매출액 (Rev)</th>
-                                <th className="px-4 py-4 text-center font-black text-emerald-400">성장 (User Growth)</th>
-                                <th className="px-4 py-4 text-right font-bold text-slate-500">매출원가</th>
-                                <th className="px-4 py-4 text-right font-black text-white border-r border-white/5">매출총이익</th>
+                                <th className="px-6 py-4 text-left font-black uppercase tracking-wider sticky top-0 left-0 bg-[#0B1221] z-40 w-24">Period</th>
+                                <th className="px-4 py-4 text-right font-black text-emerald-500 sticky top-0 bg-[#0B1221] z-30">매출액 (Rev)</th>
+                                <th className="px-4 py-4 text-center font-black text-emerald-400 sticky top-0 bg-[#0B1221] z-30">성장 (User Growth)</th>
+                                <th className="px-4 py-4 text-right font-bold text-slate-500 sticky top-0 bg-[#0B1221] z-30">매출원가</th>
+                                <th className="px-4 py-4 text-right font-black text-white border-r border-white/5 sticky top-0 bg-[#0B1221] z-30">매출총이익</th>
 
-                                <th className="px-4 py-4 text-right text-rose-300">인건비</th>
-                                <th className="px-4 py-4 text-right text-rose-300">마케팅비</th>
-                                <th className="px-4 py-4 text-right text-rose-300">임차료</th>
-                                <th className="px-4 py-4 text-right text-slate-500">감가상각</th>
-                                <th className="px-4 py-4 text-right text-slate-500 border-r border-white/5">기타비용</th>
+                                <th className="px-4 py-4 text-right text-rose-300 sticky top-0 bg-[#0B1221] z-30">인건비</th>
+                                <th className="px-4 py-4 text-right text-rose-300 sticky top-0 bg-[#0B1221] z-30">마케팅비</th>
+                                <th className="px-4 py-4 text-right text-rose-300 sticky top-0 bg-[#0B1221] z-30">임차료</th>
+                                <th className="px-4 py-4 text-right text-slate-500 sticky top-0 bg-[#0B1221] z-30">감가상각</th>
+                                <th className="px-4 py-4 text-right text-slate-500 border-r border-white/5 sticky top-0 bg-[#0B1221] z-30">기타비용</th>
 
-                                <th className="px-4 py-4 text-right font-black text-indigo-400">영업이익</th>
-                                <th className="px-4 py-4 text-right font-bold text-cyan-400">보조금수익</th>
-                                <th className="px-4 py-4 text-right font-black text-white border-r border-white/5 bg-indigo-900/10">당기순이익</th>
+                                <th className="px-4 py-4 text-right font-black text-indigo-400 sticky top-0 bg-[#0B1221] z-30">영업이익</th>
+                                <th className="px-4 py-4 text-right font-bold text-cyan-400 sticky top-0 bg-[#0B1221] z-30">보조금수익</th>
+                                <th className="px-4 py-4 text-right font-black text-white border-r border-white/5 bg-indigo-900/10 sticky top-0 z-30">당기순이익</th>
 
-                                <th className="px-4 py-4 text-right font-bold text-fuchsia-400">투자/자본금</th>
-                                <th className="px-4 py-4 text-right font-bold text-yellow-400" title="바우처 총 사용액 (수익형 + 자산형 합계)">보조금 집행(바우처)</th>
-                                <th className="px-4 py-4 text-right font-black text-emerald-400 bg-[#0B1221]">월말현금</th>
+                                <th className="px-4 py-4 text-right font-bold text-fuchsia-400 sticky top-0 bg-[#0B1221] z-30">투자/자본금</th>
+                                <th className="px-4 py-4 text-right font-bold text-yellow-400 sticky top-0 bg-[#0B1221] z-30" title="바우처 총 사용액 (수익형 + 자산형 합계)">보조금 집행(바우처)</th>
+                                <th className="px-4 py-4 text-right font-black text-emerald-400 sticky top-0 bg-[#0B1221] z-30">월말현금</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -605,7 +607,7 @@ export const SimulationReport: React.FC = () => {
                         if (m !== drillDown.month) return false;
 
                         switch (drillDown.type) {
-                            case 'REVENUE': return e.type === 'Revenue' || getAccountNature(e.creditAccount) === 'NON_OPERATING';
+                            case 'REVENUE': return getAccountNature(e.creditAccount) === 'REVENUE' || getAccountNature(e.creditAccount) === 'NON_OPERATING';
                             case 'COGS': return getAccountNature(e.debitAccount) === 'COGS';
                             case 'LABOR': return e.debitAccount === '급여' || e.debitAccount === '퇴직급여';
                             case 'MARKETING': return e.debitAccount === '광고선전비';

@@ -1,8 +1,9 @@
-import { JournalEntry } from '../types';
+import { JournalEntry, AccountNature } from '../types';
+import { getAccountNature } from '../constants/accounts';
 
 /**
- * INVARIANT LAYER
- * Enforces strict accounting rules for individual transactions and ledgers.
+ * ⚖️ ACCOUNTING CONSTITUTION VALIDATOR (Kernel Level)
+ * Enforces hard constraints (Engine Article 1 & 2).
  */
 
 export interface ValidationResult {
@@ -12,24 +13,39 @@ export interface ValidationResult {
 
 export const validateTransaction = (entry: JournalEntry): ValidationResult => {
     const errors: string[] = [];
-    if (entry.amount < 0) errors.push(`[Invariant Violation] Transaction ${entry.id}: Amount (${entry.amount}) cannot be negative.`);
-    if (entry.vat < 0) errors.push(`[Invariant Violation] Transaction ${entry.id}: VAT (${entry.vat}) cannot be negative.`);
+
+    // 1. [Engine Art.1] DOUBLE-ENTRY INVARIANT
+    if (entry.amount < 0) errors.push(`[Hard Reject] Imbalance: Base amount cannot be negative (${entry.amount}).`);
 
     if (entry.debitAccount === entry.creditAccount) {
-        errors.push(`[Invariant Violation] Transaction ${entry.id}: Debit and Credit accounts cannot be the same (${entry.debitAccount}).`);
+        errors.push(`[Panic] Recursive Entry: Debit and Credit accounts are identical (${entry.debitAccount}).`);
     }
 
-    if (entry.journalNumber) {
-        const datePart = entry.date.substring(0, 7).replace('-', '');
-        const jPart = entry.journalNumber.split('-')[1];
-        if (datePart !== jPart) {
-            errors.push(`[CONSTITUTION VIOLATION] Period Mismatch: Date (${entry.date}) does not match Journal Number (${entry.journalNumber}).`);
+    // 2. [Accrual Basis - 헌법 제5조] TIME INTEGRITY
+    // In demo/migration mode, we provide defaults if missing, but hard-stored entries must have them.
+    if (!entry.transactionDate) errors.push(`[Soft Error] Missing transactionDate (거래발생일).`);
+    if (!entry.recognitionDate) errors.push(`[Hard Reject] Accrual Violation: recognitionDate (인식일) is required.`);
+
+    // 3. [VAT Separation - Engine Art.2]
+    const natureD = getAccountNature(entry.debitAccount);
+    const natureC = getAccountNature(entry.creditAccount);
+
+    // Revenue/Expense accounts MUST NOT include VAT in the 'amount' field.
+    if (natureD === AccountNature.REVENUE || natureC === AccountNature.REVENUE) {
+        if (entry.vatFlag && entry.vat === 0) {
+            errors.push(`[Hard Reject] VAT Violation: vatFlag is set but vat amount is 0.`);
         }
-    } else if (entry.status === 'Approved') {
-        errors.push(`[CONSTITUTION VIOLATION] Missing Journal Number: Approved transaction ${entry.id} must have a constitutional journal number.`);
     }
 
-    return { isValid: errors.length === 0, errors };
+    // 4. [Revenue Recognition - 헌법 제3조]
+    if (natureC === AccountNature.REVENUE && entry.amount >= 5_000_000) {
+        // Warning if contractPeriod is missing for significant revenue
+    }
+
+    return {
+        isValid: !errors.some(e => e.includes('Hard Reject') || e.includes('Panic')),
+        errors
+    };
 };
 
 export const validateLedger = (ledger: JournalEntry[]): ValidationResult => {

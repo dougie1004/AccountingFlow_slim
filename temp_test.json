@@ -1,11 +1,1 @@
-{
-    "contents": [
-        {
-            "parts": [
-                {
-                    "text": "Hello"
-                }
-            ]
-        }
-    ]
-}
+[{"journal_id":1,"journal_date":"2026-05-01","account_code":"1110","account_name":"보통예금","debit":350000000,"credit":0,"description":"Seed 투자 유입"},{"journal_id":1,"journal_date":"2026-05-01","account_code":"3110","account_name":"자본금","debit":0,"credit":50000000,"description":"자본금 설정"},{"journal_id":1,"journal_date":"2026-05-01","account_code":"3120","account_name":"자본잉여금","debit":0,"credit":300000000,"description":"자본잉여금 설정"},{"journal_id":2,"journal_date":"2026-05-28","account_code":"1110","account_name":"보통예금","debit":3000000,"credit":0,"description":"구독매출 현금"},{"journal_id":2,"journal_date":"2026-05-28","account_code":"1120","account_name":"외상매출금","debit":2000000,"credit":0,"description":"구독매출 외상"}]

@@ -58,11 +58,11 @@ export default function AuditWorkspace() {
 
     // Scenario Data: M-Care SaaS (Founding Stage - May 2026)
     const [rawData, setRawData] = useState<Transaction[]>([
-        { date: "2026-05-01", vendor: "Seed Investors", desc: "Seed 투자 유입 (자본금 및 자본잉여금)", amount: 350000000, user: "CFO", card: "BANK_IN" },
-        { date: "2026-05-28", vendor: "SaaS Customers", desc: "5월분 구독매출 현금", amount: 3000000, user: "System", card: "REVENUE" },
-        { date: "2026-05-28", vendor: "Employees", desc: "5월 정기 급여 지급", amount: 25000000, user: "CFO", card: "BANK_OUT" },
-        { date: "2026-08-28", vendor: "Performance AD", desc: "8월 마케팅 캠페인 집중 집행", amount: 30000000, user: "CMO", card: "9988-****-1122" },
-        { date: "2026-12-28", vendor: "Employees", desc: "연말 성과 보너스 지급", amount: 25000000, user: "CFO", card: "BANK_OUT" },
+        { date: "2026-05-01", vendor: "(주)블루웨이브벤처스", desc: "Seed 투자 유입 (자본금 및 자본잉여금)", amount: 350000000, user: "CFO", card: "BANK_IN" },
+        { date: "2026-05-25", vendor: "(주)애플코리아", desc: "App Store 5월분 구독매출 정산", amount: 5420000, user: "System", card: "REVENUE" },
+        { date: "2026-05-15", vendor: "임직원 급여 (홍길동 외 4명)", desc: "5월 정기 급여 지급", amount: 18500000, user: "CFO", card: "BANK_OUT" },
+        { date: "2026-05-10", vendor: "구글코리아 (광고)", desc: "Google Ads 런칭 캠페인 마케팅 집행", amount: 2450000, user: "CMO", card: "4518-****-8899" },
+        { date: "2026-05-05", vendor: "Amazon Web Services", desc: "AWS 인프라 비용 (5월)", amount: 1250000, user: "CTO", card: "9400-****-1122" },
     ]);
 
     const formatAmount = (amt: number) => {
@@ -136,42 +136,44 @@ export default function AuditWorkspace() {
         e.target.value = '';
     };
 
-    const handleMasking = () => {
+    const handleMasking = async () => {
         setIsMasking(true);
         setThoughts([{ thought: "🛡️ PII Shield Initializing: Core secure-masking logic loaded.", type: "security" }]);
-        setTimeout(() => {
-            setIsMasking(false);
+        try {
+            const maskedData = await safeInvoke<Transaction[]>('perform_pii_masking', { transactions: rawData });
+            setRawData(maskedData);
             setIsMasked(true);
             setThoughts(prev => [...prev, { thought: "✅ Masking Complete: Local data de-identified for AI analysis.", type: "security" }]);
-        }, 2000);
+        } catch (err) {
+            console.error(err);
+            alert("Masking failed: " + err);
+        } finally {
+            setIsMasking(false);
+        }
     };
 
     const handleAnalyze = async () => {
         setIsAnalyzing(true);
         setThoughts(prev => [...prev, { thought: "🧠 Neural Core Activation: Establishing bridge to Gemini 3.0 Pro...", type: "ai" }]);
         try {
-            // Simulate AI Analysis to avoid backend missing command errors
-            await new Promise(resolve => setTimeout(resolve, 2500));
+            const customApiKey = localStorage.getItem('user_gemini_api_key');
+            const result = await safeInvoke<any>('execute_review_run', {
+                transactions: rawData,
+                isJudgmentRun,
+                customApiKey
+            });
 
             if (isJudgmentRun) {
                 setThoughts(prev => [...prev, { thought: "✅ Reproducible Insight Generated.", type: "ai" }]);
-                setCertifiedLog({
-                    status: "Verifiable Accuracy Achieved",
-                    confidence: "99.9%",
-                    rules_checked: 142
-                });
+                setCertifiedLog(result);
             } else {
                 setThoughts(prev => [...prev, { thought: "✅ Neural Review Complete.", type: "ai" }]);
-                setAnalysisResult({
-                    findings_count: 3,
-                    risk_score: 15,
-                    status: "Review Completed"
-                });
+                setAnalysisResult(result);
             }
-            setIsAnalyzing(false);
         } catch (err) {
             console.error(err);
             alert("Analysis failed: " + err);
+        } finally {
             setIsAnalyzing(false);
         }
     };

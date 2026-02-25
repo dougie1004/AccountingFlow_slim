@@ -5,9 +5,9 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
  * Strictly using Pinned Versions to ensure stability as requested by the representative.
  */
 const AI_CONFIG = {
-  PRIMARY_MODEL: 'gemini-2.0-pro-exp',
+  PRIMARY_MODEL: 'gemini-2.0-pro',
   FAST_MODEL: 'gemini-2.0-flash',
-  PROVIDER_URL: 'https://generativelanguage.googleapis.com/v1beta/models',
+  PROVIDER_URL: process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/models',
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

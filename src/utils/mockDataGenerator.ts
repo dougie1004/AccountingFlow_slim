@@ -9,36 +9,51 @@ import { ConstitutionMonitor } from '../constitution/ConstitutionMonitor';
 export function getScenarioParams(scenario: BusinessScenario): ScenarioParams {
     switch (scenario) {
         case 'SURVIVAL':
-            return { grantSuccess: false, investmentAmount: 0, marketingAggression: 0.8, teamSize: 2 };
+            return { grantSuccess: false, investmentAmount: 0, marketingAggression: 0.5, teamSize: 2 };
         case 'DEATH_VALLEY':
             return { grantSuccess: false, investmentAmount: 0, marketingAggression: 1.2, teamSize: 3 };
         case 'GROWTH':
-            return { grantSuccess: true, investmentAmount: 200_000_000, marketingAggression: 3.0, teamSize: 6 };
+            return { grantSuccess: true, investmentAmount: 200_000_000, marketingAggression: 4.5, teamSize: 6 };
+        case 'LEAN_STANDARD':
+            return { grantSuccess: false, investmentAmount: 0, marketingAggression: 1.5, teamSize: 3 };
         case 'STANDARD':
         default:
-            return { grantSuccess: true, investmentAmount: 0, marketingAggression: 1.0, teamSize: 3 };
+            return { grantSuccess: true, investmentAmount: 50_000_000, marketingAggression: 1.2, teamSize: 3 };
     }
 }
 
 let sequence = 1000;
 
 function createEntry(data: Partial<JournalEntry>): JournalEntry {
-    return {
+    const d = data.date || '';
+    const entry = {
         id: crypto.randomUUID(),
-        date: data.date || '',
+        date: d,
+        transactionDate: d,
+        recognitionDate: d,
         description: data.description || '',
         debitAccount: data.debitAccount || '',
         creditAccount: data.creditAccount || '',
         amount: data.amount || 0,
         vat: data.vat || 0,
+        vatFlag: data.vatFlag ?? (data.vat ? data.vat > 0 : false),
         type: data.type || 'Expense',
         status: data.status || 'Approved',
         vendor: data.vendor || '',
         sequenceNumber: sequence++,
-        journalNumber: `JE-${data.date?.replace(/-/g, '').substring(0, 6)}-${sequence}`,
+        journalNumber: '',
         createdAt: new Date().toISOString(),
         ...data
     } as JournalEntry;
+
+    // Post-spread fallback to ensure mandatory fields are never empty
+    if (!entry.transactionDate) entry.transactionDate = d;
+    if (!entry.recognitionDate) entry.recognitionDate = d;
+    if (!entry.journalNumber && d) {
+        entry.journalNumber = `JE-${d.replace(/-/g, '').substring(0, 6)}-${String(entry.sequenceNumber).padStart(4, '0')}`;
+    }
+
+    return entry;
 }
 
 export function generateYearlyPack(year: number, currentLedger: JournalEntry[], scenario: BusinessScenario = 'STANDARD', overrides?: Partial<ScenarioParams>): JournalEntry[] {
@@ -62,40 +77,108 @@ export function generateYearlyPack(year: number, currentLedger: JournalEntry[], 
         if (e.debitAccount === '보통예금') runningCash += (e.amount + (e.vat || 0));
         if (e.creditAccount === '보통예금') runningCash -= (e.amount + (e.vat || 0));
         if (e.creditAccount === '국고보조금수익') remainingGrantVoucher -= e.amount;
-        if (e.creditAccount === 'SaaS 매출') {
+        if (e.creditAccount === 'SaaS 매출' || e.creditAccount === '매출') {
             const match = e.description.match(/(\d+[,]?\d*) 유저/);
             if (match) currentUsers = parseInt(match[1].replace(/,/g, ''));
         }
     });
 
     // [CONSTITUTION Art 13] Grant Expiration & Limit Setting
-    const GRANT_EXPIRY_DATE = '2027-05-31'; // Support ends 1 year after founding
+    const GRANT_EXPIRY_DATE = '2027-05-31';
     if (year === 2026 && params.grantSuccess && currentLedger.length === 0) {
-        remainingGrantVoucher = 50_000_000; // 50M is a significant/realistic amount for early stage
+        remainingGrantVoucher = 50_000_000;
+        currentUsers = 20; // Start with 20 Beta Users to reach 60 by year-end 2026
     }
 
     const configMap = {
-        2026: { marketMonthly: 0, launchMonth: 10, startMonth: 5 },
-        2027: { marketMonthly: 4_000_000, launchMonth: 1, startMonth: 1 },
-        2028: { marketMonthly: 6_000_000, launchMonth: 1, startMonth: 1 }
+        2026: { marketMonthly: 4_500_000, launchMonth: 10, startMonth: 5 }, // Marketing starts at launch
+        2027: { marketMonthly: 8_000_000, launchMonth: 1, startMonth: 1 },
+        2028: { marketMonthly: 12_000_000, launchMonth: 1, startMonth: 1 }
     };
     const baseConfig = configMap[year as keyof typeof configMap] || configMap[2026];
 
-    // [CFO Context] Human Capital is our primary asset. 
-    // Market rate for expert service personnel is increased to 6.5M/mo (Fully loaded).
-    const BASE_SALARY_PER_PERSON = 6_500_000;
-    const laborMonthly = Math.floor((
-        scenario === 'SURVIVAL' ? (year === 2026 ? 8_000_000 : 12_000_000) :
-            scenario === 'STANDARD' && year === 2026 ? 13_000_000 :
-                params.teamSize * BASE_SALARY_PER_PERSON
-    ) * inflationFactor);
-    const rent = Math.floor((scenario === 'SURVIVAL' ? 1_500_000 : 3_000_000) * inflationFactor);
-    const marketMonthly = params.marketingDisabled
-        ? 0
-        : Math.floor((baseConfig.marketMonthly) * (params.marketingAggression || 1.0) * inflationFactor);
+    // [KOSA SW Technical Worker Avg Wages - 2024/25 Basis]
+    const KOSA = {
+        JUNIOR_DEV: 4_513_192, // 초급 응용SW개발자
+        MIDDLE_DEV: 6_943_457, // 중급 응용SW개발자
+        HIGH_DEV: 9_249_894,   // 고급 응용SW개발자
+        PM: 9_145_473,
+        MARKETER: 7_125_458,
+        DESIGNER: 5_176_203
+    };
+
+    // [GPT Suggestion: Fully Loaded Factor]
+    // Base + Company 4 insurance (approx 10%) + Retirement provision (approx 8.33%)
+    const FULLY_LOADED_FACTOR = 1.183;
+
+    interface Persona { role: string; baseSalary: number; isFounder: boolean; }
+
+    const rentMonthlyFixed = Math.floor((scenario === 'GROWTH' ? 3_120_000 : 1_560_000) * inflationFactor);
+    // otherOpsMonthlyFixed moved inside loop
+
+    const getMarketMonthly = (m: number) => {
+        if (params.marketingDisabled || (year === 2026 && m < baseConfig.launchMonth)) return 0;
+
+        // Strategic Budgeting based on Scenario
+        let baseAdSpend = 4_000_000;
+        if (scenario === 'GROWTH') baseAdSpend = 15_000_000;
+        if (scenario === 'SURVIVAL') baseAdSpend = 1_000_000;
+
+        return Math.floor(baseAdSpend * (params.marketingAggression || 1.0) * inflationFactor);
+    };
+
 
     for (let m = baseConfig.startMonth; m <= 12; m++) {
         const mStr = String(m).padStart(2, '0');
+        const monthsPassedTotal = (year - 2026) * 12 + (m - 5);
+
+        // 0. [DYNAMIC TEAM] Realistic Hiring Thresholds
+        const getDynamicTeam = (): Persona[] => {
+            const ceo: Persona = { role: 'CEO', baseSalary: year === 2026 ? 0 : 5_000_000, isFounder: true };
+            const junior: Persona = { role: 'JuniorDev', baseSalary: KOSA.JUNIOR_DEV, isFounder: false };
+
+            // 1st Year (2026) is always Lean
+            if (year === 2026) {
+                // Survival mode only hires Junior at Month 9
+                if (scenario === 'SURVIVAL' && m < 9) return [ceo];
+                return [ceo, junior];
+            }
+
+            // 2nd Year+ (2027) - Hiring based on Strategy & Capital
+            if (scenario === 'STANDARD') {
+                // Founder's Principle: Hire only after substantial cash is secured (>120M) or late in the year
+                if (m >= 7 || runningCash > 120_000_000) {
+                    return [
+                        ceo, junior,
+                        { role: 'MidDev', baseSalary: KOSA.MIDDLE_DEV, isFounder: false },
+                        { role: 'Marketer', baseSalary: KOSA.MARKETER, isFounder: false }
+                    ];
+                }
+                return [ceo, junior];
+            }
+
+            if (scenario === 'GROWTH') {
+                // Growth hiring also tied to capital runway (>150M)
+                if (m >= 6 || runningCash > 150_000_000) {
+                    return [
+                        ceo, junior,
+                        { role: 'MidDev', baseSalary: KOSA.MIDDLE_DEV, isFounder: false },
+                        { role: 'SeniorDev', baseSalary: KOSA.HIGH_DEV, isFounder: false },
+                        { role: 'PM', baseSalary: KOSA.PM, isFounder: false },
+                        { role: 'Marketer', baseSalary: KOSA.MARKETER, isFounder: false }
+                    ];
+                }
+                return [ceo, junior, { role: 'MidDev', baseSalary: KOSA.MIDDLE_DEV, isFounder: false }];
+            }
+
+            // Survival keeps it tight
+            return [ceo, junior];
+        };
+
+        const currentTeam = getDynamicTeam();
+        const laborMonthlyBase = currentTeam.reduce((sum, p) => sum + p.baseSalary, 0);
+        const laborMonthlyLoaded = Math.floor(laborMonthlyBase * FULLY_LOADED_FACTOR * inflationFactor);
+        const otherOpsMonthlyFixed = Math.floor((currentTeam.length * 666_666) * inflationFactor);
 
         const addAndTrack = (entry: JournalEntry) => {
             pack.push(entry);
@@ -174,21 +257,42 @@ export function generateYearlyPack(year: number, currentLedger: JournalEntry[], 
 
         // 2. [CONSTITUTIONAL CASH GUARD] - Reverted to v11.0 Standard
         const ensureLiquidity = (requiredAmt: number) => {
-            while (runningCash < requiredAmt) {
-                const injection = 50_000_000; // v11.0 Standard: 50M increments
+            if (runningCash < requiredAmt) {
+                // [Strategic Decision] Shift from Liability (Gasoogeum) back to Equity (Paid-in Capital)
+                // Strengthening the capital base for future VC/Angel rounds as per Founder's directive.
+                let amount = Math.max(50_000_000, requiredAmt - runningCash);
+                let desc = `[Art.10] 자본금 확보 (유상증자)`;
+                let creditAccount = '자본금';
+                let type = 'Equity';
+
+                if (scenario === 'SURVIVAL' || scenario === 'STANDARD') {
+                    amount = Math.floor(requiredAmt - runningCash + (scenario === 'SURVIVAL' ? 3_000_000 : 10_000_000)); // Minimal gap filler
+                    desc = `[${scenario === 'SURVIVAL' ? '생존' : '표준'}] 운영자금 확보를 위한 추가 자본금 납입 (유상증자)`;
+                    creditAccount = '자본금';
+                    type = 'Equity';
+                } else if (scenario === 'GROWTH' && year >= 2027) {
+                    amount = 300_000_000; // Realistic Series A for ~2.5k user scale
+                    desc = `[Growth] VC Series A 투자 유치 (경영권 유지 수준)`;
+                    creditAccount = '자본잉여금';
+                    type = 'Equity';
+                }
+
                 addAndTrack(createEntry({
                     date: `${year}-${mStr}-01`,
-                    description: `[헌법 제10조: 자금 보호] 운영 런웨이 확보를 위한 자본금 납입 (유상증자)`,
+                    description: desc,
                     debitAccount: '보통예금',
-                    creditAccount: '자본금',
-                    amount: injection,
-                    type: 'Equity'
+                    creditAccount: creditAccount,
+                    amount: amount,
+                    type: type,
+                    vendor: (scenario === 'SURVIVAL' || scenario === 'STANDARD') ? '대표이사' : undefined
                 }));
             }
         };
 
-        const monthlyFixedBurn = laborMonthly + rent + marketMonthly;
-        const totalVatExpected = (rent + marketMonthly) * 0.1;
+        const currentMarketMonthly = getMarketMonthly(m);
+
+        const monthlyFixedBurn = laborMonthlyLoaded + rentMonthlyFixed + currentMarketMonthly + otherOpsMonthlyFixed;
+        const totalVatExpected = (rentMonthlyFixed + currentMarketMonthly + otherOpsMonthlyFixed) * 0.1;
         const safetyMargin = (params.grantSuccess && remainingGrantVoucher > 5_000_000)
             ? (monthlyFixedBurn + totalVatExpected + 1_000_000)
             : (monthlyFixedBurn + totalVatExpected * 2);
@@ -210,11 +314,57 @@ export function generateYearlyPack(year: number, currentLedger: JournalEntry[], 
             }
         };
 
-        payExpense(`${year}-${mStr}-25`, `${m}월 임직원 급여`, '급여', laborMonthly, false, '임직원일동');
-        payExpense(`${year}-${mStr}-05`, `${m}월 사무실 임차료`, '지급임차료', rent, true, '지식산업센터');
+        // [ACCRUAL] Record Payroll (Separated into Salary, Insurance, Retirement)
+        const recordPayrollAccrual = (d: string) => {
+            currentTeam.forEach(p => {
+                if (p.baseSalary === 0) return; // CEO 무급 처리
 
+                // [Strategic Adjustment] Survival Mode: Hires Junior Dev from SEP to save runway
+                if (scenario === 'SURVIVAL' && p.role === 'JuniorDev' && year === 2026 && m < 9) return;
 
-        if (marketMonthly > 0) payExpense(`${year}-${mStr}-15`, `${m}월 마케팅 광고비`, '광고선전비', marketMonthly, true, '구글코리아');
+                const base = Math.floor(p.baseSalary * inflationFactor);
+                const insurance = Math.floor(base * 0.1);
+                const retirement = Math.floor(base * 0.083);
+
+                addAndTrack(createEntry({
+                    date: d,
+                    description: `[급여인식] ${p.role} 월 급여 (KOSA 기준)`,
+                    debitAccount: '급여',
+                    creditAccount: '미지급금',
+                    amount: base,
+                    type: 'Payroll',
+                    comment: p.isFounder ? 'CEO Unpaid (Strategic Foundation)' : 'KOSA Middle-Level Benchmark'
+                }));
+
+                addAndTrack(createEntry({
+                    date: d,
+                    description: `[보험인식] ${p.role} 4대보험 법인부담금`,
+                    debitAccount: '복리후생비',
+                    creditAccount: '미지급금',
+                    amount: insurance,
+                    type: 'Expense'
+                }));
+
+                addAndTrack(createEntry({
+                    date: d,
+                    description: `[퇴직인식] ${p.role} 퇴직급여 충당금`,
+                    debitAccount: '퇴직급여',
+                    creditAccount: '퇴직급여충당부채',
+                    amount: retirement,
+                    type: 'Expense'
+                }));
+            });
+        };
+
+        recordPayrollAccrual(`${year}-${mStr}-25`);
+
+        payExpense(`${year}-${mStr}-05`, `${m}월 사무실 임차료`, '지급임차료', rentMonthlyFixed, true, '지식산업센터');
+
+        const mkMonthly = getMarketMonthly(m);
+        if (mkMonthly > 0) payExpense(`${year}-${mStr}-15`, `${m}월 마케팅 광고비`, '광고선전비', mkMonthly, true, '구글코리아');
+
+        // [Operational Overhead] - Business Plan 5-3: Consolidated Other Ops
+        payExpense(`${year}-${mStr}-28`, `${m}월 기타 운영비용 (식대/운영/통신)`, '식비', otherOpsMonthlyFixed, true, '오피스디포');
 
         // 3.1 [Automatic Depreciation & Grant Amortization Mapping]
         // [Logic] Fixed Assets linear depreciation AND Matching Grant Release
@@ -252,64 +402,40 @@ export function generateYearlyPack(year: number, currentLedger: JournalEntry[], 
             }
         });
 
-        // 4. [Growth]
-        if (year > 2026 || m >= baseConfig.launchMonth) {
-            const monthsPassed = (year - 2026) * 12 + (m - 5);
-            const dynamicCAC = Math.max(scenario === 'GROWTH' ? 40_000 : 60_000, (scenario === 'GROWTH' ? 50_000 : 90_000) - (monthsPassed * 1000));
-            const dynamicChurn = Math.max(scenario === 'GROWTH' ? 0.02 : 0.03, (scenario === 'SURVIVAL' ? 0.06 : 0.05) - (monthsPassed * 0.001));
-            const mktFlow = Math.floor((marketMonthly / dynamicCAC) * (scenario === 'STANDARD' ? 0.95 : 0.65));
-            const organic = Math.floor((scenario === 'GROWTH' ? 25 : (scenario === 'STANDARD' ? 15 : 8)) * (currentUsers > 600 ? 1.2 : 0.6) * (1 + (year - 2026) * 0.2));
-            const churnedUsers = Math.floor(currentUsers * dynamicChurn);
-            const newUsers = mktFlow + organic;
-            currentUsers = Math.max(10, (currentUsers - churnedUsers) + newUsers);
-            const revenue = Math.floor(currentUsers * 30_850);
-            if (revenue > 0) {
-                // [ACCRUAL] Record as Accounts Receivable
-                addAndTrack(createEntry({
-                    date: `${year}-${mStr}-28`,
-                    description: `SaaS 솔루션 라이선스 매출 (총 ${currentUsers.toLocaleString()}명 / 신규 +${newUsers}명 / 이탈 -${churnedUsers}명)`,
-                    debitAccount: '외상매출금',
-                    creditAccount: 'SaaS 매출',
-                    amount: revenue,
-                    vat: Math.floor(revenue * 0.1),
-                    type: 'Revenue'
-                }));
-                // [COGS] - Infrastructure costs linked to active users
-                const infraCost = Math.floor((currentUsers * 850 + 500_000) * inflationFactor);
-                payExpense(`${year}-${mStr}-20`, `${m}월 서버 인프라 원가 (AWS/GCP)`, '인프라 원가', infraCost, true, 'AWS코리아');
-            }
-
-            // [SETTLEMENT] Pay previous month's payables and collect receivables
+        // 4. [Growth & Settlement]
+        // Settlement (paying bills) should happen EVERY month from the start, regardless of launch status.
+        // COLLECTING revenue happens only after launch.
+        if (true) {
             const settlementDate = `${year}-${mStr}-10`;
             const prevM = m === 1 ? 12 : m - 1;
             const prevY = m === 1 ? year - 1 : year;
             const prevMonthPrefix = `${prevY}-${String(prevM).padStart(2, '0')}`;
 
-            // Collect Receivables from EXACTLY 1 month ago
-            const receivablesToCollect = currentLedger.concat(pack)
-                .filter(e => e.debitAccount === '외상매출금' && e.date.startsWith(prevMonthPrefix))
-                .reduce((sum, e) => sum + e.amount + (e.vat || 0), 0);
+            // Collect Receivables (Only if launch occurred)
+            if (year > 2026 || m >= baseConfig.launchMonth) {
+                const receivablesToCollect = currentLedger.concat(pack)
+                    .filter(e => e.debitAccount === '외상매출금' && e.date.startsWith(prevMonthPrefix))
+                    .reduce((sum, e) => sum + e.amount + (e.vat || 0), 0);
 
-            if (receivablesToCollect > 0) {
-                addAndTrack(createEntry({
-                    date: settlementDate,
-                    description: `[정산] ${prevM}월 SaaS 매출 채권 회수 완료`,
-                    debitAccount: '보통예금',
-                    creditAccount: '외상매출금',
-                    amount: receivablesToCollect,
-                    type: 'Revenue'
-                }));
+                if (receivablesToCollect > 0) {
+                    addAndTrack(createEntry({
+                        date: settlementDate,
+                        description: `[정산] ${prevM}월 SaaS 매출 채권 회수 완료`,
+                        debitAccount: '보통예금',
+                        creditAccount: '외상매출금',
+                        amount: receivablesToCollect,
+                        type: 'Asset'
+                    }));
+                }
             }
 
-            // Pay Payables from EXACTLY 1 month ago
+            // Pay Payables (Always happens monthly)
             const payablesToSettle = currentLedger.concat(pack)
                 .filter(e => e.creditAccount === '미지급금' && e.date.startsWith(prevMonthPrefix))
                 .reduce((sum, e) => sum + e.amount + (e.vat || 0), 0);
 
             if (payablesToSettle > 0) {
-                // [CONSTITUTION] Payables cannot be paid if it results in negative cash
                 ensureLiquidity(payablesToSettle + 10_000_000);
-
                 addAndTrack(createEntry({
                     date: settlementDate,
                     description: `[정산] ${prevM}월 미지급 비용 및 급여 지급 완료`,
@@ -318,6 +444,60 @@ export function generateYearlyPack(year: number, currentLedger: JournalEntry[], 
                     amount: payablesToSettle,
                     type: 'Expense'
                 }));
+            }
+        }
+
+        if (year > 2026 || m >= baseConfig.launchMonth) {
+            const monthsPassed = (year - 2026) * 12 + (m - 5);
+
+            // [CONSTITUTION Art 17 & 18] CAC 50k - 100k
+            // Growth has slightly better efficiency but higher spend depth
+            const baseCAC = scenario === 'GROWTH' ? 70_000 : 80_000;
+            const dynamicCAC = Math.max(50_000, baseCAC - (monthsPassed * 800));
+
+            const dynamicChurn = Math.max(scenario === 'GROWTH' ? 0.02 : 0.03, 0.05 - (monthsPassed * 0.001));
+
+            const currentMkMonthly = getMarketMonthly(m);
+            const mktFlow = Math.floor((currentMkMonthly / dynamicCAC));
+
+            // Calibration to hit Constitution Targets (2028 DEC):
+            // Survival/Standard: ~800 | Growth: ~2500
+            let organic = 0;
+            if (scenario === 'GROWTH') {
+                const growthFactor = year === 2026 ? 0.6 : (year === 2027 ? 1.0 : 1.8);
+                organic = Math.floor(25 * growthFactor * (1 + monthsPassed * 0.04));
+            } else {
+                const growthFactor = year === 2026 ? 0.3 : (year === 2027 ? 0.8 : 1.4);
+                organic = Math.floor(15 * growthFactor * (1 + monthsPassed * 0.025));
+            }
+
+            // Adjust marketing budget impact to prevent exploding numbers
+            const limitedMktFlow = Math.min(mktFlow, currentUsers * 0.15); // Cannot grow by more than 15% via ads per month
+            const churnedUsers = Math.floor(currentUsers * dynamicChurn);
+            const newUsers = limitedMktFlow + organic;
+            currentUsers = Math.max(10, (currentUsers - churnedUsers) + newUsers);
+
+            // Business Plan 5-1 & 5-2: Blended ARPU and Variable Costs
+            // Blended ARPU = (19900*0.4)+(39900*0.5)+(79000*0.1) = 35,810 KRW
+            const blendedARPU = 35_810;
+            const revenue = Math.floor(currentUsers * blendedARPU);
+
+            if (revenue > 0) {
+                // [ACCRUAL] Record as Accounts Receivable
+                addAndTrack(createEntry({
+                    date: `${year}-${mStr}-28`,
+                    description: `SaaS 라이선스 매출 (${Math.floor(currentUsers).toLocaleString()} 유저)`,
+                    debitAccount: '외상매출금',
+                    creditAccount: 'SaaS 매출',
+                    vendor: 'SaaS 정기 구독자',
+                    amount: revenue,
+                    vat: Math.floor(revenue * 0.1),
+                    type: 'Revenue',
+                    comment: `[Status] New: ${newUsers}, Churn: ${(dynamicChurn * 100).toFixed(1)}%, LTV/CAC Ratio: 3.2`
+                }));
+                // Business Plan 5-2: Variable costs ~ 3,000 KRW per customer
+                const infraCost = Math.floor((currentUsers * 3_000) * inflationFactor);
+                payExpense(`${year}-${mStr}-20`, `${m}월 AI API 및 인프라 원가`, '인프라 원가', infraCost, true, 'Gemini/Infrastructure');
             }
 
             // [New] Strategic Intelligence Data: B2B Enterprise Client for Growth Scenario

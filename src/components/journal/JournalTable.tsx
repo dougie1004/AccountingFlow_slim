@@ -1,18 +1,23 @@
-import React, { useContext, useState, useMemo } from 'react';
+import React, { useContext, useState, useMemo, useRef } from 'react';
 import { JournalEntry } from '../../types';
-import { Trash2, ChevronUp, ChevronDown, ArrowUpDown, Lock, X, ExternalLink, Sparkles, Shield } from 'lucide-react';
+import { Trash2, ChevronUp, ChevronDown, ArrowUpDown, Lock, X, ExternalLink, Sparkles, Shield, Upload, FileCheck, AlertCircle } from 'lucide-react';
 import { AccountingContext } from '../../context/AccountingContext';
 import { ReviewLiabilityModal } from '../modals/ReviewLiabilityModal';
 
 interface JournalTableProps {
     entries: JournalEntry[];
+    selectedIds: Set<string>;
+    onToggleSelect: (id: string) => void;
+    onToggleAll: () => void;
 }
 
 type SortKey = 'date' | 'journalNumber' | 'vendor' | 'description' | 'debitAccount' | 'amount' | 'status';
 
-const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
+const JournalTable: React.FC<JournalTableProps> = ({ entries, selectedIds, onToggleSelect, onToggleAll }) => {
     const { updateEntry, deleteEntry, isDateLocked, liabilities } = useContext(AccountingContext)!;
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [activeRowId, setActiveRowId] = useState<string | null>(null);
 
     // Liability Modal State
     const [isLiabilityModalOpen, setIsLiabilityModalOpen] = useState(false);
@@ -42,7 +47,6 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
                 aValue = (a.amount || 0) + (a.vat || 0);
                 bValue = (b.amount || 0) + (b.vat || 0);
             }
-            // Simple string/number comparison
             if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
             if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
@@ -52,12 +56,12 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
     const [itemsPerPage, setItemsPerPage] = useState(100);
     const [currentPage, setCurrentPage] = useState(1);
 
-    // Reset page when entries change or filter changes
+    // Reset page when entries change
     React.useEffect(() => {
         setCurrentPage(1);
     }, [entries.length]);
 
-    const totalPages = Math.ceil(sortedEntries.length / itemsPerPage);
+    const totalPages = Math.ceil(sortedEntries.length / itemsPerPage) || 1;
     const paginatedEntries = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return sortedEntries.slice(startIndex, startIndex + itemsPerPage);
@@ -82,7 +86,6 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
         </th>
     );
 
-    // Helper to get Liability Status Color
     const getLiabilityColor = (status: string) => {
         switch (status) {
             case 'UNPLANNED': return 'text-rose-400 bg-rose-500/10 border-rose-500/20';
@@ -94,82 +97,79 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
 
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file && activeRowId) {
+            const url = URL.createObjectURL(file);
+            updateEntry(activeRowId, {
+                attachments: [{
+                    id: Math.random().toString(36).substr(2, 9),
+                    fileName: file.name,
+                    fileUrl: url,
+                    uploadedAt: new Date().toISOString()
+                }]
+            });
+            setActiveRowId(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
     return (
-        <div className="relative">
-            {/* Liability Review Modal */}
-            {selectedLiabilityId && (
-                <ReviewLiabilityModal
-                    isOpen={isLiabilityModalOpen}
-                    onClose={() => setIsLiabilityModalOpen(false)}
-                    recordId={selectedLiabilityId}
-                />
-            )}
+        <div className="space-y-4">
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleFileUpload}
+                accept="image/*,application/pdf"
+            />
 
-            {/* Image Preview Modal */}
-            {previewUrl && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-10 bg-[#070C18]/90 backdrop-blur-xl animate-in fade-in duration-300">
-                    <div className="relative w-full max-w-5xl max-h-full bg-[#151D2E] rounded-[40px] border border-white/10 shadow-2xl overflow-hidden flex flex-col">
-                        <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center">
-                            <h3 className="text-white font-black flex items-center gap-2">
-                                <ExternalLink size={18} className="text-indigo-400" />
-                                디지털 증빙 원본 확인
-                            </h3>
-                            <button
-                                onClick={() => setPreviewUrl(null)}
-                                className="p-3 hover:bg-white/5 rounded-2xl text-slate-400 hover:text-white transition-all"
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-auto flex items-start justify-center bg-black/40 cursor-zoom-in">
-                            <img
-                                src={previewUrl}
-                                alt="Evidence Preview"
-                                className="w-full h-auto shadow-2xl transition-transform hover:scale-105 duration-500"
-                            />
-                        </div>
-                        <div className="px-8 py-6 border-t border-white/5 bg-white/[0.02] flex justify-end gap-3">
-                            <p className="text-[10px] text-slate-500 mr-auto self-center font-bold">마우스 휠이나 터치패드로 확대/축소가 가능합니다.</p>
-                            <button
-                                onClick={() => setPreviewUrl(null)}
-                                className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black text-sm transition-all"
-                            >
-                                닫기
-                            </button>
-                        </div>
-                    </div>
+            <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 px-2 bg-slate-900/40 py-2 rounded-xl border border-white/5">
+                <div className="flex items-center">
+                    Total <span className="text-white mx-1.5">{sortedEntries.length.toLocaleString()}</span> entries
+                    <span className="mx-3 text-slate-700">|</span>
+                    Page <span className="text-white mx-1.5">{currentPage}</span> of {totalPages}
+                    {selectedIds.size > 0 && (
+                        <>
+                            <span className="mx-3 text-slate-700">|</span>
+                            <span className="text-indigo-400 font-black tracking-widest">
+                                {selectedIds.size} ITEMS SELECTED
+                            </span>
+                        </>
+                    )}
                 </div>
-            )}
-
-            {/* Pagination & Stats Bar */}
-            <div className="flex justify-between items-center mb-4 px-2">
-                <div className="text-xs text-slate-400 font-bold">
-                    Total <span className="text-white">{sortedEntries.length.toLocaleString()}</span> entries
-                    <span className="mx-2 text-slate-600">|</span>
-                    Page <span className="text-white">{currentPage}</span> of {totalPages}
-                </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                     <button
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        className="px-3 py-1.5 bg-white/5 disabled:opacity-30 rounded hover:bg-white/10 text-xs font-bold text-white transition-colors"
+                        className="px-4 py-2 bg-white/5 disabled:opacity-20 rounded-lg translate-y-[1px] hover:bg-white/10 text-white transition-all active:scale-95"
                     >
                         Previous
                     </button>
                     <button
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages}
-                        className="px-3 py-1.5 bg-white/5 disabled:opacity-30 rounded hover:bg-white/10 text-xs font-bold text-white transition-colors"
+                        className="px-4 py-2 bg-white/5 disabled:opacity-20 rounded-lg translate-y-[1px] hover:bg-white/10 text-white transition-all active:scale-95"
                     >
                         Next
                     </button>
                 </div>
             </div>
 
-            <div className="overflow-x-auto bg-[#151D2E] rounded-2xl shadow-2xl border border-white/5">
+            <div className="overflow-x-auto bg-[#0F172A]/60 rounded-[2.5rem] shadow-2xl border border-white/5 backdrop-blur-3xl">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-white/5 border-b border-white/5">
+                        <tr className="bg-white/[0.02] border-b border-white/5">
+                            <th className="px-6 py-5 w-12">
+                                <div className="flex items-center justify-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={entries.length > 0 && selectedIds.size === entries.length}
+                                        onChange={onToggleAll}
+                                        className="w-5 h-5 rounded-md border-white/10 bg-slate-950 accent-indigo-500 cursor-pointer transition-all hover:scale-110"
+                                    />
+                                </div>
+                            </th>
                             {renderHeader("일자", "date")}
                             {renderHeader("번호 (ID)", "journalNumber")}
                             {renderHeader("거래처", "vendor")}
@@ -177,178 +177,164 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
                             {renderHeader("계정 (차/대)", "debitAccount")}
                             {renderHeader("금액 (VAT 포함)", "amount", "text-right")}
                             {renderHeader("상태", "status", "text-center")}
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">증빙</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">관리</th>
+                            <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">증빙</th>
+                            <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">관리</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                         {paginatedEntries.length === 0 ? (
-                            <tr><td colSpan={8} className="px-6 py-20 text-center text-slate-600 font-bold italic">현재 데이터가 없습니다.</td></tr>
+                            <tr><td colSpan={10} className="px-6 py-32 text-center text-slate-600 font-bold italic tracking-widest">현재 조건에 맞는 데이터가 없습니다.</td></tr>
                         ) : (
                             paginatedEntries.map((entry) => {
                                 const isLocked = isDateLocked(entry.date);
-                                // Find linked liability
-                                const liability = entry.liabilityRecordId
-                                    ? liabilities.find(l => l.id === entry.liabilityRecordId)
-                                    : null;
+                                const liability = entry.liabilityRecordId ? liabilities.find(l => l.id === entry.liabilityRecordId) : null;
+                                const hasAttachments = entry.attachments && entry.attachments.length > 0;
 
                                 return (
-                                    <tr key={entry.id} className={`transition-colors ${isLocked ? 'bg-indigo-500/[0.02] opacity-70' : 'hover:bg-white/[0.02]'}`}>
-                                        <td className="px-6 py-4 text-xs text-slate-400 font-mono font-bold">
+                                    <tr key={entry.id} className={`group transition-all duration-300 ${isLocked ? 'bg-indigo-500/[0.01] opacity-80' : 'hover:bg-white/[0.03]'} ${selectedIds.has(entry.id) ? 'bg-indigo-500/[0.08]' : ''}`}>
+                                        <td className="px-6 py-5">
+                                            <div className="flex items-center justify-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.has(entry.id)}
+                                                    onChange={() => onToggleSelect(entry.id)}
+                                                    className="w-4 h-4 rounded border-white/10 bg-slate-950 accent-indigo-500 cursor-pointer transition-all group-hover:scale-110"
+                                                />
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5">
                                             <div className="flex items-center gap-2">
-                                                {isLocked && <Lock size={12} className="text-indigo-500" />}
+                                                {isLocked && <Lock size={12} className="text-indigo-500 animate-pulse" />}
                                                 <input
                                                     type="date"
                                                     value={entry.date}
                                                     disabled={isLocked}
                                                     onChange={(e) => updateEntry(entry.id, { date: e.target.value })}
-                                                    className={`bg-transparent border-none text-[11px] text-white outline-none rounded px-1 ${isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer focus:ring-1 focus:ring-indigo-500'}`}
+                                                    className={`bg-transparent border-none text-[12px] font-black text-white outline-none rounded-lg px-2 py-1 ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-white/5 focus:ring-1 focus:ring-indigo-500'}`}
                                                 />
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-5">
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] font-mono font-black text-indigo-400 tracking-tighter truncate w-24">
+                                                <span className="text-[11px] font-mono font-black text-indigo-400 tracking-tighter">
                                                     {entry.journalNumber}
                                                 </span>
-                                                <span className="text-[8px] text-slate-600 font-bold uppercase tracking-widest">
-                                                    #{entry.sequenceNumber}
+                                                <span className="text-[9px] text-slate-600 font-black uppercase tracking-widest mt-0.5">
+                                                    SEG-{entry.sequenceNumber}
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-5">
                                             <input
                                                 type="text"
                                                 value={entry.vendor || ''}
                                                 disabled={isLocked}
                                                 onChange={(e) => updateEntry(entry.id, { vendor: e.target.value })}
-                                                className={`bg-transparent border-none text-sm text-white font-black outline-none rounded px-1 w-full ${isLocked ? 'cursor-not-allowed opacity-60' : 'focus:ring-1 focus:ring-indigo-500'}`}
+                                                placeholder="거래처 입력"
+                                                className={`bg-transparent border-none text-[13px] text-white font-black outline-none rounded-lg px-2 py-1 w-full ${isLocked ? 'cursor-not-allowed opacity-50' : 'hover:bg-white/5 focus:ring-1 focus:ring-indigo-500 transition-all'}`}
                                             />
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
+                                        <td className="px-6 py-5">
+                                            <div className="flex items-center gap-2 max-w-xs">
                                                 <input
                                                     type="text"
-                                                    value={entry.description || ''}
+                                                    value={entry.description}
                                                     disabled={isLocked}
                                                     onChange={(e) => updateEntry(entry.id, { description: e.target.value })}
-                                                    className={`bg-transparent border-none text-sm text-slate-300 italic outline-none rounded px-1 w-full ${isLocked ? 'cursor-not-allowed opacity-60' : 'focus:ring-1 focus:ring-indigo-500'}`}
+                                                    className={`bg-transparent border-none text-[13px] text-slate-300 font-bold outline-none rounded-lg px-2 py-1 w-full truncate ${isLocked ? 'cursor-not-allowed opacity-50' : 'hover:bg-white/5 focus:ring-1 focus:ring-indigo-500'}`}
                                                 />
-                                                {(entry.confidence && entry.confidence > 0.8) && (
-                                                    <div className="p-1 rounded bg-indigo-600/10 border border-indigo-600/20">
-                                                        <Sparkles size={10} className="text-indigo-400" />
+                                                {entry.confidence && entry.confidence > 0.8 && (
+                                                    <div className="p-1 px-1.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 group/tip relative cursor-help shrink-0">
+                                                        <Sparkles size={11} className="text-indigo-400" />
+                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-3 bg-[#0B1221] border border-white/10 rounded-2xl shadow-2xl opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none w-52 z-50 text-[10px] leading-relaxed text-slate-400 normal-case">
+                                                            <div className="flex items-center gap-2 mb-1.5">
+                                                                <Sparkles size={12} className="text-indigo-400" />
+                                                                <span className="font-black text-indigo-200 uppercase tracking-widest">AI Confidence High</span>
+                                                            </div>
+                                                            이 전표는 AI가 과거 거래 패턴을 분석하여 <span className="text-white font-bold">{(entry.confidence * 100).toFixed(0)}%</span>의 정확도로 자동 분류한 항목입니다.
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex flex-col gap-1">
+                                        <td className="px-6 py-5">
+                                            <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-black text-emerald-500 w-4">차</span>
-                                                    <div className="flex flex-col w-full">
-                                                        <div className="flex items-center gap-1">
-                                                            <input
-                                                                type="text"
-                                                                value={entry.debitAccount}
-                                                                disabled={isLocked}
-                                                                onChange={(e) => updateEntry(entry.id, { debitAccount: e.target.value })}
-                                                                className={`bg-transparent border-none text-[13px] font-bold text-white outline-none rounded px-1 w-full ${isLocked ? 'cursor-not-allowed opacity-60' : 'focus:ring-1 focus:ring-indigo-500'}`}
-                                                            />
-                                                            {entry.classificationStatus === 'AUTO_CLASSIFIED' && (
-                                                                <Shield size={10} className="text-emerald-500 shrink-0" />
-                                                            )}
-                                                        </div>
-                                                        {entry.vat > 0 && (
-                                                            <span className="text-[10px] text-emerald-400 font-bold px-1 flex items-center gap-1">
-                                                                ↳ 부가세대급금 (VAT)
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                    <span className="text-[10px] font-black text-indigo-500/70 w-3">차</span>
+                                                    <span className="text-xs font-black text-white">{entry.debitAccount}</span>
+                                                    {entry.classificationStatus === 'AUTO_CLASSIFIED' && (
+                                                        <Shield size={10} className="text-emerald-500" />
+                                                    )}
                                                 </div>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-[10px] font-black text-rose-500 w-4">대</span>
-                                                    <div className="flex items-center w-full gap-2">
-                                                        <input
-                                                            type="text"
-                                                            value={entry.creditAccount}
-                                                            disabled={isLocked}
-                                                            onChange={(e) => updateEntry(entry.id, { creditAccount: e.target.value })}
-                                                            className={`bg-transparent border-none text-[13px] font-bold text-slate-400 outline-none rounded px-1 flex-1 ${isLocked ? 'cursor-not-allowed opacity-60' : 'focus:ring-1 focus:ring-indigo-500'}`}
-                                                        />
-                                                        {/* LIABILITY BADGE */}
-                                                        {liability && (
-                                                            <button
-                                                                onClick={() => handleOpenLiabilityReview(liability.id)}
-                                                                className={`flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-black uppercase tracking-wider transition-all hover:scale-105 ${getLiabilityColor(liability.state)}`}
-                                                                title={`책임 상태: ${liability.state}\n클릭하여 관리`}
-                                                            >
-                                                                <span>⚖️</span>
-                                                                <span>{liability.state === 'UNPLANNED' ? '위험' : liability.state === 'PLANNED' ? '계획' : '자본'}</span>
-                                                            </button>
-                                                        )}
-                                                    </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-black text-rose-500/70 w-3">대</span>
+                                                    <span className="text-xs font-black text-slate-400">{entry.creditAccount}</span>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex flex-col items-end">
-                                                <div className="flex items-center justify-end">
-                                                    <span className="text-slate-500 font-bold mr-1 text-[10px]">₩</span>
-                                                    <span className="text-white font-black text-sm font-mono tracking-tight">{Math.round((entry.amount || 0) + (entry.vat || 0)).toLocaleString()}</span>
-                                                </div>
-                                                {(entry.vat || 0) > 0 && (
-                                                    <div className="flex flex-col items-end text-[10px] text-slate-500 font-mono mt-0.5 border-t border-white/10 pt-1 w-full opacity-80 group-hover:opacity-100 transition-opacity">
-                                                        <div className="flex justify-between w-28">
-                                                            <span>Supply:</span>
-                                                            <span>{Math.round(entry.amount).toLocaleString()}</span>
-                                                        </div>
-                                                        <div className="flex justify-between w-28 text-emerald-400 font-bold">
-                                                            <span>VAT (부가세):</span>
-                                                            <span>{Math.round(entry.vat).toLocaleString()}</span>
-                                                        </div>
-                                                    </div>
+                                                {liability && (
+                                                    <button
+                                                        onClick={() => handleOpenLiabilityReview(liability.id)}
+                                                        className={`mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-black border transition-all hover:scale-105 active:scale-95 ${getLiabilityColor(liability.state)}`}
+                                                    >
+                                                        {liability.state === 'UNPLANNED' ? '⚠️ 미배정 부채' : '📋 부채 관리중'}
+                                                    </button>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-center">
-                                            {isLocked ? (
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <span className="px-3 py-1 bg-indigo-500/20 text-indigo-400 rounded-lg text-[9px] font-black border border-indigo-500/30 uppercase tracking-widest">
-                                                        전표 확정
-                                                    </span>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => updateEntry(entry.id, { status: entry.status === 'Approved' ? 'Unconfirmed' : 'Approved' })}
-                                                    className={`px-3 py-1 rounded-lg text-[10px] font-black border uppercase tracking-wider transition-all ${entry.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95'}`}
-                                                >
-                                                    {entry.status === 'Approved' ? 'APPROVED' : 'CONFIRM'}
-                                                </button>
-                                            )}
+                                        <td className="px-6 py-5 text-right">
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[13px] font-mono font-black text-white">
+                                                    ₩{((entry.amount || 0) + (entry.vat || 0)).toLocaleString()}
+                                                </span>
+                                                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+                                                    Tax ₩{(entry.vat || 0).toLocaleString()}
+                                                </span>
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 text-center">
+                                        <td className="px-6 py-5 text-center">
+                                            <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${entry.status === 'Approved'
+                                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                                                }`}>
+                                                {entry.status === 'Approved' ? 'Confirmed' : 'Unconfirmed'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-5 text-center">
                                             <button
                                                 onClick={() => {
-                                                    const url = entry.attachments?.[0]?.fileUrl;
-                                                    if (url) {
-                                                        setPreviewUrl(url);
+                                                    if (hasAttachments) {
+                                                        const url = entry.attachments?.[0]?.fileUrl;
+                                                        if (url) setPreviewUrl(url);
                                                     } else {
-                                                        alert('연동된 디지털 증빙이 없습니다.');
+                                                        setActiveRowId(entry.id);
+                                                        fileInputRef.current?.click();
                                                     }
                                                 }}
-                                                className={`transition-all text-[10px] font-black border px-2 py-1 rounded ${entry.attachments && entry.attachments.length > 0
-                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-                                                    : 'bg-white/5 text-slate-600 border-white/10 hover:text-slate-400'
+                                                className={`group/btn flex items-center justify-center mx-auto w-10 h-10 rounded-2xl border transition-all duration-300 ${hasAttachments
+                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                                                    : 'bg-white/5 text-slate-600 border-white/10 hover:border-indigo-500/40 hover:text-indigo-400 hover:bg-indigo-500/10'
                                                     }`}
                                             >
-                                                {entry.attachments && entry.attachments.length > 0 ? '증빙 보기' : '미첨부'}
+                                                {hasAttachments ? <FileCheck size={18} /> : <Upload size={18} className="translate-y-[1px]" />}
+
+                                                {!hasAttachments && (
+                                                    <div className="absolute hidden group-hover/btn:block translate-y-8 bg-black border border-white/10 px-2 py-1 rounded text-[8px] font-black text-indigo-300 uppercase z-50">
+                                                        증빙 첨부
+                                                    </div>
+                                                )}
                                             </button>
                                         </td>
-                                        <td className="px-6 py-4 text-center">
-                                            {!isLocked && (
-                                                <button onClick={() => deleteEntry(entry.id)} className="text-slate-500 hover:text-rose-500 transition-colors">
-                                                    <Trash2 size={16} />
+                                        <td className="px-6 py-5 text-center">
+                                            {!isLocked ? (
+                                                <button
+                                                    onClick={() => {
+                                                        if (window.confirm('전표를 삭제하시겠습니까?')) deleteEntry(entry.id);
+                                                    }}
+                                                    className="w-10 h-10 rounded-2xl hover:bg-rose-500/10 text-slate-600 hover:text-rose-500 transition-all flex items-center justify-center transition-all active:scale-95"
+                                                >
+                                                    <Trash2 size={18} />
                                                 </button>
+                                            ) : (
+                                                <Lock size={16} className="text-slate-700 mx-auto opacity-50" />
                                             )}
                                         </td>
                                     </tr>
@@ -357,25 +343,28 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
                         )}
                     </tbody>
                     {sortedEntries.length > 0 && (
-                        <tfoot className="bg-[#0B1221] border-t border-white/10">
+                        <tfoot className="bg-[#0B1221]/80 backdrop-blur-xl border-t border-white/10">
                             <tr>
-                                <td colSpan={4} className="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase tracking-widest">
-                                    합계잔액 검증 (Trial Balance)
+                                <td colSpan={6} className="px-8 py-6 text-right">
+                                    <div className="flex items-center justify-end gap-3">
+                                        <AlertCircle size={14} className="text-slate-600" />
+                                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">
+                                            Ledger Balance Check (Sum Verification)
+                                        </span>
+                                    </div>
                                 </td>
-                                <td className="px-6 py-4 text-right">
-                                    <div className="flex flex-col gap-1 items-end">
-                                        {/* Debit Total */}
-                                        <div className="flex justify-between w-48 text-xs font-bold">
-                                            <span className="text-emerald-500">차변 합계 (Dr)</span>
-                                            <span className="text-emerald-400 font-mono">
-                                                ₩{entries.reduce((acc, cur) => acc + cur.amount + (cur.vat || 0), 0).toLocaleString()}
+                                <td className="px-8 py-6">
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center w-56 text-[11px] font-black">
+                                            <span className="text-emerald-500 uppercase tracking-widest">Debit (Dr)</span>
+                                            <span className="text-white font-mono">
+                                                ₩{entries.reduce((acc, cur) => acc + (cur.amount || 0) + (cur.vat || 0), 0).toLocaleString()}
                                             </span>
                                         </div>
-                                        {/* Credit Total */}
-                                        <div className="flex justify-between w-48 text-xs font-bold border-t border-white/10 pt-1">
-                                            <span className="text-rose-500">대변 합계 (Cr)</span>
-                                            <span className="text-rose-400 font-mono">
-                                                ₩{entries.reduce((acc, cur) => acc + cur.amount + (cur.vat || 0), 0).toLocaleString()}
+                                        <div className="flex justify-between items-center w-56 text-[11px] font-black pt-2 border-t border-white/5">
+                                            <span className="text-rose-500 uppercase tracking-widest">Credit (Cr)</span>
+                                            <span className="text-white font-mono">
+                                                ₩{entries.reduce((acc, cur) => acc + (cur.amount || 0) + (cur.vat || 0), 0).toLocaleString()}
                                             </span>
                                         </div>
                                     </div>
@@ -386,6 +375,32 @@ const JournalTable: React.FC<JournalTableProps> = ({ entries }) => {
                     )}
                 </table>
             </div>
+
+            {/* Evidence Modal Placeholder */}
+            {previewUrl && (
+                <div className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-8 animate-in fade-in duration-300">
+                    <button
+                        onClick={() => setPreviewUrl(null)}
+                        className="absolute top-8 right-8 w-14 h-14 bg-white/10 hover:bg-white/20 rounded-[1.5rem] flex items-center justify-center text-white transition-all active:scale-95 border border-white/10 z-[1001]"
+                    >
+                        <X size={28} />
+                    </button>
+                    <div className="max-w-5xl w-full h-full bg-slate-900 rounded-[3rem] border border-white/10 overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] relative">
+                        <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/50 to-transparent flex items-center px-10">
+                            <h3 className="text-white font-black uppercase tracking-[0.2em] text-xs">Evidence Digital Viewer</h3>
+                        </div>
+                        <img src={previewUrl} className="w-full h-full object-contain p-12" alt="Evidence" />
+                    </div>
+                </div>
+            )}
+
+            {isLiabilityModalOpen && selectedLiabilityId && (
+                <ReviewLiabilityModal
+                    recordId={selectedLiabilityId}
+                    isOpen={isLiabilityModalOpen}
+                    onClose={() => setIsLiabilityModalOpen(false)}
+                />
+            )}
         </div>
     );
 };

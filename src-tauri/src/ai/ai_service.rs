@@ -14,17 +14,11 @@ static CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
 });
 
 fn get_ai_model(tier: &str) -> String {
-    // CFO Strategy Implementation:
-    // 1. "Pro" Tier: Deep Analysis & Risk Detection (High precision, higher cost)
+    let config = super::config::AiConfig::load();
     if tier.eq_ignore_ascii_case("Pro") || tier.eq_ignore_ascii_case("Deep Analysis") {
-        return std::env::var("GEMINI_PRO_MODEL")
-            .unwrap_or_else(|_| "gemini-2.5-pro".to_string());
+        return config.model_pro;
     }
-    
-    // 2. "Flash" / Default Tier: Data Extraction & General Tasks (Cost-effective, high speed)
-    std::env::var("GEMINI_MODEL")
-        .or_else(|_| std::env::var("AI_MODEL_NAME"))
-        .unwrap_or_else(|_| "gemini-2.0-flash".to_string())
+    config.model_flash
 }
 
 pub async fn call_journal_ai(
@@ -35,16 +29,22 @@ pub async fn call_journal_ai(
     tier: &str,
     custom_api_key: Option<String>,
 ) -> Result<Vec<ParsedTransaction>, String> {
-    let api_key = match custom_api_key {
-        Some(key) if !key.trim().is_empty() => key,
-        _ => env::var("GEMINI_API_KEY").map_err(|_| "GEMINI_API_KEY missing. Please set it in Settings.".to_string())?
+    let (api_key, source) = match custom_api_key {
+        Some(key) if !key.trim().is_empty() => (key, "Custom (Settings)"),
+        _ => {
+            let key = env::var("GEMINI_API_KEY")
+                .or_else(|_| env::var("VITE_GEMINI_API_KEY"))
+                .map_err(|_| "AI API Key missing. Please set it in Settings or .env file.".to_string())?;
+            (key, "System (.env)")
+        }
     };
     let api_key = api_key.trim().replace('"', ""); 
+    
     let mut model_name = get_ai_model(tier).trim().to_string();
-
-    if !model_name.starts_with("models/") {
-        model_name = format!("models/{}", model_name);
-    }
+    let config = super::config::AiConfig::load();
+    let mut url = config.get_url(&model_name, &api_key);
+    
+    println!("[AI Engine] Calling {} using {} API Key (Len: {})", model_name, source, api_key.len());
 
     let client = &*CLIENT;
     
@@ -61,7 +61,6 @@ pub async fn call_journal_ai(
         }));
     }
 
-    // SKELETON PAYLOAD (GCP Integrity Mode)
     let body = json!({
         "system_instruction": {
             "parts": [{ "text": policy }]
@@ -72,72 +71,86 @@ pub async fn call_journal_ai(
         }]
     });
 
-    let url = format!("https://generativelanguage.googleapis.com/v1beta/{}:generateContent?key={}", model_name, api_key);
-    
-    let response = client
-        .post(url)
-        .json(&body).send().await.map_err(|e| e.to_string())?;
+    let mut last_error = String::new();
+    let mut retry_count = 0;
+    const MAX_RETRIES: u32 = 2;
 
-    let status = response.status();
-    let body_text = response.text().await.unwrap_or_else(|_| "No body".to_string());
+    while retry_count <= MAX_RETRIES {
+        if retry_count > 0 {
+            let wait_time = 2u64.pow(retry_count) * 500;
+            println!("[AI Engine] ⏳ Retry {}/{} after {}ms (Status: {})", retry_count, MAX_RETRIES, wait_time, last_error);
+            tokio::time::sleep(tokio::time::Duration::from_millis(wait_time)).await;
+        }
 
-    if !status.is_success() {
-        eprintln!("🚨 [Gemini RAW ERROR] Status: {}, Body: {}", status, body_text);
+        let response = client.post(&url).json(&body).send().await.map_err(|e| e.to_string())?;
+        let status = response.status();
+        let body_text = response.text().await.unwrap_or_else(|_| "No body".to_string());
+
+        if status.is_success() {
+            let json_res: Value = serde_json::from_str(&body_text).map_err(|e| format!("JSON Parse Error: {}", e))?;
+            let candidates = json_res["candidates"].as_array().ok_or("No candidates in AI response".to_string())?;
+            if candidates.is_empty() {
+                return Err("AI_BLOCKED_OR_EMPTY: Gemini returned no candidates (check Safety Filters)".to_string());
+            }
+            
+            let text = candidates[0]["content"]["parts"][0]["text"]
+                .as_str().ok_or("AI_TEXT_PART_MISSING".to_string())?.to_string();
+
+            // Robust JSON Extraction
+            let clean_json = if let Some(start) = text.find("```json") {
+                let after_start = &text[start + 7..];
+                if let Some(end) = after_start.find("```") {
+                    after_start[..end].trim()
+                } else {
+                    after_start.trim()
+                }
+            } else if let Some(start) = text.find("```") {
+                let after_start = &text[start + 3..];
+                if let Some(end) = after_start.find("```") {
+                    after_start[..end].trim()
+                } else {
+                    after_start.trim()
+                }
+            } else if let Some(start) = text.find('{') {
+                let last_end = text.rfind('}').unwrap_or(text.len() - 1);
+                &text[start..=last_end]
+            } else {
+                text.trim()
+            };
+
+            let parsed_json: Value = serde_json::from_str(clean_json).map_err(|e| {
+                format!("JSON Parsing Error: {}. Raw snippet: {}", e, if clean_json.len() > 100 { &clean_json[..100] } else { clean_json })
+            })?;
+
+            if parsed_json.is_array() {
+                let list: Vec<ParsedTransaction> = serde_json::from_value(parsed_json).map_err(|e| format!("Array Mapping Error: {}", e))?;
+                return Ok(list);
+            } else {
+                let single: ParsedTransaction = serde_json::from_value(parsed_json).map_err(|e| format!("Object Mapping Error: {}", e))?;
+                return Ok(vec![single]);
+            }
+        }
+
+        last_error = format!("Status: {}, Body: {}", status, body_text);
+        
+        if status.as_u16() == 429 {
+            retry_count += 1;
+            if retry_count == 2 && model_name.contains("2.0") {
+                println!("[AI Engine] ⚠️ Model {} hit limit. Falling back to gemini-1.5-flash for reliability.", model_name);
+                model_name = "gemini-1.5-flash".to_string();
+                url = config.get_url(&model_name, &api_key);
+            }
+            continue;
+        }
+
+        eprintln!("🚨 [Gemini RAW ERROR] {}", last_error);
         if body_text.contains("API_KEY_INVALID") || body_text.contains("API key expired") {
-            return Err("🔑 [치명적 오류] 구글 정책에 의해 Gemini API 키가 거부되었습니다 (만료, 삭제 또는 한도 초과). 설정에서 새로운 API 키를 등록해주세요.".to_string());
+            return Err("🔑 [치명적 오류] 구글 정책에 의해 Gemini API 키가 거부되었습니다. 설정에서 결제 상태나 API 키 유효성을 확인해 주세요.".to_string());
         }
         return Err(format!("AI_SERVER_ERROR_{}: {}", status, body_text));
     }
 
-    let json_res: Value = serde_json::from_str(&body_text).map_err(|e| {
-        eprintln!("🚨 [Gemini JSON Error] {}", e);
-        format!("AI_RESPONSE_PARSE_ERROR: {}", e)
-    })?;
-    
-    let candidates = json_res["candidates"].as_array().ok_or("No candidates in AI response".to_string())?;
-    if candidates.is_empty() {
-        return Err("AI_BLOCKED_OR_EMPTY: Gemini returned no candidates (check Safety Filters)".to_string());
-    }
-
-    let text = candidates[0]["content"]["parts"][0]["text"]
-        .as_str().ok_or("AI_TEXT_PART_MISSING".to_string())?.to_string();
-
-    // Robust JSON Extraction: Find the content between ```json and ``` or just the first { and last }
-    let clean_json = if let Some(start) = text.find("```json") {
-        let after_start = &text[start + 7..];
-        if let Some(end) = after_start.find("```") {
-            after_start[..end].trim()
-        } else {
-            after_start.trim()
-        }
-    } else if let Some(start) = text.find("```") {
-        let after_start = &text[start + 3..];
-        if let Some(end) = after_start.find("```") {
-            after_start[..end].trim()
-        } else {
-            after_start.trim()
-        }
-    } else if let Some(start) = text.find('{') {
-        let last_end = text.rfind('}').unwrap_or(text.len() - 1);
-        &text[start..=last_end]
-    } else {
-        text.trim()
-    };
-    
-    println!("🔎 [AI Response Content] length: {}", clean_json.len());
-
-    let parsed_json: Value = serde_json::from_str(clean_json).map_err(|e| {
-        eprintln!("🚨 [JSON Clean Error] Original: {}", text);
-        format!("JSON Parsing Error: {}. Raw snippet: {}", e, if clean_json.len() > 100 { &clean_json[..100] } else { clean_json })
-    })?;
-
-    if parsed_json.is_array() {
-        let list: Vec<ParsedTransaction> = serde_json::from_value(parsed_json).map_err(|e| format!("Array Mapping Error: {}", e))?;
-        Ok(list)
-    } else {
-        let single: ParsedTransaction = serde_json::from_value(parsed_json).map_err(|e| format!("Object Mapping Error: {}", e))?;
-        Ok(vec![single])
-    }
+    Err(format!("AI_SERVER_RETRY_EXHAUSTED: {}", last_error))
 }
 
 pub async fn extract_transaction_from_media(bytes: Vec<u8>, mime: &str) -> Result<Vec<ParsedTransaction>, String> {
@@ -177,7 +190,6 @@ pub async fn extract_transaction_from_media(bytes: Vec<u8>, mime: &str) -> Resul
     Return a JSON List if multiple items detected.
     "#;
     
-    // Use Flash tier for basic extraction (Image -> JSON) to optimize cost
     call_journal_ai("Analyze this document and extract transaction data.", Some((bytes, mime.to_string())), system_instruction, "default", "Flash", None).await
 }
 
@@ -219,16 +231,26 @@ pub async fn generic_ai_chat(
     system_context: Option<String>,
     custom_api_key: Option<String>,
 ) -> Result<String, String> {
-    let system_instruction = system_context.unwrap_or_else(|| "You are a helpful AI assistant.".to_string());
+    let mut system_instruction = system_context.unwrap_or_else(|| "You are a helpful AI assistant.".to_string());
+    if system_instruction.trim().is_empty() {
+        system_instruction = "You are a helpful AI assistant.".to_string();
+    }
     
-    let api_key = match custom_api_key {
-        Some(key) if !key.trim().is_empty() => key,
-        _ => env::var("GEMINI_API_KEY").map_err(|_| "GEMINI_API_KEY missing. Please set it in Settings.".to_string())?
+    let (api_key, source) = match custom_api_key {
+        Some(key) if !key.trim().is_empty() => (key, "Custom (Settings)"),
+        _ => {
+            let key = env::var("GEMINI_API_KEY")
+                .or_else(|_| env::var("VITE_GEMINI_API_KEY"))
+                .map_err(|_| "AI API Key missing. Please set it in Settings or .env file.".to_string())?;
+            (key, "System (.env)")
+        }
     };
     let api_key = api_key.trim().replace('"', ""); 
-    let mut model_name = get_ai_model("default").trim().to_string();
-    if !model_name.starts_with("models/") { model_name = format!("models/{}", model_name); }
     
+    let config = super::config::AiConfig::load();
+    let mut model_name = config.model_flash.clone();
+    let mut url = config.get_url(&model_name, &api_key);
+
     let client = &*CLIENT;
     let body = json!({
         "contents": [{
@@ -239,35 +261,57 @@ pub async fn generic_ai_chat(
         }
     });
 
-    let url = format!("https://generativelanguage.googleapis.com/v1beta/{}:generateContent?key={}", model_name, api_key);
-    let res = client.post(url).json(&body).send().await.map_err(|e| e.to_string())?;
-    
-    let status = res.status();
-    let res_text = res.text().await.unwrap_or_else(|_| "No body".to_string());
+    let mut last_error = String::new();
+    let mut retry_count = 0;
+    const MAX_RETRIES: u32 = 2;
 
-    if !status.is_success() {
-        eprintln!("🚨 [Gemini Chat RAW ERROR] Status: {}, Body: {}", status, res_text);
+    while retry_count <= MAX_RETRIES {
+        if retry_count > 0 {
+            let wait_time = 2u64.pow(retry_count) * 500;
+            println!("[AI Chat] ⏳ Retry {}/{} after {}ms", retry_count, MAX_RETRIES, wait_time);
+            tokio::time::sleep(tokio::time::Duration::from_millis(wait_time)).await;
+        }
+
+        let res = client.post(&url).json(&body).send().await.map_err(|e| e.to_string())?;
+        let status = res.status();
+        let res_text = res.text().await.unwrap_or_else(|_| "No body".to_string());
+
+        if status.is_success() {
+            let res_json: Value = serde_json::from_str(&res_text).map_err(|e| format!("JSON Parse Error: {}", e))?;
+            
+            if let Some(candidates) = res_json["candidates"].as_array() {
+                if candidates.is_empty() {
+                     return Err("Gemini returned no candidates. This usually happens when safety filters block the response.".to_string());
+                }
+
+                let text = candidates[0]["content"]["parts"][0]["text"]
+                    .as_str()
+                    .ok_or_else(|| "AI response text part is missing.".to_string())?
+                    .to_string();
+                    
+                return Ok(text);
+            }
+            return Err(format!("Malformed Gemini response: {}", res_text));
+        }
+
+        last_error = format!("Status: {}, Body: {}", status, res_text);
+        
+        if status.as_u16() == 429 {
+            retry_count += 1;
+            if retry_count == 2 && model_name.contains("2.0") {
+                println!("[AI Chat] ⚠️ Falling back to stable 1.5-flash due to rate limits.");
+                model_name = "gemini-1.5-flash".to_string();
+                url = config.get_url(&model_name, &api_key);
+            }
+            continue;
+        }
+
+        eprintln!("🚨 [Gemini Chat RAW ERROR] {}", last_error);
         if res_text.contains("API_KEY_INVALID") || res_text.contains("API key expired") {
-            return Err("🔑 Google Gemini API 키가 올바르지 않거나 만료되었습니다 (Google API 정책에 의해 정지되었거나 삭제되었을 수 있습니다). \n설정 및 소스코드(.env)에서 활성화된 새 API 키로 교체해 주세요.".to_string());
+            return Err("🔑 API 키가 유효하지 않거나 거부되었습니다. 설정에서 확인해 주세요.".to_string());
         }
         return Err(format!("AI_SERVER_ERROR_{}: {}", status, res_text));
     }
 
-    let res_json: Value = serde_json::from_str(&res_text).map_err(|e| format!("JSON Parse Error: {}", e))?;
-    
-    // Check for safety filters or other finish reasons
-    if let Some(candidates) = res_json["candidates"].as_array() {
-        if candidates.is_empty() {
-             return Err("Gemini returned no candidates. This usually happens when safety filters block the response or the model is overloaded.".to_string());
-        }
-
-        let text = candidates[0]["content"]["parts"][0]["text"]
-            .as_str()
-            .ok_or_else(|| "AI response text part is missing. Check 'finishReason' in raw logs.".to_string())?
-            .to_string();
-            
-        Ok(text)
-    } else {
-        Err(format!("Malformed Gemini response: {}", res_text))
-    }
+    Err(format!("AI_SERVER_RETRY_EXHAUSTED: {}", last_error))
 }

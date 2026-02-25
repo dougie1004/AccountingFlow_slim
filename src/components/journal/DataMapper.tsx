@@ -17,6 +17,9 @@ const STANDARD_FIELDS = [
     { key: 'vendor', label: '거래처명 (Vendor)', info: '가맹점이나 상호명이 들어갑니다.', required: false },
     { key: 'description', label: '거래 내용 (Description)', info: '적요 또는 품명으로 사용됩니다.', required: false },
     { key: 'amount', label: '금액 (Amount)', info: '숫자 형식만 지원합니다.', required: true },
+    { key: 'vat', label: '부가세 (VAT)', info: '공급가액과 별도인 경우 지정하세요.', required: false },
+    { key: 'withdrawal', label: '출금액 (Withdrawal)', info: '은행 통장 내역일 경우 사용.', required: false },
+    { key: 'deposit', label: '입금액 (Deposit)', info: '은행 통장 내역일 경우 사용.', required: false },
     { key: 'payment_type', label: '결제 수단 (Payment)', info: '카드/현금/계좌이체 등', required: false },
 ];
 
@@ -59,8 +62,21 @@ export const DataMapper: React.FC<DataMapperProps> = ({ fileName, headers: rawHe
         Object.entries(initialMapping).forEach(([header, standard]) => {
             reversed[standard] = header;
         });
+
+        // If some required fields are still missing, try fuzzy matching from headers
+        headers.forEach(h => {
+            const val = h.toLowerCase();
+            if (!reversed['tx_date'] && (val.includes('date') || val.includes('일자') || val.includes('일시'))) reversed['tx_date'] = h;
+            if (!reversed['amount'] && (val.includes('amount') || val.includes('금액') || val.includes('합계')) && !val.includes('부가')) reversed['amount'] = h;
+            if (!reversed['description'] && (val.includes('desc') || val.includes('적요') || val.includes('내용') || val.includes('품명'))) reversed['description'] = h;
+            if (!reversed['vendor'] && (val.includes('vendor') || val.includes('거래처') || val.includes('상호') || val.includes('가맹점'))) reversed['vendor'] = h;
+            if (!reversed['vat'] && (val.includes('vat') || val.includes('부가세') || val.includes('세액'))) (reversed as any)['vat'] = h;
+            if (!reversed['withdrawal'] && (val.includes('출금') || val.includes('맡기신'))) (reversed as any)['withdrawal'] = h;
+            if (!reversed['deposit'] && (val.includes('입금') || val.includes('찾으신'))) (reversed as any)['deposit'] = h;
+        });
+
         setFieldToHeader(reversed);
-    }, [initialMapping]);
+    }, [initialMapping, headers]);
 
     const applyPreset = (presetName: string) => {
         const preset = bankPresets.find(p => p.name === presetName);

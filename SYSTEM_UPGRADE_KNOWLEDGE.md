@@ -29,6 +29,7 @@ Until Session 6, the system suffered from "Calculation Drift" where the Dashboar
 1.  **Trust but Verify:** Always check `IntegrityGuard` status before answering "Why is this number X?".
 2.  **Architecture-First:** When a new report or simulation is added, it must inherit the `initialCashBalance` and `ClosingRecord` logic from the Bridge.
 3.  **No Heuristics for Liquidity:** Liquidity is binary (it's in the bank or it isn't). Never apply "Strategic Pessimism" multipliers to the *starting* balance; only to *future* inflows/outflows.
+4.  **AI Model Stability (Mandatory 2026):** Use ONLY Stable Gemini 2.0 Pro or higher models. Gemini 1.5, 1.0, and ALL Experimental (-exp) versions are strictly prohibited to prevent deprecation issues.
 
 ---
 *This document serves as the "Memory Anchor" for the next version of Antigravity to ensure no regression of numerical integrity errors.*

@@ -38,6 +38,7 @@ import { generateYearlyPack } from '../utils/mockDataGenerator';
 import { formatCLevel, toLocalIsoDate } from '../utils/formatUtils';
 import { InfoTooltip } from '../components/ui/InfoTooltip';
 import { AIForecastPanel } from '../components/dashboard/AIForecastPanel';
+import { DAYS_IN_MONTH } from '../constants/accounting';
 
 export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab }) => {
     const {
@@ -135,9 +136,9 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
             rawData = [{ name: new Date().toISOString().split('T')[0], income: 0, expense: 0, sales: 0 }];
         }
 
-        // 3. Trend (7-day MA of SALES, not cash income)
+        // 3. Trend (30-day MA of SALES to reflect Monthly Run Rate)
         const cashFlowData = rawData.map((d, idx, arr) => {
-            const window = arr.slice(Math.max(0, idx - 6), idx + 1);
+            const window = arr.slice(Math.max(0, idx - 29), idx + 1);
             const trend = window.reduce((s, x) => s + x.sales, 0) / window.length;
             return { ...d, trend: Math.round(trend) };
         });
@@ -156,8 +157,14 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
         if (outEntries.length > 0) {
             const sorted = outEntries.map(e => new Date(e.date).getTime()).sort((a, b) => a - b);
             const start = sorted[0];
-            const end = sorted[sorted.length - 1];
+
+            // CONSTITUTION v2.1: Denominator should be the duration from the FIRST expense 
+            // to the CURRENT reality (systemNow) to represent the REAL burn rate of the company.
+            const end = systemNow ? new Date(systemNow).getTime() : sorted[sorted.length - 1];
+
             activityDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+
+            // If it's a very short period (startup), default to 30 days to avoid inflated burn rates
             const denominator = activityDays < 7 ? 30 : activityDays;
             avgBurnRate = totalOut / denominator;
         }
@@ -466,7 +473,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                     ...rangeFinancials,
                     earliestExpenseDate: analytics.earliestExpenseDate
                 }}
-                avgMonthlyBurn={analytics.avgBurnRate * 30.41}
+                avgMonthlyBurn={analytics.avgBurnRate * DAYS_IN_MONTH}
                 runwayMonths={getRunway().runwayMonths}
                 isProfitable={rangeFinancials.netIncome > 0}
                 hasActivity={analytics.hasActivity}
@@ -492,7 +499,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                                 <InfoTooltip
                                     title="Cash Flow & Sales Trend (현금 흐름 및 매출 추세)"
                                     content="선택한 기간 동안의 실제 자금 유입/유출과 장부상 매출액의 흐름을 보여줍니다."
-                                    contextualTip="Area(영역)는 실제 현금의 움직임을, Line(선)은 수익 인식을 나타냅니다."
+                                    contextualTip="Area(영역)는 실제 현금 유출입을, 점선(Line)은 30일 이동평균 기반의 '월간 성적(Monthly Run-rate)'을 나타냅니다. 거래가 없는 주말에도 비즈니스의 체력을 확인할 수 있습니다."
                                 />
                             </div>
                             <p className="text-xs font-bold text-slate-500 mt-1">실제 자금 유출입(Area)과 매출 추세(Line) 분석</p>
@@ -568,7 +575,7 @@ export const Dashboard: React.FC<{ setTab: (tab: string) => void }> = ({ setTab 
                                     <Area
                                         type="monotone"
                                         dataKey="trend"
-                                        name="매출 추세 (7일 평균)"
+                                        name="매출 추세 (30일 평균)"
                                         stroke="#6366f1"
                                         strokeDasharray="5 5"
                                         strokeWidth={2}

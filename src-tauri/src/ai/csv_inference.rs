@@ -24,3 +24,7 @@ pub fn analyze_csv(data: Vec<u8>) -> Result<InferenceResult, String> {
         suggested_entries: txs,
     })
 }
+
+pub fn analyze_csv_to_transactions(data: Vec<u8>) -> Result<Vec<ParsedTransaction>, String> {
+    robust_parser::parse_robust_csv(data)
+}

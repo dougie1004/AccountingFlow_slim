@@ -20,7 +20,17 @@ pub async fn ingest_universal_file(
         "application/octet-stream"
     };
 
-    // 2. Process via Gemini Vision for Images/PDFs
+    // 2. Special handling for Excel/CSV
+    if lower_name.ends_with(".xlsx") || lower_name.ends_with(".xls") {
+        return crate::ai::excel_parser::parse_excel_file(file_bytes);
+    }
+
+    if lower_name.ends_with(".csv") {
+        // [Phase 11] CSV Inference Route
+        return crate::ai::csv_inference::analyze_csv_to_transactions(file_bytes);
+    }
+
+    // 3. Process via Gemini Vision for Images/PDFs
     if mime.starts_with("image/") || mime == "application/pdf" {
         return ai_service::extract_transaction_from_media(file_bytes, mime).await;
     }

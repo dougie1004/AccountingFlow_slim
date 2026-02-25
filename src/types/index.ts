@@ -29,20 +29,34 @@ export class ConstitutionViolationError extends Error {
 
 export interface JournalEntry {
     id: string;
+    journalId?: string; // Grouping ID for multi-leg transactions (Deterministic)
     journalNumber?: string; // Constitutional Identifier (e.g. JE-202602-0001). Assigned upon confirmation/approval. Immutable.
     sequenceNumber?: number; // Monthly sequence. Immutable, never reused. Permanent record index.
-    createdAt?: string;
-    date: string; // [Time Constitution Art.1] Effective Date (장부 반영일: 지급, 입금, 세금계산서 발행일)
-    eventDate?: string; // [Time Constitution Art.1] Event Date (사건 발생일: 계약, 선정, 의사결정일)
+
+    // [Time Constitution]
+    date: string; // Effective Date (Effective Date)
+    transactionDate: string; // Real-world event date (거래 발생일)
+    recognitionDate: string; // Accrual recognition date (수익/비용 인식일 - 헌법 제5조)
+    eventDate?: string; // Initial decision/contract date
+
     description: string;
-    costCenter?: string; // Dimension (e.g. Sales, R&D)
+    costCenter?: string;
     vendor?: string;
+
     debitAccount: string;
     creditAccount: string;
-    amount: number;
-    vat: number;
+
+    amount: number; // 공급가액 (Supply Value) - [Engine 제2조] VAT 제외 순액 기준
+    vat: number;    // 부가가치세 (VAT) - 별도 필드 고정
+    vatFlag?: boolean; // VAT 발생 여부 명시
+
     type: string;
     status: string;
+
+    contractPeriod?: { start: string; end: string }; // For Revenue Recognition (헌법 제3조)
+
+    createdAt?: string;
+
     controlTrail?: string[];
     suggestedDescription?: string;
     suggestedVat?: number;
@@ -52,16 +66,17 @@ export interface JournalEntry {
     reasoning?: string[];
     documentType?: DocumentType;
     evidenceType?: 'TaxInvoice' | 'CreditCard' | 'CashReceipt' | 'None';
+
     // Cash Flow & AR/AP Tracking
     dueDate?: string;
     settledAmount?: number;
     isSettled?: boolean;
     settledDate?: string;
     attachments?: Evidence[];
-    clearingRecord?: ClearingRecord; // For Internal Control Trail
-    liabilityRecordId?: string; // [Phase 11] Link to Liability Responsibility Object
-    notes?: string;   // [Internal Control] Rejection reasons or manual annotations
-    comment?: string; // 시스템/관리자 코멘트 (LTV/CAC 등 전략 지표용)
+    clearingRecord?: ClearingRecord;
+    liabilityRecordId?: string;
+    notes?: string;
+    comment?: string;
 }
 
 // --- Phase 11: Liability Engine Types ---
@@ -399,7 +414,7 @@ export interface ManagementReport {
 
 // --- Simulation & Scenario Types ---
 
-export type BusinessScenario = 'SURVIVAL' | 'STANDARD' | 'GROWTH' | 'DEATH_VALLEY';
+export type BusinessScenario = 'SURVIVAL' | 'LEAN_STANDARD' | 'STANDARD' | 'GROWTH' | 'DEATH_VALLEY';
 
 export interface ScenarioParams {
     grantSuccess: boolean;

@@ -21,7 +21,6 @@ pub fn run() {
                 if let Some((key, value)) = line.split_once('=') {
                     let clean_value = value.trim().trim_matches('"').trim_matches('\'').to_string();
                     std::env::set_var(key.trim(), &clean_value);
-                    
                     // Verification Logging: Show the user which key is being used
                     if key.trim() == "GEMINI_API_KEY" {
                         let len = clean_value.len();
@@ -61,7 +60,11 @@ pub fn run() {
             commands::process_review_context,
             commands::perform_review_check,
             commands::generate_management_report,
-            commands::calculate_account_afri
+            commands::calculate_account_afri,
+            commands::perform_pii_masking,
+            commands::execute_review_run,
+            commands::analyze_process_mining,
+            commands::generate_mining_mock_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

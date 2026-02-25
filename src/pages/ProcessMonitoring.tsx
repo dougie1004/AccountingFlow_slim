@@ -136,35 +136,59 @@ export default function ProcessMonitoring() {
 
                                     return (
                                         <div key={d.id} className={`${bgClass} border rounded-[2rem] p-6 hover:scale-[1.02] transition-transform duration-300 group`}>
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="space-y-1">
-                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${isCritical ? 'bg-rose-500/20 border-rose-500/30 text-rose-400' : isWatch ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'}`}>
-                                                        {d.severity}
-                                                    </span>
-                                                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2">{d.category}</div>
-                                                </div>
-                                                <div className={`p-2 rounded-xl bg-black/20 ${colorClass}`}>
-                                                    <Activity size={16} />
-                                                </div>
-                                            </div>
+                                            {(() => {
+                                                const isRatio = d.metric === 'SalesConcentration' || d.metric === 'InfraEfficiency';
+                                                return (
+                                                    <>
+                                                        <div className="flex justify-between items-start mb-4">
+                                                            <div className="space-y-1">
+                                                                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${isCritical ? 'bg-rose-500/20 border-rose-500/30 text-rose-400' : isWatch ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'}`}>
+                                                                    {d.severity}
+                                                                </span>
+                                                                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2">{d.category}</div>
+                                                            </div>
+                                                            <div className={`p-2 rounded-xl bg-black/20 ${colorClass}`}>
+                                                                <Activity size={16} />
+                                                            </div>
+                                                        </div>
 
-                                            <div className="mb-4">
-                                                <h4 className="text-sm font-black text-slate-300 uppercase tracking-tight mb-1">{d.metric}</h4>
-                                                <div className="flex items-baseline gap-2">
-                                                    <span className={`text-3xl font-black ${colorClass} tracking-tighter`}>
-                                                        {d.variancePercent > 0 ? '+' : ''}{d.variancePercent}%
-                                                    </span>
-                                                </div>
-                                                <p className="text-[10px] font-mono font-bold text-slate-500 mt-1">
-                                                    Δ {d.delta.toLocaleString()} (vs Base)
-                                                </p>
-                                            </div>
+                                                        <div className="mb-4">
+                                                            <h4 className="text-sm font-black text-slate-300 uppercase tracking-tight mb-1">{d.metric}</h4>
+                                                            <div className="flex items-baseline gap-2">
+                                                                <span className={`text-3xl font-black ${colorClass} tracking-tighter`}>
+                                                                    {d.variancePercent > 0 ? '+' : ''}{d.variancePercent}%
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1 mt-3 bg-black/20 p-3 rounded-xl border border-white/5">
+                                                                <div className="flex justify-between items-center text-[10px]">
+                                                                    <span className="font-bold text-slate-500 uppercase">Actual</span>
+                                                                    <span className="font-mono font-black text-slate-300">
+                                                                        {isRatio ? `${d.actual.toFixed(1)}%` : `${d.actual.toLocaleString()} ₩`}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center text-[10px]">
+                                                                    <span className="font-bold text-indigo-500/60 uppercase">Base</span>
+                                                                    <span className="font-mono font-black text-indigo-400/60">
+                                                                        {isRatio ? `${d.baseline.toFixed(1)}%` : `${d.baseline.toLocaleString()} ₩`}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="pt-1 mt-1 border-t border-white/5 flex justify-between items-center text-[10px]">
+                                                                    <span className="font-bold text-slate-500 uppercase tracking-tighter">Variance (Δ)</span>
+                                                                    <span className={`font-mono font-black ${d.delta >= 0 ? 'text-emerald-500/70' : 'text-rose-500/70'}`}>
+                                                                        {d.delta > 0 ? '+' : ''}{d.delta.toLocaleString()}{isRatio ? '%' : ''}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
-                                            <div className="pt-4 border-t border-white/5">
-                                                <p className="text-xs font-bold text-slate-400 leading-relaxed line-clamp-2 group-hover:line-clamp-none transition-all">
-                                                    {d.insight}
-                                                </p>
-                                            </div>
+                                                        <div className="pt-4 border-t border-white/5">
+                                                            <p className="text-xs font-bold text-slate-400 leading-relaxed line-clamp-2 group-hover:line-clamp-none transition-all">
+                                                                {d.insight}
+                                                            </p>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
                                     );
                                 })

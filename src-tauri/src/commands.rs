@@ -3,6 +3,7 @@ use crate::core::models::{
 };
 use crate::models::{Account, ManagementProject, ReviewAnalysisResult, ReviewFinding, ManagementIssue, ManagementScenario};
 use crate::ai::ai_service;
+use crate::ai::review_engine;
 use crate::ai::csv_inference;
 use crate::accounting::assets;
 use serde_json::json;
@@ -260,4 +261,108 @@ pub async fn calculate_account_afri(
     
     // In later phases, record this result asynchronously into account_risk_profile
     Ok(afri_result)
+}
+
+#[tauri::command]
+pub async fn perform_pii_masking(
+    transactions: Vec<serde_json::Value>
+) -> Result<Vec<serde_json::Value>, String> {
+    Ok(review_engine::mask_pii(transactions))
+}
+
+#[tauri::command]
+pub async fn execute_review_run(
+    transactions: Vec<serde_json::Value>,
+    is_judgment_run: bool,
+    custom_api_key: Option<String>,
+) -> Result<serde_json::Value, String> {
+    review_engine::execute_review_run(transactions, is_judgment_run, custom_api_key).await
+}
+
+// --- PHASE 3: AI Process Mining & Simulation ---
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct ProcessViolation {
+    pub id: String,
+    pub description: String,
+    pub severity: String,
+    pub timestamp: String,
+    pub affected_nodes: Vec<String>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct MiningResult {
+    pub total_nodes: usize,
+    pub total_edges: usize,
+    pub violation_count: usize,
+    pub throughput_avg: String,
+    pub violations: Vec<ProcessViolation>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct MockLogFile {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub file_type: String,
+    pub size: String,
+    pub path: String,
+}
+
+#[tauri::command]
+pub async fn analyze_process_mining(project_type: String) -> Result<MiningResult, String> {
+    // [Phase 3] Digital Trace Simulation
+    // In a real environment, this would ingest CaseID/Activity/Timestamp CSVs.
+    Ok(MiningResult {
+        total_nodes: 124,
+        total_edges: 412,
+        violation_count: 3,
+        throughput_avg: "4.2 Days".to_string(),
+        violations: vec![
+            ProcessViolation {
+                id: "VIO-P2P-001".to_string(),
+                description: "Purchase Order (PO) created AFTER Invoice receipt. Potential bypass of procurement controls.".to_string(),
+                severity: "High".to_string(),
+                timestamp: "2026-02-15 14:22".to_string(),
+                affected_nodes: vec!["Invoice Recv".to_string(), "PO Creation".to_string(), "Payment".to_string()],
+            },
+            ProcessViolation {
+                id: "VIO-P2P-082".to_string(),
+                description: "Approval path bypass: Invoice approved by the same user who requested the PO (Maverick Buying).".to_string(),
+                severity: "High".to_string(),
+                timestamp: "2026-02-18 09:11".to_string(),
+                affected_nodes: vec!["PR Request".to_string(), "Invoice Approval".to_string()],
+            },
+            ProcessViolation {
+                id: "VIO-TS-044".to_string(),
+                description: "Duplicate Activity Detection: Double payment processing for the same vendor within 1 hour.".to_string(),
+                severity: "Medium".to_string(),
+                timestamp: "2026-02-20 16:05".to_string(),
+                affected_nodes: vec!["Payment Exec".to_string(), "Payment Exec (Duplicate)".to_string()],
+            }
+        ]
+    })
+}
+
+#[tauri::command]
+pub async fn generate_mining_mock_data() -> Result<Vec<MockLogFile>, String> {
+    Ok(vec![
+        MockLogFile {
+            name: "ERP_P2P_EventLog_2025.csv".to_string(),
+            file_type: "Event Log (Raw)".to_string(),
+            size: "128 MB".to_string(),
+            path: "/logs/erp/p2p_2025.csv".to_string(),
+        },
+        MockLogFile {
+            name: "SCM_WMS_Tracing_Jan.json".to_string(),
+            file_type: "Log Chain".to_string(),
+            size: "42 MB".to_string(),
+            path: "/logs/scm/wms_jan.json".to_string(),
+        },
+        MockLogFile {
+            name: "Bank_Statement_Tracing_V2.xlsx".to_string(),
+            file_type: "Payment Log".to_string(),
+            size: "15 MB".to_string(),
+            path: "/logs/finance/bank_tracing.xlsx".to_string(),
+        }
+    ])
 }

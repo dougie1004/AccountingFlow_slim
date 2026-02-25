@@ -5,12 +5,29 @@
 
 export const cleanMarkdown = (text: string | null | undefined): string => {
     if (!text) return '';
-    return text
-        .replace(/\*\*/g, '')
-        .replace(/\*/g, '')
-        .replace(/### /g, '')
-        .replace(/## /g, '')
-        .replace(/# /g, '');
+
+    let cleaned = text.trim();
+
+    // Recursive removal of surrounding quotes and artifacts
+    let changed = true;
+    while (changed) {
+        let before = cleaned;
+
+        // Remove surrounding double/single quotes
+        if ((cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+            (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+            cleaned = cleaned.slice(1, -1).trim();
+        }
+
+        // Remove surrounding code blocks (e.g. ```json ... ```)
+        if (cleaned.startsWith('```') && cleaned.endsWith('```')) {
+            cleaned = cleaned.replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '').trim();
+        }
+
+        changed = before !== cleaned;
+    }
+
+    return cleaned;
 };
 
 export const parseAIList = (text: string | null | undefined): string[] => {

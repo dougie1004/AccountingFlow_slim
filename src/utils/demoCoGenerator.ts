@@ -2,19 +2,23 @@ import { JournalEntry, ScenarioParams } from '../types';
 
 let sequence = 1000;
 function createEntry(data: Partial<JournalEntry>): JournalEntry {
+    const d = data.date || '';
     return {
         id: crypto.randomUUID(),
-        date: data.date || '',
+        date: d,
+        transactionDate: data.transactionDate || d,
+        recognitionDate: data.recognitionDate || d,
         description: data.description || '',
         debitAccount: data.debitAccount || '',
         creditAccount: data.creditAccount || '',
         amount: data.amount || 0,
         vat: data.vat || 0,
+        vatFlag: data.vatFlag ?? (data.vat ? data.vat > 0 : false),
         type: data.type || 'Expense',
         status: data.status || 'Approved',
         vendor: data.vendor || '',
         sequenceNumber: sequence++,
-        journalNumber: `JE-${data.date?.replace(/-/g, '').substring(0, 6)}-${sequence}`,
+        journalNumber: `JE-${d.replace(/-/g, '').substring(0, 6)}-${String(sequence).padStart(4, '0')}`,
         createdAt: new Date().toISOString(),
         ...data
     } as JournalEntry;
@@ -60,20 +64,36 @@ export function generateDemoCoPack(params?: Partial<ScenarioParams>): JournalEnt
                 addAndTrack(createEntry({ date, description: `구독매출 외상`, debitAccount: '외상매출금', creditAccount: 'SaaS구독매출', amount: rev * 0.4, type: 'Revenue', isSettled: false, dueDate: `${year}-${String((m % 12) + 1).padStart(2, '0')}-28`, vendor: 'B2B Enterprise Clients' }));
             }
 
-            // 고정비 (Scale with time)
+            // 매출원가 (COGS - Scale with revenue)
+            const infraAmt = Math.floor(rev * 0.12);
+            const apiAmt = Math.floor(rev * 0.03);
+            addAndTrack(createEntry({ date, description: '클라우드 인프라 원가', debitAccount: '인프라 원가', creditAccount: '보통예금', amount: infraAmt, type: 'Expense', vendor: 'AWS Cloud' }));
+            addAndTrack(createEntry({ date, description: 'LLM API 사용 원가', debitAccount: 'Gemini API 원가', creditAccount: '보통예금', amount: apiAmt, type: 'Expense', vendor: 'Google Cloud' }));
+
+            // 판관비 (SG&A - Scale with time)
             const expenseMultiplier = year === 2026 ? 1 : (year === 2027 ? 1.2 : 1.5);
             addAndTrack(createEntry({ date, description: '월 급여', debitAccount: '급여', creditAccount: '보통예금', amount: 25_000_000 * expenseMultiplier, type: 'Payroll', vendor: '임직원급여' }));
             addAndTrack(createEntry({ date, description: '임차료', debitAccount: '지급임차료', creditAccount: '보통예금', amount: 3_000_000 * expenseMultiplier, type: 'Expense', vendor: '패스트파이브' }));
-            addAndTrack(createEntry({ date, description: '서버비', debitAccount: '인프라 원가', creditAccount: '보통예금', amount: 1_500_000 * expenseMultiplier, type: 'Expense', vendor: 'AWS Cloud' }));
             addAndTrack(createEntry({ date, description: '지급수수료', debitAccount: '지급수수료', creditAccount: '보통예금', amount: 2_000_000 * expenseMultiplier, type: 'Expense', vendor: '토스페이먼츠' }));
 
             // 정산 (외상매출금 회수)
             const prevMonth = m === 1 ? 12 : m - 1;
             const prevYear = m === 1 ? year - 1 : year;
             if (year > 2026 || m > 5) {
-                const prevRev = prevYear === 2026 ? (startup_revenue[prevMonth] || 0) : base_monthly_revenue[prevMonth] * (prevYear === 2028 ? 1.5 : 1.2);
+                // [CONSISTENCY FIX] Collection must match billing logic exactly
+                let prevRev = prevYear === 2026 ? (startup_revenue[prevMonth] || 0) : base_monthly_revenue[prevMonth];
+                if (prevYear === 2028) prevRev *= 1.5;
+
                 if (prevRev > 0) {
-                    addAndTrack(createEntry({ date: `${year}-${mStr}-05`, description: '전월 SaaS 매출 채권 회수 완료', debitAccount: '보통예금', creditAccount: '외상매출금', amount: prevRev * 0.4, type: 'Revenue', vendor: 'B2B Enterprise Clients' }));
+                    addAndTrack(createEntry({
+                        date: `${year}-${mStr}-05`,
+                        description: '전월 SaaS 매출 채권 회수 완료',
+                        debitAccount: '보통예금',
+                        creditAccount: '외상매출금',
+                        amount: prevRev * 0.4,
+                        type: 'Asset',
+                        vendor: 'B2B Enterprise Clients'
+                    }));
                 }
             }
 
@@ -96,4 +116,19 @@ export function generateDemoCoPack(params?: Partial<ScenarioParams>): JournalEnt
     });
 
     return pack;
+}
+
+export function getDemoCoPartners(): { name: string; regNo: string }[] {
+    return [
+        { name: 'Altos Ventures', regNo: '120-81-12345' },
+        { name: 'Stripe Payments', regNo: '107-86-54321' },
+        { name: 'Founder', regNo: '101-01-00001' },
+        { name: 'B2B Enterprise Clients', regNo: '211-81-99999' },
+        { name: '임직원급여', regNo: '000-00-00000' },
+        { name: '패스트파이브', regNo: '220-88-22334' },
+        { name: 'AWS Cloud', regNo: '105-87-77889' },
+        { name: '토스페이먼츠', regNo: '110-81-11223' },
+        { name: 'Google Ads', regNo: '107-87-12345' },
+        { name: 'Meta Platforms', regNo: '120-86-98765' }
+    ];
 }

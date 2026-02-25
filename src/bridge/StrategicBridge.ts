@@ -110,6 +110,10 @@ export const getConsolidatedMetrics = (
             netIncome: closing.summary.profit,
             totalAssets: closing.summary.totalAssets,
             totalLiabilities: closing.summary.totalLiabilities,
+            displayCash: TrialBalance.formatCurrency(closing.summary.cash),
+            displayAr: TrialBalance.formatCurrency(0), // Summary doesn't store AR explicitly, fallback to 0 or derive if needed
+            displayAp: TrialBalance.formatCurrency(0),
+            displayNetIncome: TrialBalance.formatCurrency(closing.summary.profit, true),
             isSealed: true
         };
     }
@@ -123,6 +127,10 @@ export const getConsolidatedMetrics = (
         netIncome: live.netIncome,
         totalAssets: live.totalAssets,
         totalLiabilities: live.totalLiabilities,
+        displayCash: live.displayCash,
+        displayAr: live.displayAr,
+        displayAp: live.displayAp,
+        displayNetIncome: live.displayNetIncome,
         isSealed: false
     };
 };

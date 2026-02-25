@@ -14,12 +14,14 @@ import {
     ArrowUpRight,
     ArrowDownRight,
     Search,
-    Filter
+    Filter,
+    AlertCircle
 } from 'lucide-react';
+import { Tooltip as CommonTooltip } from '../components/common/Tooltip';
 import { formatCurrency, formatPercent } from '../utils/formatUtils';
 import { isSuspenseAccount, isArAccount, isApAccount } from '../constants/accounts';
 import {
-    PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+    PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import { useConfig } from '../context/ConfigContext';
 import { PremiumFeatureWall } from '../components/common/PremiumFeatureWall';
@@ -197,6 +199,30 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
                     }
                 }
             }
+
+            // [Strategic Logic] AP Stretching Potential
+            const apTotal = ledger.filter(e => isApAccount(e.creditAccount)).reduce((s, e) => s + e.amount, 0);
+            if (apTotal > 100_000_000) {
+                findings.push({
+                    id: 'STRAT-CASH-002',
+                    title: '현금 보유 전략 (Cash Retention)',
+                    description: '현재 매입채무(AP) 규모가 1억원을 초과했습니다. 주요 공급사와의 결제 주기 조정을 통해 가용 현금 흐름(Operating Cash Flow)을 개선할 수 있는 여력이 있습니다.',
+                    recommendation: '주요 벤더별 정산 주기(Net 30/60)를 재검토하여 유동성을 확보하십시오.',
+                    severity: 'STABLE',
+                });
+            }
+
+            // [Intelligence Guard] If no urgent findings, add a "Healthy" status
+            if (findings.length === 0) {
+                findings.push({
+                    id: 'STRAT-HEALTH-001',
+                    title: '재무 정합성 양호 (System Healthy)',
+                    description: '현재 실시간 인텔리전스 분석 결과, 매출 집중도나 인프라 비용 급등과 같은 특이 지표가 발견되지 않았습니다.',
+                    recommendation: '정기적인 자금 수지 모니터링을 통해 현재의 안정성을 유지하십시오.',
+                    severity: 'STABLE',
+                });
+            }
+
         } catch (err) {
             console.error('[RiskDashboard] Strategic Intelligence Failed:', err);
         }
@@ -227,7 +253,7 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
                 <div>
                     <h2 className="text-3xl font-black text-white flex items-center gap-3">
                         <Lock className="text-rose-500" size={32} />
-                        결산 및 자금 통제 (Risk Control)
+                        리스크 및 자금 통제 (Risk & Control)
                     </h2>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
                         Unified Settlement Risk & Financial Integrity Dashboard
@@ -241,18 +267,23 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
 
             {/* Metric Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 relative overflow-hidden group hover:border-rose-500/30 transition-all cursor-pointer" onClick={() => setTab('arap-management')}>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">BLOCKED 총액</p>
+                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 relative overflow-hidden group hover:border-rose-500/30 transition-all cursor-pointer shadow-xl hover:shadow-rose-500/5" onClick={() => setTab('arap-management')}>
+                    <div className="flex justify-between items-start mb-1">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">BLOCKED 총액</p>
+                        <CommonTooltip key="blocked-info" content="정산 보류: 증빙 미비나 승인 거절로 인해 자금이 묶여 있는 상태">
+                            <AlertCircle size={12} className="text-slate-600 cursor-help" />
+                        </CommonTooltip>
+                    </div>
                     <h4 className="text-2xl font-black text-rose-500">{formatCurrency(stats.blockedAmount)}</h4>
                     <p className="text-[10px] font-bold text-slate-400 mt-2 flex items-center gap-1">
-                        <ShieldAlert size={12} /> {stats.blockedCount}건의 공식 리스크 관리 중
+                        <ShieldAlert size={12} /> {stats.blockedCount}건의 정산 보류 항목 존재
                     </p>
                     <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
                         <ShieldAlert size={64} />
                     </div>
                 </div>
 
-                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 relative overflow-hidden group hover:border-amber-500/30 transition-all">
+                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 relative overflow-hidden group hover:border-amber-500/30 transition-all cursor-pointer shadow-xl hover:shadow-amber-500/5" onClick={() => setTab('arap-management')}>
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">90일 초과 미정산</p>
                     <h4 className="text-2xl font-black text-white">{formatCurrency(stats.overdue90Amount)}</h4>
                     <p className="text-[10px] font-bold text-amber-500 mt-2 flex items-center gap-1">
@@ -263,7 +294,7 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
                     </div>
                 </div>
 
-                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 relative overflow-hidden group hover:border-indigo-500/30 transition-all">
+                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 relative overflow-hidden group hover:border-indigo-500/30 transition-all cursor-pointer shadow-xl hover:shadow-indigo-500/5" onClick={() => setTab('arap-management')}>
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">상거래 미결 리스크</p>
                     <h4 className="text-2xl font-black text-white">{formatCurrency(stats.opAmount)}</h4>
                     <p className="text-[10px] font-bold text-slate-400 mt-2">외상매출/매입 등 영업 미결 항목</p>
@@ -272,7 +303,7 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
                     </div>
                 </div>
 
-                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+                <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 relative overflow-hidden group hover:border-emerald-500/30 transition-all cursor-pointer shadow-xl hover:shadow-emerald-500/5" onClick={() => setTab('arap-management')}>
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">매칭 이슈 리스크</p>
                     <h4 className="text-2xl font-black text-emerald-400">{formatCurrency(stats.matchingAmount)}</h4>
                     <p className="text-[10px] font-bold text-slate-400 mt-2">선급금/선수금 등 계약 미완료 항목</p>
@@ -406,7 +437,7 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
                                         <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                                     ))}
                                 </Pie>
-                                <Tooltip
+                                <RechartsTooltip
                                     contentStyle={{ backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
                                     itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
                                     labelStyle={{ color: '#94a3b8', fontSize: '10px', marginBottom: '4px' }}
@@ -442,7 +473,7 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
                                     tickLine={false}
                                     width={120}
                                 />
-                                <Tooltip
+                                <RechartsTooltip
                                     cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                     contentStyle={{ backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
                                     itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}

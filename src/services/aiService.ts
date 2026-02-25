@@ -39,19 +39,32 @@ export const callAiService = async (
     const customApiKey = localStorage.getItem('user_gemini_api_key');
     const response = await safeInvoke<string>('generic_ai_chat', {
       prompt,
-      systemContext: systemContext || '당신은 최고의 회계 비서 AI입니다. 모든 답변은 한국어로 핵심만 답하세요.',
+      systemContext: (systemContext && systemContext.trim().length > 0) ? systemContext : '당신은 최고의 회계 비서 AI입니다. 모든 답변은 한국어로 핵심만 답하세요.',
       customApiKey: customApiKey || import.meta.env.VITE_GEMINI_API_KEY || null
     });
 
     return {
       response,
-      meta: { model_version: 'rust-backend-v1', provider: 'google' }
+      meta: { model_version: 'rust-backend-v2-robust', provider: 'google' }
     };
   } catch (error: any) {
     console.error('AI_SERVICE_CALL_FAILED:', error);
-    // Extract the real error message from the backend if available
-    const errorMsg = typeof error === 'string' ? error : (error.message || 'Back-end communication failure');
-    return { response: '', error: errorMsg };
+    const rawError = typeof error === 'string' ? error : (error.message || 'Back-end communication failure');
+
+    // Human-friendly translation for common AI errors
+    let userFriendlyMsg = rawError;
+
+    if (rawError.includes('429') || rawError.includes('RESOURCE_EXHAUSTED')) {
+      userFriendlyMsg = "현재 AI 서버의 요청이 많아 잠시 숨 고르기가 필요합니다. 1~2분만 기다려 주시면 다시 날카로운 분석을 도와드리겠습니다. (지속될 경우 Google Cloud 빌딩/한도를 확인해 주세요)";
+    } else if (rawError.includes('API_KEY_INVALID') || rawError.includes('KEY_REJECTED')) {
+      userFriendlyMsg = "AI API 키가 올바르지 않거나 거부되었습니다. [설정 > AI 설정]에서 키를 다시 확인해 주세요.";
+    } else if (rawError.includes('SAFETY')) {
+      userFriendlyMsg = "요청하신 내용이 AI 안전 정책에 의해 보류되었습니다. 질문을 조금 더 비즈니스 관점으로 구체화해 보세요.";
+    } else if (rawError.includes('RETRY_EXHAUSTED')) {
+      userFriendlyMsg = "서버 연결 시도가 여러 번 실패했습니다. 인터넷 연결을 확인하거나 잠시 후 다시 시도해 주세요.";
+    }
+
+    return { response: '', error: userFriendlyMsg };
   }
 };
 

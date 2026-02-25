@@ -18,9 +18,27 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
     const context = useContext(AccountingContext)!;
     const { parseTransaction, isParsing } = useAI();
     const [stagedData, setStagedData] = useState<ParsedTransaction[]>(data);
+    const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
     const [analyzingIndex, setAnalyzingIndex] = useState<number | null>(null);
     const [selectedRow, setSelectedRow] = useState<number | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    const toggleSelect = (idx: number) => {
+        const next = new Set(selectedIndices);
+        if (next.has(idx)) next.delete(idx);
+        else next.add(idx);
+        setSelectedIndices(next);
+    };
+
+    const toggleAll = () => {
+        if (selectedIndices.size === stagedData.length) {
+            setSelectedIndices(new Set());
+        } else {
+            const next = new Set<number>();
+            stagedData.forEach((_, i) => next.add(i));
+            setSelectedIndices(next);
+        }
+    };
 
     const runAIAnalysis = async () => {
         const newData = [...stagedData];
@@ -28,7 +46,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
             setAnalyzingIndex(i);
             const row = newData[i];
             const input = `Date: ${row.date}, Desc: ${row.description}, Amount: ${row.amount}, Vendor: ${row.vendor}`;
-            const result = await parseTransaction(input, "General", partners, "default-tenant", "Solo");
+            const result = await parseTransaction(input, context.corporateRules || "General", partners, "default-tenant", "Solo");
             if (result?.transaction) {
                 newData[i] = { ...result.transaction, date: result.transaction.date || row.date };
                 setStagedData([...newData]);
@@ -96,11 +114,19 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                     </button>
                     <button
                         onClick={() => {
-                            const entries: JournalEntry[] = stagedData.map(d => ({
+                            const toConfirm = selectedIndices.size > 0
+                                ? stagedData.filter((_, i) => selectedIndices.has(i))
+                                : stagedData;
+
+                            if (toConfirm.length === 0) return;
+
+                            const entries: JournalEntry[] = toConfirm.map(d => ({
                                 id: d.id || Math.random().toString(36).substr(2, 9),
                                 journalNumber: 'PENDING',
                                 sequenceNumber: 0,
                                 date: d.date || new Date().toISOString().split('T')[0],
+                                transactionDate: d.date || new Date().toISOString().split('T')[0],
+                                recognitionDate: d.date || new Date().toISOString().split('T')[0],
                                 description: d.description || '',
                                 vendor: d.vendor,
                                 debitAccount: d.debitAccount || d.accountName || '미확정비용',
@@ -120,10 +146,16 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                 }] : []
                             }));
                             onConfirm(entries);
+
+                            if (selectedIndices.size > 0 && selectedIndices.size < stagedData.length) {
+                                setStagedData(prev => prev.filter((_, i) => !selectedIndices.has(i)));
+                                setSelectedIndices(new Set());
+                                setSelectedRow(null);
+                            }
                         }}
-                        className="bg-emerald-600 text-white px-8 py-4 rounded-2xl hover:bg-emerald-700 font-black text-sm"
+                        className={`${selectedIndices.size > 0 ? 'bg-indigo-600' : 'bg-emerald-600'} text-white px-8 py-4 rounded-2xl hover:opacity-90 font-black text-sm transition-all shadow-xl`}
                     >
-                        장부 반영 ({stagedData.length}건)
+                        {selectedIndices.size > 0 ? `${selectedIndices.size}건 선택 항목 반영` : `전체 장부 반영 (${stagedData.length}건)`}
                     </button>
                 </div>
             </div>
@@ -134,6 +166,14 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                         <table className="w-full text-sm text-left">
                             <thead className="bg-[#151D2E] text-slate-500 font-black uppercase text-[10px] tracking-widest border-b border-white/5">
                                 <tr>
+                                    <th className="px-6 py-5 w-10">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIndices.size === stagedData.length && stagedData.length > 0}
+                                            onChange={toggleAll}
+                                            className="w-4 h-4 rounded border-white/10 bg-slate-950"
+                                        />
+                                    </th>
                                     <th className="px-6 py-5">DATE</th>
                                     <th className="px-6 py-5">DESCRIPTION</th>
                                     <th className="px-6 py-5 text-right">AMOUNT</th>
@@ -148,6 +188,14 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                         onClick={() => setSelectedRow(idx)}
                                         className={`transition-all cursor-pointer ${selectedRow === idx ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'} ${!row.accountName ? 'opacity-60 saturate-50' : ''}`}
                                     >
+                                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIndices.has(idx)}
+                                                onChange={() => toggleSelect(idx)}
+                                                className="w-4 h-4 rounded border-white/10 bg-slate-950"
+                                            />
+                                        </td>
                                         <td className="px-6 py-4 font-mono text-xs">{row.date}</td>
                                         <td className="px-6 py-4">
                                             <div className="text-white font-black truncate max-w-[200px]">{cleanMarkdown(row.description)}</div>
@@ -180,6 +228,13 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                                     setStagedData(prev => prev.filter((_, i) => i !== idx));
                                                     if (selectedRow === idx) setSelectedRow(null);
                                                     else if (selectedRow !== null && idx < selectedRow) setSelectedRow(selectedRow - 1);
+
+                                                    // Also remove from selection if present
+                                                    if (selectedIndices.has(idx)) {
+                                                        const next = new Set(selectedIndices);
+                                                        next.delete(idx);
+                                                        setSelectedIndices(next);
+                                                    }
                                                 }}
                                                 className="text-slate-500 hover:text-rose-500"
                                             >
@@ -233,7 +288,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                         className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white font-bold text-sm outline-none focus:border-indigo-500 transition-colors"
                                     />
                                     <datalist id="staging-account-list">
-                                        {ALL_ACCOUNTS.map(acc => <option key={acc.code} value={acc.name} />)}
+                                        {ALL_ACCOUNTS.map((acc, idx) => <option key={`${acc.code}-${acc.name}-${idx}`} value={acc.name} />)}
                                     </datalist>
                                 </div>
                                 <div>
@@ -245,7 +300,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                         </div>
                                     </div>
                                     <div className="relative group">
-                                        <p className={`text-sm leading-relaxed p-4 rounded-xl border ${stagedData[selectedRow].accountName ? 'text-slate-400 bg-white/5 border-white/5' : 'text-[#94A3B8] bg-[#1E293B]/50 border-white/10'}`}>
+                                        <div className={`text-sm leading-relaxed p-4 rounded-xl border ${stagedData[selectedRow].accountName ? 'text-slate-400 bg-white/5 border-white/5' : 'text-[#94A3B8] bg-[#1E293B]/50 border-white/10'}`}>
                                             {stagedData[selectedRow].accountName ? (
                                                 stagedData[selectedRow].reasoning
                                             ) : (
@@ -264,38 +319,12 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                                     </span>
                                                 </div>
                                             )}
-                                        </p>
-                                        {/* Responsibility Routing Badge in Detail */}
-                                        {!stagedData[selectedRow].accountName && (
-                                            <div className="mt-3 flex flex-col gap-2">
-                                                <div className="flex items-center justify-between px-3 py-2 bg-rose-500/10 rounded-xl border border-rose-500/20">
-                                                    <div className="flex items-center gap-2">
-                                                        <Database size={12} className="text-rose-400" />
-                                                        <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Responsibility Path</span>
-                                                    </div>
-                                                    <span className="text-[10px] font-black text-white bg-rose-600 px-2 py-0.5 rounded shadow-lg uppercase">Next: {getResponsibilityRoute(stagedData[selectedRow]).currentOwner}</span>
-                                                </div>
-                                                <div className="px-3 py-2 bg-white/5 rounded-lg border border-white/5">
-                                                    <p className="text-[10px] text-slate-400 font-bold leading-tight">
-                                                        {getResponsibilityRoute(stagedData[selectedRow]).description}
-                                                    </p>
-                                                </div>
-                                                {getResponsibilityRoute(stagedData[selectedRow]).nextEscalation && (
-                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/5 rounded-lg border border-amber-500/10">
-                                                        <Clock size={10} className="text-amber-500" />
-                                                        <span className="text-[9px] font-bold text-amber-500/80">
-                                                            {getResponsibilityRoute(stagedData[selectedRow]).escalationAfterDays}일 후 {getResponsibilityRoute(stagedData[selectedRow]).nextEscalation} 검토로 자동 이관됩니다.
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
+                                        </div>
                                         {/* CBT Observer Tooltip */}
                                         <div className="absolute -top-10 left-0 w-max px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl border border-white/10 z-10">
                                             [CBT_OBSERVER] STARTUP_V1 규격: 1인~소규모 조직을 위한 지연 방지 라우팅이 적용되었습니다.
                                         </div>
                                     </div>
-                                    {/* Footer Disclaimer Removed (Integrated above) */}
                                 </div>
                             </div>
                         </div>

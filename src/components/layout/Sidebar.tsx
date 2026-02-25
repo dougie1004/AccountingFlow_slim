@@ -63,54 +63,42 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
 
     const menuGroups = [
         {
-            title: '경영 및 전략 (Strategy)',
+            title: '경영 인사이트 (Executive Insight)',
             items: [
                 { id: 'dashboard', label: 'CFO 대시보드', description: '실시간 재무 KPI 및 AI 전략 리포트', icon: LayoutDashboard, minPlan: 'Free' },
                 { id: 'executive-report', label: '경영 성과 리포트', description: '월간 확정 실적 및 VC 대응용 분석 보고서', icon: FileText, minPlan: 'Basic' },
+                { id: 'simulation-report', label: '월별 손익 현황', description: '월별 손익 추뮬레이션 및 전략적 예측 (P&L)', icon: Zap, minPlan: 'Standard' },
                 { id: 'daily-cash', label: '자금수지 (Cash Flow)', description: '일일 시재 및 현금 흐름 분석', icon: Wallet, minPlan: 'Free' },
-                { id: 'risk-dashboard', label: '리스크 대시보드', description: '이상 거래 및 세무 리스크 탐지', icon: Shield, minPlan: 'Standard' },
-                { id: 'audit-run', label: 'AI 검증 런 (Judgment Run)', description: 'AI 기반 데이터 무결성 및 적정성 정밀 분석', icon: ShieldCheck, minPlan: 'Standard' },
-                { id: 'closing-manager', label: '월마감 센터', description: '회계 마감 및 정밀 검증 센터', icon: Lock, minPlan: 'Basic' },
-                { id: 'simulation-report', label: '월별 손익 현황', description: '사업계획 대비 실적 시뮬레이션 상세', icon: FileSpreadsheet, minPlan: 'Free' },
-            ].filter(item => checkPlanAccess(item.minPlan as any))
-        },
-        {
-            title: '회계 및 세무 (Accounting)',
-            items: [
-                { id: 'journal', label: '분개 전표 (Journal)', description: 'AI 자동화 디지털 분개장', icon: BookOpen, minPlan: 'Free' },
-                { id: 'general-ledger', label: '총계정원장 (GL)', description: '계정별 원장 및 증빙 관리', icon: FileText, minPlan: 'Free' },
-                { id: 'trial-balance', label: '재무제표 (Financial Statements)', description: '재무제표 및 시산표 기반 보고서', icon: FileSpreadsheet, minPlan: 'Free' },
-                // { id: 'tax-report', label: '세무 및 신고 지원', description: '부가세/원천세 자동 계산 및 리포트', icon: Landmark, minPlan: 'Basic' },
-            ].filter(item => checkPlanAccess(item.minPlan as any))
-        },
-        {
-            title: '운영 및 관리 (Operations)',
-            items: [
-                { id: 'arap-management', label: '채권/채무 정산 (Settlement)', description: '미수금/미지급금 연령 분석 및 정산', icon: RefreshCw, minPlan: 'Basic' },
-                { id: 'assets', label: '고정자산 관리', description: '자산 대장 및 감가상각 자동화', icon: Landmark, minPlan: 'Standard' },
-                { id: 'leases', label: '리스 부채 관리 (IFRS 16)', description: '리스 부식/이자 비용 자동 회계 처리', icon: Building2, minPlan: 'Standard' },
-                { id: 'vendor-ledger', label: '거래처 원장', description: '파트너사별 거래 내역 조회', icon: Users, minPlan: 'Free' },
-                { id: 'partners', label: '거래처 정보 관리', description: '주요 거래처 및 파트너 정보 관리', icon: Users, minPlan: 'Free' },
+                { id: 'risk-dashboard', label: '리스크 및 자금 통제', description: '미정산 항목, 가계정 정밀 분석 및 자금 사고 예방 모니터링', icon: Shield, minPlan: 'Standard' },
                 { id: 'operation-plan', label: '사업 계획 및 예산', description: '예산 편성 및 실적 대비 분석(BP)', icon: TrendingUp, minPlan: 'Standard' },
             ].filter(item => checkPlanAccess(item.minPlan as any))
         },
         {
-            title: '시스템 권한 (Control)',
+            title: '회계 실무 및 관리 (Operations)',
             items: [
-                { id: 'approval-desk', label: '결재 센터 (Approval)', description: '전표 승인 및 내부 통제 프로세스', icon: ClipboardCheck, minPlan: 'Standard' },
-                { id: 'ai-performance', label: 'AI 성능 연구소', description: 'AI 모델 성능 및 정확도 분석', icon: Activity, minPlan: 'Professional' },
-                { id: 'process-monitoring', label: '프로세스 모니터링', description: '시스템 스트레스 테스트 및 이상 탐지', icon: Activity, minPlan: 'Professional' },
+                { id: 'journal', label: '분개 전표 (AI Journal)', description: 'AI 자동화 전표 처리 및 사전 검토', icon: BookOpen, minPlan: 'Free' },
+                { id: 'general-ledger', label: '총계정원장 (Ledger)', description: '계정별 거래 상세 내역 및 장부 조회', icon: FileSpreadsheet, minPlan: 'Free' },
+                { id: 'trial-balance', label: '합계잔액시산표 / 재무제표', description: '재무상태표, 손익계산서 및 시산표 실시간 조회', icon: FileText, minPlan: 'Free' },
+                { id: 'arap-management', label: '미결제 및 정산 관리', description: '미수금(AR)·미지급금(AP) 상세 명세 및 수동 정산 처리', icon: RotateCcw, minPlan: 'Standard' },
+                { id: 'closing-manager', label: '결산 및 승인 센터', description: '전표 승인 및 월마감 정밀 검증', icon: Lock, minPlan: 'Basic' },
+                { id: 'assets', label: '고정자산 관리', description: '유형/무형 자산 상각 대장 및 명세서 관리', icon: Landmark, minPlan: 'Standard' },
+                { id: 'leases', label: '리스 계약 관리', description: 'IFRS 16 기반 사용권자산 및 리스부채 관리', icon: Building2, minPlan: 'Professional' },
+                { id: 'partners', label: '거래처 관리 및 원장', description: '주요 거래처 정보 및 거래 내역 관리', icon: Users, minPlan: 'Free' },
+            ].filter(item => checkPlanAccess(item.minPlan as any))
+        },
+        {
+            title: '시스템 및 거버넌스 (Governance)',
+            items: [
+                { id: 'migration', label: '데이터 연동 및 마이그레이션', description: '엑셀 및 외부 데이터 유입 및 정합성 검증', icon: Database, minPlan: 'Free' },
+                { id: 'settings', label: '회계 정책 및 권한 설정', description: '현법 기반 회계 정책 및 Tenant 접근 제어', icon: Settings, minPlan: 'Free' },
+                { id: 'ai-performance', label: 'AI 성능 및 내부통제 검증', description: 'AI 모델 정확도 및 시스템 스트레스 테스트', icon: Activity, minPlan: 'Professional' },
             ].filter(item => {
                 const demoMode = (window as any).isDemoMode || import.meta.env.VITE_APP_MODE === 'demo';
-                if (demoMode && ['integrity-center', 'ai-performance', 'process-monitoring'].includes(item.id)) return false;
+                if (demoMode && ['ai-performance', 'process-monitoring'].includes(item.id)) return false;
                 return checkPlanAccess(item.minPlan as any);
             })
         }
-    ].filter(group => {
-        const demoMode = (window as any).isDemoMode || import.meta.env.VITE_APP_MODE === 'demo';
-        if (demoMode && group.title === '시스템 권한 (Control)') return false;
-        return group.items.length > 0;
-    });
+    ].filter(group => group.items.length > 0);
 
     const switchPlan = (plan: 'Free' | 'Basic' | 'Standard' | 'Professional') => {
         if (!tenantInfo) return;
@@ -235,14 +223,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
                             </div>
 
                             <div className="flex justify-between items-end mb-1.5">
-                                <span className="text-xs font-black text-white">{tenantInfo.aiUsageCurrent} <span className="text-slate-500 font-bold">/ {tenantInfo.aiUsageLimit}</span></span>
-                                <span className="text-[10px] font-black text-indigo-400">{Math.round((tenantInfo.aiUsageCurrent / tenantInfo.aiUsageLimit) * 100)}%</span>
+                                <span className="text-xs font-black text-white">{tenantInfo.aiUsageCurrent || 0} <span className="text-slate-500 font-bold">/ {tenantInfo.aiUsageLimit || 100}</span></span>
+                                <span className="text-[10px] font-black text-indigo-400">
+                                    {Math.round(((tenantInfo.aiUsageCurrent || 0) / (tenantInfo.aiUsageLimit || 1)) * 100)}%
+                                </span>
                             </div>
 
                             <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
                                 <div
                                     className={`h-full transition-all duration-1000 ${usageStatus === 'warning' ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]' : usageStatus === 'blocked' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-indigo-500 shadow-[0_0_8px_rgba(79,70,229,0.5)]'}`}
-                                    style={{ width: `${Math.min(100, (tenantInfo.aiUsageCurrent / tenantInfo.aiUsageLimit) * 100)}%` }}
+                                    style={{ width: `${Math.min(100, ((tenantInfo.aiUsageCurrent || 0) / (tenantInfo.aiUsageLimit || 1)) * 100)}%` }}
                                 ></div>
                             </div>
 
@@ -264,29 +254,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setTab }) => {
 
                 {/* Bottom Section */}
                 <div className="p-4 border-t border-white/5 bg-slate-950/50 backdrop-blur-sm shrink-0 space-y-1">
-                    <button
-                        onClick={() => {
-                            setTab('migration');
-                            if (isMobile) setIsOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group ${activeTab === 'migration' ? 'bg-indigo-600/10 text-indigo-400' : 'hover:bg-white/5 text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <Database size={18} className={activeTab === 'migration' ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'} />
-                        <span className="font-bold text-[13px] tracking-wide">데이터 연동 및 이관</span>
-                    </button>
-
-
-                    <button
-                        onClick={() => {
-                            setTab('settings');
-                            if (isMobile) setIsOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group ${activeTab === 'settings' ? 'bg-indigo-600/10 text-indigo-400' : 'hover:bg-white/5 text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <Settings size={18} className={activeTab === 'settings' ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'} />
-                        <span className="font-bold text-[13px] tracking-wide">시스템 설정</span>
-                    </button>
-
                     <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-red-500/10 hover:text-red-400 transition-all duration-300 group">
                         <LogOut size={18} className="text-slate-600 group-hover:text-red-400 shrink-0" />
                         <span className="font-bold text-[13px] tracking-wide truncate">로그아웃</span>

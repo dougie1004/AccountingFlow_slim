@@ -5,7 +5,7 @@ import path from "node:path";
 const ROOT = process.cwd();
 // Patterns to search for and block. 
 // Specifically looking for direct string literals of legacy models.
-const BAN_PATTERNS = [/gemini-1\.5/gi];
+const BAN_PATTERNS = [/gemini-1\.5/gi, /-exp/gi, /experimental/gi];
 
 const SKIP_DIRS = new Set(["node_modules", "target", ".git", ".next", "dist", "build", ".tauri"]);
 const SKIP_EXT = new Set([".png", ".jpg", ".jpeg", ".webp", ".ico", ".pdf", ".zip", ".exe", ".dll", ".db"]);

@@ -382,6 +382,8 @@ export const DailyCashReport: React.FC = () => {
                                                             addEntry({
                                                                 id: crypto.randomUUID(),
                                                                 date: selectedDate,
+                                                                transactionDate: selectedDate,
+                                                                recognitionDate: selectedDate,
                                                                 description: `[지급] ${item.description}`,
                                                                 vendor: item.vendor,
                                                                 debitAccount: item.creditAccount,

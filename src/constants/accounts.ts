@@ -55,21 +55,23 @@ export const STANDARD_ACCOUNTS: AccountDef[] = [
     { code: '331', name: '자본금', category: 'Equity', nature: AccountNature.EQUITY, english: 'Capital Stock', sortOrder: 310 },
     { code: '341', name: '자본잉여금', category: 'Equity', nature: AccountNature.EQUITY, english: 'Capital Surplus', sortOrder: 315 },
     { code: '371', name: '이익잉여금', category: 'Equity', nature: AccountNature.EQUITY, english: 'Retained Earnings', sortOrder: 320 },
+    { code: '295', name: '퇴직급여충당부채', category: 'Liability', nature: AccountNature.LIABILITY, english: 'Retirement Benefit Obligation', sortOrder: 300 },
 
     // --- Revenue (수익) ---
     { code: '401', name: '매출', category: 'Revenue', nature: AccountNature.REVENUE, english: 'Sales Revenue', sortOrder: 410 },
     { code: '401', name: 'SaaS 매출', category: 'Revenue', nature: AccountNature.REVENUE, sortOrder: 411 },
     { code: '402', name: '컨설팅 매출', category: 'Revenue', nature: AccountNature.REVENUE, english: 'Consulting Revenue', sortOrder: 412 },
     { code: '901', name: '이자수익', category: 'Revenue', nature: AccountNature.REVENUE, english: 'Interest Income', sortOrder: 420 },
-    { code: '903', name: '국고보조금수익', category: 'Revenue', nature: AccountNature.REVENUE, sortOrder: 430 },
-    { code: '903', name: '영업외수익(국고보조금)', category: 'Revenue', nature: AccountNature.REVENUE, english: 'Govt Grant Income', sortOrder: 431 },
-    { code: '904', name: '잡이익', category: 'Revenue', nature: AccountNature.REVENUE, sortOrder: 440 },
+    { code: '903', name: '국고보조금수익', category: 'Revenue', nature: AccountNature.NON_OPERATING, sortOrder: 430 },
+    { code: '903', name: '영업외수익(국고보조금)', category: 'Revenue', nature: AccountNature.NON_OPERATING, english: 'Govt Grant Income', sortOrder: 431 },
+    { code: '904', name: '잡이익', category: 'Revenue', nature: AccountNature.NON_OPERATING, sortOrder: 440 },
 
     // --- Expenses (비용) ---
     { code: '451', name: '매출원가', category: 'Expense', nature: AccountNature.COGS, sortOrder: 510 },
     { code: '451', name: '인프라 원가', category: 'Expense', nature: AccountNature.COGS, sortOrder: 511 },
     { code: '451', name: 'Gemini API 원가', category: 'Expense', nature: AccountNature.COGS, sortOrder: 512 },
     { code: '801', name: '급여', category: 'Expense', nature: AccountNature.SG_AND_A, sortOrder: 520 },
+    { code: '802', name: '퇴직급여', category: 'Expense', nature: AccountNature.SG_AND_A, sortOrder: 525 },
     { code: '811', name: '복리후생비', category: 'Expense', nature: AccountNature.SG_AND_A, sortOrder: 530 },
     { code: '819', name: '임차료', category: 'Expense', nature: AccountNature.SG_AND_A, sortOrder: 540 },
     { code: '819', name: '지급임차료', category: 'Expense', nature: AccountNature.SG_AND_A, english: 'Rent Expense', sortOrder: 541 },
@@ -95,13 +97,16 @@ export const getAccountNature = (accountName: string): AccountNature => {
     }
 
     // Heuristics
+    if (['익', '영업외', '미분류', 'unclassified'].some(k => n.includes(k)) && n.includes('이익') === false) return AccountNature.NON_OPERATING;
+
+    // Priority: Check for Liability/Asset specific suffixes/keywords first to avoid overlap (e.g. '퇴직급여' vs '퇴직급여충당부채')
+    if (['부채', '충당부채', '예수금', '미지급', 'payable', 'liability'].some(k => n.includes(k))) return AccountNature.LIABILITY;
+    if (['자산', '현금', '예금', '채권', 'asset', 'cash', 'bank'].some(k => n.includes(k))) return AccountNature.ASSET;
+
+    if (['비용', '급여', '임차', '수수료', 'expense', 'fee', '전력', '세금', '공과', '여비', '교통', '광고', '마케팅', '복리', '통신', '식비', '식사', '접대', '운반', '관리'].some(k => n.includes(k))) return AccountNature.SG_AND_A;
     if (['매출', '수익', 'revenue', 'sales'].some(k => n.includes(k))) return AccountNature.REVENUE;
     if (['원가', 'cost', 'infra', 'server', 'cloud', 'hosting', '인프라', '서버'].some(k => n.includes(k))) return AccountNature.COGS;
-    if (['비용', '급여', '임차', '수수료', 'expense', 'fee', '전력', '세금', '공과', '여비', '교통', '광고', '복리', '통신', '식비', '식사', '접대', '운반', '관리'].some(k => n.includes(k))) return AccountNature.SG_AND_A;
-    if (['익', '영업외'].some(k => n.includes(k)) && n.includes('이익') === false) return AccountNature.NON_OPERATING;
-    if (['채무', '미지급', '예수금', '부채', 'payable', 'liability'].some(k => n.includes(k))) return AccountNature.LIABILITY;
     if (['자본', '자본금', '잉여금', 'equity'].some(k => n.includes(k))) return AccountNature.EQUITY;
-    if (['자산', '현금', '예금', '채권', 'asset', 'cash', 'bank'].some(k => n.includes(k))) return AccountNature.ASSET;
 
     monitor.recordViolation('MISSING_NATURE', accountName);
     throw new ConstitutionViolationError(`Account "${accountName}" has no detectable Nature. Refusing to calculate. (Article 1/4 Violation)`);

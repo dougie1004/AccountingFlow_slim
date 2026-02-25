@@ -2,8 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 const TARGET_DIR = './src-tauri/src';
-const BANNED_PATTERNS = ['gemini-1.5', 'gemini-1.0', 'gemini-pro'];
-const ALLOWED_EXCEPTION = 'gemini-2.0-flash-exp';
+const BANNED_PATTERNS = ['gemini-1.5', 'gemini-1.0', 'gemini-pro-exp', '-exp', 'experimental'];
 
 function scanDirectory(dir) {
     const files = fs.readdirSync(dir);

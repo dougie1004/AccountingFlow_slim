@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Database, Calculator, Plus, Trash2, Lock, List, Tag } from 'lucide-react';
+import { Database, Calculator, Plus, Trash2, Lock, List, Tag, Shield } from 'lucide-react';
 import { useAccounting } from '../hooks/useAccounting';
 import { STANDARD_ACCOUNTS } from '../constants/accounts';
 import { AccountNature } from '../types';
 
 const Settings: React.FC = () => {
-    const { ledger, config, updateConfig, clearAllData, loadDemoData, customAccounts, addCustomAccount, removeCustomAccount } = useAccounting();
+    const { ledger, config, updateConfig, clearAllData, loadDemoData, customAccounts, addCustomAccount, removeCustomAccount, corporateRules, updateCorporateRules } = useAccounting();
     const [newAccount, setNewAccount] = useState('');
     const [newAmount, setNewAmount] = useState('');
     const [newCustomAccount, setNewCustomAccount] = useState('');
@@ -159,6 +159,38 @@ const Settings: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 shadow-2xl space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-indigo-500/10 rounded-2xl"><Shield className="w-6 h-6 text-indigo-400" /></div>
+                    <div className="flex-1">
+                        <h3 className="text-xl font-black text-white">사내 회계 규정 관리 (AI Corporate Governance)</h3>
+                        <p className="text-slate-500 text-xs font-bold">AI CFO가 모든 전표를 검토할 때 준수해야 할 핵심 규정을 정의합니다.</p>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="relative group">
+                        <textarea
+                            value={corporateRules}
+                            onChange={(e) => updateCorporateRules(e.target.value)}
+                            rows={8}
+                            className="w-full bg-[#0B1221] border border-white/10 rounded-2xl p-6 text-slate-300 text-sm font-medium leading-relaxed outline-none focus:border-indigo-500 transition-all custom-scrollbar hover:bg-[#0f172a]"
+                            placeholder="사내 회계 처리 규정을 입력하세요 (마크다운 지원)..."
+                            spellCheck={false}
+                        />
+                        <div className="absolute top-4 right-4 text-[10px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            AI Training Active
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 bg-white/5 p-4 rounded-xl border border-white/5">
+                        <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
+                        <p className="text-[11px] text-slate-400 font-bold">
+                            입력된 규정은 데이터 업로드 시 <span className="text-indigo-400">AI 추론 근거</span> 및 <span className="text-indigo-400">사전 검토(Pre-Commit)</span>의 절대적인 기준이 됩니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
 
             {/* 1.2 Custom Chart of Accounts */}
             <div className="bg-[#151D2E] p-8 rounded-[2rem] border border-white/5 shadow-2xl space-y-6">

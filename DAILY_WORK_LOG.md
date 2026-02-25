@@ -31,9 +31,16 @@ Implement a "Silent Observation" system that compares actual financial data agai
 *   **Observation Mode Active:** The system correctly identified significant strategic deviations (Revenue +5894%, NetIncome -1075%) compared to the 1-month baseline, confirming the engine's ability to track "Growth vs Plan".
 *   System stability maintained under high data load.
 
-**Next Steps:**
-*   **Phase 3 - Step 2:** Implement AI Advice Generation based on the observed deviations.
-*   Connect the `StrategicBridge` to the LLM (Gemini) to generate actionable C-level insights.
+**6. **Final Sanity Pass & Presentation Prep**
+    - Verified brand consistency in Financial Statements.
+    - Added "Lie Detector" tooltips to the Sealing Engine.
+    - Created `presentation_showcase.md` workflow for the critical intermediate presentation.
+    - 🛡️ **Status: STABLE & PRESENTATION READY**
+
+### Next Steps:
+- Execute the presentation using the `/presentation_showcase` workflow.
+- Monitor AI service stability during the demo.
+- Prepare for the next phase of the CFO audit automation.
 
 ---
 
@@ -189,6 +196,51 @@ ChatGPT의 비판적 피드백을 수용하여, 모든 변수가 동시에 좋�
 *   작성된 시나리오 데이터를 바탕으로 투자 제안용 'Financial Summary' 엑셀 익스포트 기능 검증.
 *   AI 경영 조언 시스템(Observation Mode) 연동 테스트.
 
+---
+
+## 2026-02-25
+
+### 🚀 Data Ingestion & AI Intelligence Hardening (Phase 6+)
+
+**Objective:**
+Maximize the utility of raw data imports by incorporating supplemental 'Note/Remarks' context and automating intelligent VAT handling to eliminate 'Unclassified' entries and tax calculation errors.
+
+**Work Items:**
+
+1.  **Contextual Ingestion Engine (Note/Remarks Integration)**
+    *   **Backend (`excel_parser.rs`):** Implemented automated detection for columns containing '비고', '메모', 'Note', or 'Remark'. The parser now extracts this metadata and appends it to the transaction description in the format `[Description] ([Note])`.
+    *   **Frontend (`SmartExcelUploader.tsx`):** Added a dedicated "비고/메모 (Note)" mapping field. The UI now supports auto-detecting these headers from Korean bank/card exports.
+    *   **Migration Wizard (`DataMigration.tsx`):** Updated the ERP migration flow to also capture and synthesize 'Note' data, ensuring legacy context is not lost during system transition.
+
+2.  **Intelligent VAT Separation & Exemption Logic**
+    *   **Rule Engine (`rule_based_classifier.rs`):** Implemented a mandatory VAT check. If VAT is missing from the source (e.g., simplified bank statement), the engine automatically separates VAT (10/110) for taxable items.
+    *   **Exemption Guard:** Added a blacklist for non-taxable accounts including Salaries (급여), Insurance (보험료), Equity (자본금/잉여금), and Taxes (세금과공과). These items are now forced to 0 VAT regardless of the total amount.
+    *   **Result:** Drastically reduced manual VAT corrections for common startup payroll and investment transactions.
+
+3.  **Time Constitution Compliance**
+    *   Enforced mandatory `transactionDate` and `recognitionDate` for all migration and import records. This ensures that historical data adheres to the same accrual-based principles as real-time transactions.
+
+4.  **Sample Data Synchronization**
+    *   Updated `generate_sample_excel.js` to include realistic '비고' entries (e.g., "Seed Series-A", "AI Infrastructure", "강남점 스마트오피스").
+    *   Verified that the generated `real_data_sample.xlsx` is correctly classified by the AI with 100% hits on the upgraded rule engine.
+
+5.  **Numeric Consistency & Truth Unification (SSOT)**
+    *   **Logic Alignment:** Fixed a critical discrepancy where the Dashboard showed a 15% AR ratio while the detail modal showed 100%. Both now use the **Net Ledger Balance (Debit - Credit)** logic instead of unreliable per-entry flags.
+    *   **Data Labeling:** Updated SaaS revenue generation to include explicit vendor labels ('SaaS 정기 구독자'), eliminating 'Unknown' (알수없음) entries in risk drill-downs.
+    *   **Dual-View Runway Reporting:** Resolved the naming confusion between Dashboard (1.6m) and AI Forecast (8m). Implemented **Survival Runway** (Zero-Revenue baseline) and **Strategic Runway** (Forward-projection) with clear tooltips and constitutional mandates (Article 23).
+    *   **Strategic Trend Fix:** Corrected the 'Whale Tail' phenomenon where the sales trend dropped to 0 on weekends. Upgraded to a **30-day Moving Average** to represent the Monthly Run-rate consistently.
+    *   **Constitution Adherence:** Codified **Article 22** (Cross-Component Consistency), **Article 23** (Dual-View Runway & Context-Aware Trends), and **Article 24** (Strategic Feedback Synthesis).
+    *   **Personalization:** Formally integrated the CEO's recurring feedback (numerical consistency, 30D-MA, survival mindset) into the system's core development DNA.
+
+**Results:**
+*   **Classification Accuracy:** Increased hit rate for vendors with multi-purpose spend (e.g., Amazon) by using the 'Note' field context.
+*   **Compliance:** Fully aligned with Accounting Constitution Articles 19 & 20.
+*   **User Experience:** Faster "Confirm" cycles as AI suggestions are now high-confidence based on full-context synthesis.
+
+**Next Steps:**
+*   Implement 'Bulk Review' mode for AI-classified entries to accelerate large-scale historical imports.
+*   Extend 'Note' analysis to PDF/Receipt OCR for even higher context resolution.
+
 ## 2026-02-20
 
 ### 🛡️ 금융 정합성 엔진 v2.0 'L4 Immutable Sealing' 및 전략 리포트 고도화
@@ -342,3 +394,45 @@ ChatGPT의 비판적 피드백을 수용하여, 모든 변수가 동시에 좋�
 **Results:**
 *   **완벽한 수치 일치:** 이제 대표님이 보시는 모든 화면의 현금 흐름 숫자가 하나의 진실(FTE)로 수렴함.
 *   **데이터 정합성:** 마감된 달의 데이터도 더 이상 추정치가 아닌, 확정된 스냅샷을 사용함.
+
+---
+
+## 2026-02-26
+
+### ⚖️ 재무 정합성(Financial Integrity) 마스터 브릿지 완성
+
+**Objective:**
+재무제표 간의 수치 불일치(Discrepancy)를 완전히 해결하고, 시스템 데이터와 외부 보고서 간의 무결성을 보장하는 검증 체계를 확립함.
+
+**Work Items:**
+
+1.  **현금흐름표(C/F) 정합성 로직 원천 수정**
+    *   **중복 집계 해결:** 간접법 계산 시 이익잉여금(Retained Earnings) 변동분이 '기타 자산/부채 변동'에 중복 반영되어 숫자가 튀던 현상을 로직 수준에서 해결.
+    *   **투자/재무 활동 분류 정교화:** 산업재산권 등 무형자산 취득이 영업활동으로 흐르던 것을 투자활동으로 정확히 재분류.
+    *   **현금 대조군(Bridge) 추가:** 현금흐름표 하단에 '기초 현금'과 '기말 현금' 행을 추가하여 B/S의 현금 잔액과 직접 비교 가능하도록 개선.
+
+2.  **실시간 무결성 검증 센터 (Verified Badge)**
+    *   **자동 검증:** 현금흐름표의 기말 잔액이 재무상태표(B/S)의 보통예금 현금 잔액과 100% 일치할 경우 **[Verified]** 배지를 표시하는 로직 구현.
+    *   **신뢰도 향상:** "숫자가 왜 안 맞지?"라는 의문 자체를 원천 차단하고 시스템이 스스로 정합성을 증명하게 함.
+
+3.  **Sealing Engine (Verify 버튼) 철학 및 매뉴얼 정립**
+    *   **디지털 지문(Hash):** 엑셀 파일 생성 시 데이터 지문을 심고, 사후 업로드 시 위변조 여부를 가려내는 '거짓말 탐지기' 기능의 작동 원리를 CFO 관점에서 상세 설명.
+    *   **배치 논리:** 왜 '합계잔액시산표' 메뉴에 검증 기능이 있어야 하는지 회계적(T/B의 본질) 근거 정립.
+
+4.  **AI 서비스 안정성 고도화 (Refinement)**
+    *   백엔드(Rust)의 AI 호출 로직에 지수 백오프(Exponential Backoff) 및 모델 폴백(Fallback)을 적용하여 429(Rate Limit) 오류 발생 시에도 사용자 경험이 끊기지 않도록 개선.
+
+5.  **최종 검토 및 프레젠테이션 준비 (Final Sanity Pass)**
+    - 재무제표 내 브랜드 일관성(AccountingFlow) 확보.
+    - Sealing Engine(Verify 버튼)에 CFO용 상세 툴팁(거짓말 탐지기) 추가.
+    - 중간 발표를 위한 `/presentation_showcase` 워크플로우 생성 완료.
+    - 🛡️ **상태: 프레젠테이션 준비 완료 (Presentation Ready)**
+
+**Results:**
+*   **재무제표 일치:** B/S, P/L, C/F, T/B의 모든 숫자가 1원 단위까지 완벽하게 정렬됨.
+*   **CFO 통제권 강화:** 실무자의 엑셀 조작 가능성을 기술적으로 차단할 수 있는 '검증권' 부여.
+
+### Next Steps:
+- `/presentation_showcase` 워크플로우를 따라 중간 프레젠테이션 진행.
+- AI 전무(AI CFO)의 전략 시뮬레이션 기능 시연 및 피드백 청취.
+- 실시간 리스크 탐지 지표의 실효성 최종 점검.

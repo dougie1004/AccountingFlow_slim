@@ -376,7 +376,8 @@ export const getCFORiskSnapshot = (ledger: JournalEntry[], systemNow: string, in
         }
     }
 
-    // 3. Survival: Runway
+    // 3. Survival: Survival Runway (Gross Burn)
+    // [CONSTITUTION Art 23] Dual-View Runway: This is the conservative defensive floor.
     let currentCash = initialCash;
     let totalExp = 0;
     approved.forEach(e => {
@@ -387,24 +388,23 @@ export const getCFORiskSnapshot = (ledger: JournalEntry[], systemNow: string, in
     const minDate = approved.reduce((min, e) => e.date < min ? e.date : min, approved[0]?.date || systemNow);
     const msActive = new Date(systemNow).getTime() - new Date(minDate).getTime();
     const monthsActive = Math.max(1, msActive / (1000 * 60 * 60 * 24 * 30));
-    const monthlyBurn = totalExp / monthsActive;
+    const monthlyGrossBurn = totalExp / monthsActive;
 
-    let survivalRisk: CFORiskMetric = { id: 'survival', title: 'Runway', value: '풍부', severity: 'Stable', narrative: '현금 보유량이 충분합니다.' };
-    if (monthlyBurn > 0) {
-        const runway = currentCash / monthlyBurn;
+    let survivalRisk: CFORiskMetric = { id: 'survival', title: 'Survival Runway', value: '풍부', severity: 'Stable', narrative: '현금 보유량이 충분합니다.' };
+    if (monthlyGrossBurn > 0) {
+        const runway = currentCash / monthlyGrossBurn;
         const formattedRunway = runway.toFixed(1) + '개월';
         if (runway <= 0) {
-            survivalRisk = { id: 'survival', title: 'Runway', value: '고갈', severity: 'Critical', narrative: `가용 현금이 완전히 고갈되었습니다. 비상 경영 체제 돌입 및 외부 자금 조달이 즉시 이루어져야 합니다.` };
+            survivalRisk = { id: 'survival', title: 'Survival Runway', value: '고갈', severity: 'Critical', narrative: `[주의] 가용 현금이 고갈되었습니다. 추가 매출이나 투자 없이 현재 고정비만으로 즉시 부도 위험이 있습니다.` };
         } else if (runway < 3) {
-            survivalRisk = { id: 'survival', title: 'Runway', value: formattedRunway, severity: 'Critical', narrative: `잔여 런웨이가 ${formattedRunway}에 불과합니다. 생존을 위한 극단적인 지출 통제와 자금 확보를 결정하십시오.` };
+            survivalRisk = { id: 'survival', title: 'Survival Runway', value: formattedRunway, severity: 'Critical', narrative: `역대 평균 지출액 기준, 신규 매출이 전무할 경우 ${formattedRunway} 내에 현금이 고갈되는 '최악의 시나리오'에 대비하십시오.` };
         } else if (runway < 6) {
-            survivalRisk = { id: 'survival', title: 'Runway', value: formattedRunway, severity: 'Watch', narrative: `런웨이가 6개월 미만(${formattedRunway})으로 진입했습니다. 차기 투자 유치 또는 매출 확대 전략을 서두르십시오.` };
+            survivalRisk = { id: 'survival', title: 'Survival Runway', value: formattedRunway, severity: 'Watch', narrative: `매출 유입이 중단되는 보수적 가정 하에 ${formattedRunway}의 생존이 가능합니다. 방어적 자금 관리가 필요합니다.` };
         } else {
-            const cashStr = formatCurrency(currentCash);
-            survivalRisk = { id: 'survival', title: 'Runway', value: formattedRunway, severity: 'Stable', narrative: `현재 ${cashStr}의 현금을 보유 중이며, 약 ${formattedRunway}의 운영이 가능한 안정적인 상태입니다.` };
+            survivalRisk = { id: 'survival', title: 'Survival Runway', value: formattedRunway, severity: 'Stable', narrative: `추가 매출이 없더라도 현재 잔액으로 ${formattedRunway} 이상 버틸 수 있는 강력한 현금 방어력을 보유하고 있습니다.` };
         }
     } else {
-        survivalRisk = { id: 'survival', title: 'Runway', value: '∞', severity: 'Stable', narrative: `현재 고정비 지출이 거의 없어 제약 없는 운영이 가능합니다.` };
+        survivalRisk = { id: 'survival', title: 'Survival Runway', value: '∞', severity: 'Stable', narrative: `현재 고정비 지출이 거의 없어 최악의 상황에서도 무기한 생존이 가능합니다.` };
     }
 
     // 4. Control: 결산 집중도

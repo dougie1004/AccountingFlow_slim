@@ -47,7 +47,8 @@ export const DataMigration: React.FC<DataMigrationProps> = ({ setTab }) => {
                 credit: ['대변', 'credit', '입금'],
                 vendor: ['거래처명', '거래처', 'vendor', '커스터머'],
                 regNo: ['사업자등록번호', '사업자번호', 'tax_id'],
-                account: ['계정명', '계정과목', 'account_name', '계정']
+                account: ['계정명', '계정과목', 'account_name', '계정'],
+                note: ['비고', '메모', '참조', 'note', 'remark']
             };
 
             Object.entries(detectPatterns).forEach(([field, patterns]) => {
@@ -149,7 +150,10 @@ export const DataMigration: React.FC<DataMigrationProps> = ({ setTab }) => {
                 if (!dateValue && idx > 500 && entries.length === 0) return; // Skip empty rows at end
 
                 const date = parseExcelDate(dateValue);
-                const description = String(getValue('description') || '');
+                let description = String(getValue('description') || '');
+                const note = String(getValue('note') || '');
+                if (note) description = `${description} (${note})`;
+
                 const vendor = String(getValue('vendor') || 'ERP_SOURCE');
                 const debit = Number(getValue('debit') || 0);
                 const credit = Number(getValue('credit') || 0);
@@ -161,12 +165,15 @@ export const DataMigration: React.FC<DataMigrationProps> = ({ setTab }) => {
                     entries.push({
                         id: `MIG-${idx}-${Date.now()}`,
                         date,
+                        transactionDate: date,
+                        recognitionDate: date,
                         description,
                         vendor,
                         debitAccount: debit > 0 ? account : '현금',
                         creditAccount: credit > 0 ? account : '현금',
                         amount,
                         vat: 0,
+                        vatFlag: false,
                         type: debit > 0 ? 'Expense' : 'Revenue',
                         status: 'Unconfirmed',
                         createdAt: new Date().toISOString()
@@ -299,6 +306,7 @@ export const DataMigration: React.FC<DataMigrationProps> = ({ setTab }) => {
                             { id: 'credit', label: '대변 (수입)', required: false, desc: '대변 / 입금' },
                             { id: 'amount', label: '합계 금액', required: false, desc: '차/대 통합 시 선택' },
                             { id: 'vendor', label: '거래처', required: false, desc: '거래처명 / 상호' },
+                            { id: 'note', label: '비고 / 메모', required: false, desc: '비고란 / 추가정보' },
                             { id: 'regNo', label: '사업자등록번호', required: false, desc: '사업자번호' },
                             { id: 'account', label: '계정 과목', required: false, desc: '계정명 / 계정코드' }
                         ].map((field) => (

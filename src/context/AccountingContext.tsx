@@ -1,7 +1,8 @@
 import React, { createContext, useState, useMemo, ReactNode } from 'react';
 import { JournalEntry, Partner, Asset, LeaseContract, TenantConfig, ParsedTransaction, MappingRule, ClearingRecord, AccountingPeriod, ClosingRecord, MonthlyBudget, BudgetItem, RiskDecisionLog, LiabilityRecord, BusinessScenario, ScenarioParams, AccountNature, Account, ConstitutionViolationError, SimulationViewMode, ScenarioType, ProjectedCashFlow, RunwayAnalysis } from '../types';
 import { getAccountNature, STANDARD_ACCOUNTS, isSuspenseAccount, isCashAccount } from '../constants/accounts';
-import { calculateFinancials, generateClosingSnapshot, calculatePeriodDepreciation, generateCashForecast, calculateRunway } from '../bridge/StrategicBridge';
+import { calculateFinancials, generateClosingSnapshot, calculatePeriodDepreciation, generateCashForecast, calculateRunway, getConsolidatedMetrics } from '../bridge/StrategicBridge';
+import { validateTransaction } from '../core_engine/journalValidator';
 import { generateThreeYearSimulation, generateYearlyPack } from '../utils/mockDataGenerator';
 import { toLocalIsoDate } from '../utils/formatUtils';
 
@@ -19,6 +20,7 @@ export interface AccountingContextType {
     addEntries: (entries: JournalEntry[]) => void;
     updateEntry: (id: string, updates: Partial<JournalEntry>) => void;
     deleteEntry: (id: string) => void;
+    bulkDelete: (ids: string[]) => void;
     assets: Asset[];
     addAsset: (asset: Asset) => void;
     updateAsset: (id: string, updates: Partial<Asset>) => void;
@@ -90,6 +92,9 @@ export interface AccountingContextType {
     setActiveScenario: (scenario: BusinessScenario) => void;
     initialCashBalance: number;
     injectStressData: (type: 'unbalanced' | 'negative_asset' | 'date_error') => void;
+    // [Corporate Governance] Internal Regulations
+    corporateRules: string;
+    updateCorporateRules: (rules: string) => void;
 }
 
 export const AccountingContext = createContext<AccountingContextType | undefined>(undefined);
@@ -240,6 +245,23 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         localStorage.setItem('accounting_active_scenario', scenario);
     };
 
+    const [corporateRules, setCorporateRules] = useState<string>(() => {
+        const saved = localStorage.getItem('accounting_corporate_rules');
+        const defaultRules = `## [AccountingFlow] 사내 회계 처리 및 지출 규정 (Standard)
+
+1. [지출 증빙] 모든 사업용 지출은 적격증빙(신용카드 전표, 현금영수증, 세금계산서) 수취를 원칙으로 함.
+2. [복리후생비] 인당 3만원 이하의 식대는 복리후생비로 처리하며, 이를 초과하는 접대 목적 지출은 접대비로 분류함.
+3. [자산 인식] 100만원 이상의 비품 및 IT 장비 구입은 즉시 비용 처리하지 않고 '비품' 자산으로 인식 후 감가상각함.
+4. [여비교통비] 시내 교통비 및 업무용 유류비는 여비교통비로 처리함.
+5. [지급수수료] SaaS 구독료(AWS, Google, ChatGPT 등)는 지급수수료로 분류함.`;
+        return saved || defaultRules;
+    });
+
+    const updateCorporateRules = (rules: string) => {
+        setCorporateRules(rules);
+        localStorage.setItem('accounting_corporate_rules', rules);
+    };
+
     const addLiability = (record: LiabilityRecord) => setLiabilities(prev => [...prev, record]);
     const updateLiability = (id: string, updates: Partial<LiabilityRecord>) => {
         setLiabilities(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
@@ -375,8 +397,24 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     const addEntry = (entry: JournalEntry) => {
-        if (isDateLocked(entry.date)) {
+        // [INTEGRITY GUARD] Ensure mandatory dates exist even if UI omits them
+        const d = entry.date || toLocalIsoDate(new Date());
+        const hydratedEntry: JournalEntry = {
+            ...entry,
+            date: d,
+            transactionDate: entry.transactionDate || d,
+            recognitionDate: entry.recognitionDate || d
+        };
+
+        if (isDateLocked(hydratedEntry.date)) {
             alert(`⛔ [마감된 기간] ${config.closingDate} 이전의 전표는 추가할 수 없습니다.`);
+            return;
+        }
+
+        // [⚖️ ACCOUNTING CONSTITUTION CHECK]
+        const validation = validateTransaction(hydratedEntry);
+        if (!validation.isValid) {
+            alert(`❌ [회계 헌법 위반]\n\n${validation.errors.join('\n')}`);
             return;
         }
 
@@ -485,13 +523,33 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         });
     };
     const addEntries = (entries: JournalEntry[]) => {
-        const locked = entries.some(e => isDateLocked(e.date));
+        // [INTEGRITY GUARD] Hydrate missing mandatory dates
+        const hydratedEntries = entries.map(e => {
+            const d = e.date || toLocalIsoDate(new Date());
+            return {
+                ...e,
+                date: d,
+                transactionDate: e.transactionDate || d,
+                recognitionDate: e.recognitionDate || d
+            };
+        });
+
+        const locked = hydratedEntries.some(e => isDateLocked(e.date));
         if (locked) {
             alert(`⛔ [마감된 기간] 포함된 전표 중 일부가 마감일(${config.closingDate}) 이전입니다.`);
             return;
         }
 
-        const mappedEntries = applyMappingRules(entries);
+        // [⚖️ ACCOUNTING CONSTITUTION CHECK]
+        for (const e of hydratedEntries) {
+            const val = validateTransaction(e);
+            if (!val.isValid) {
+                alert(`❌ [회계 헌법 위반 - 대량 주입 중단]\n\n전표 ID: ${e.id}\n사유: ${val.errors[0]}`);
+                return;
+            }
+        }
+
+        const mappedEntries = applyMappingRules(hydratedEntries);
         const LIABILITY_TARGETS = ['가수금', '단기차입금', '임원차입금', '장기차입금'];
         const detectedLiabilities: LiabilityRecord[] = [];
 
@@ -604,6 +662,13 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         setLedger(prev => prev.filter(e => e.id !== id));
     };
 
+    const bulkDelete = (ids: string[]) => {
+        const targets = ledger.filter(e => ids.includes(e.id));
+        targets.forEach(e => checkSealViolation(e.date));
+        const idSet = new Set(ids);
+        setLedger(prev => prev.filter(e => !idSet.has(e.id)));
+    };
+
     const updateEntry = (id: string, updates: Partial<JournalEntry>) => {
         const target = ledger.find(e => e.id === id);
         if (!target) return;
@@ -657,6 +722,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         setPartners([]);
         setStagingTransactions([]);
         setCustomAccounts([]);
+        setMappingRules([]);
         setPeriods([]);
         setClosingRecords([]);
         setBudgets([]);
@@ -673,11 +739,14 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         localStorage.removeItem('accounting_leases');
         localStorage.removeItem('accounting_config');
         localStorage.removeItem('accounting_custom_accounts');
+        localStorage.removeItem('accounting_mapping_rules');
         localStorage.removeItem('accounting_periods');
         localStorage.removeItem('accounting_closing_records');
         localStorage.removeItem('accounting_budgets');
         localStorage.removeItem('accounting_risk_decisions');
         localStorage.removeItem('accounting_liabilities'); // [Phase 11] Clear from storage!
+        localStorage.removeItem('accounting_candidate_ledger');
+        setCandidateLedger([]);
     };
 
     const loadDemoData = () => {
@@ -710,11 +779,13 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
                 const unbalancedEntry: JournalEntry = {
                     id: stressId,
                     date: baseDate,
+                    transactionDate: baseDate,
+                    recognitionDate: baseDate,
                     description: "STRESS-TEST: unbalanced (1원 오차)",
                     debitAccount: "현금",
                     creditAccount: "매입채무",
                     amount: 1000000,
-                    vat: 1, // VAT 처리가 수입/지출에 따라 credit/debit에만 더해지는 점을 이용
+                    vat: 1,
                     type: 'Expense',
                     status: 'Approved'
                 };
@@ -726,6 +797,8 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
                 const negativeEntry: JournalEntry = {
                     id: stressId,
                     date: baseDate,
+                    transactionDate: baseDate,
+                    recognitionDate: baseDate,
                     description: "STRESS-TEST: negative balance (현금 인출 폭탄)",
                     debitAccount: "임차료",
                     creditAccount: "현금",
@@ -742,6 +815,8 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
                 const futureEntry: JournalEntry = {
                     id: stressId,
                     date: "2099-12-31",
+                    transactionDate: "2099-12-31",
+                    recognitionDate: "2099-12-31",
                     description: "STRESS-TEST: invalid date (미래의 전표)",
                     debitAccount: "현금",
                     creditAccount: "자본금",
@@ -813,8 +888,19 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
 
         // 4. Extract and Sync Assets & Partners (Integration Fix)
         const discoveredAssets: Asset[] = [];
-        const discoveredPartners: Partner[] = [];
+        let discoveredPartners: Partner[] = [];
         const partnerNames = new Set<string>();
+
+        // If in Demo Mode, try to use prepared partner list
+        if (import.meta.env.VITE_APP_MODE === 'demo' || (window as any).isDemoMode) {
+            try {
+                const { getDemoCoPartners } = await import('../utils/demoCoGenerator');
+                discoveredPartners = getDemoCoPartners();
+                discoveredPartners.forEach(p => partnerNames.add(p.name));
+            } catch (e) {
+                console.warn("[DEMO] Could not load getDemoCoPartners, falling back to discovery.");
+            }
+        }
 
         numberedEntries.forEach(e => {
             if (e.type === 'Asset' || e.debitAccount === '비품' || e.debitAccount === '산업재산권') {
@@ -942,6 +1028,8 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         const newEntry: JournalEntry = {
             id: clearingEntryId,
             date: now.split('T')[0],
+            transactionDate: now.split('T')[0],
+            recognitionDate: now.split('T')[0],
             description: `[정산] ${sourceEntry.description}`,
             vendor: sourceEntry.vendor || '',
             debitAccount: isDebitSus ? targetAccount : sourceEntry.debitAccount,
@@ -1047,25 +1135,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
 
     const financials = useMemo(() => {
         // [PHASE 11 ART 17] Unified Truth Gate
-        import('../bridge/StrategicBridge').then(({ getConsolidatedMetrics }) => {
-            // Async import can't be used directly in useMemo for sync return
-            // But we already have calculateFinancials imported.
-            // For now, let's just unify the inline logic to match getConsolidatedMetrics exactly.
-        });
-
-        const currentPeriodKey = systemNow.substring(0, 7);
-        const closing = closingRecords.find(r => r.period === currentPeriodKey);
-
-        // If it's a closed period AND we are at month-end, use the sealed record.
-        // Otherwise, use live calculation to allow for same-month visibility.
-        if (closing && systemNow === `${currentPeriodKey}-31`) {
-            return {
-                ...closing.summary,
-                cash: closing.summary.cash || 0,
-            };
-        }
-
-        return calculateFinancials(subLedger, systemNow, initialCashBalance);
+        return getConsolidatedMetrics(subLedger, closingRecords, systemNow, initialCashBalance);
     }, [subLedger, systemNow, initialCashBalance, closingRecords]);
 
     const performClosing = async (period: string, note: string, userId: string) => {
@@ -1238,7 +1308,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     const contextValue = useMemo(() => ({
-        ledger, addEntry, addEntries, approveEntry, bulkApprove, rejectEntry, bulkReject, updateEntry, deleteEntry,
+        ledger, addEntry, addEntries, approveEntry, bulkApprove, rejectEntry, bulkReject, updateEntry, deleteEntry, bulkDelete,
         partners, addPartner, updatePartner, financials,
         assets, addAsset, updateAsset, leases, addLease, updateLease, clearAllData, loadDemoData,
         stagingTransactions, setStagingTransactions,
@@ -1256,12 +1326,14 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         liabilities, addLiability, updateLiability,
         simulationViewMode, setSimulationViewMode,
         activeScenario, setActiveScenario,
-        initialCashBalance, injectStressData
+        initialCashBalance, injectStressData,
+        corporateRules, updateCorporateRules
     }), [
         ledger, partners, financials, assets, leases, stagingTransactions, config, subLedger,
         customAccounts, mappingRules, periods, closingRecords, budgets, riskDecisions,
         candidateLedger, language, systemNow, liabilities, simulationViewMode,
-        activeScenario, initialCashBalance, injectStressData
+        activeScenario, initialCashBalance, injectStressData,
+        corporateRules, updateCorporateRules, bulkDelete
     ]);
 
     return (

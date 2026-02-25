@@ -35,7 +35,7 @@ export interface FinancialFormat {
     hasActivity: boolean;
 }
 
-const formatCurrency = (n: number, withSign: boolean = false) => {
+export const formatCurrency = (n: number, withSign: boolean = false) => {
     const absVal = Math.round(Math.abs(n)).toLocaleString();
     if (n === 0) return '₩0';
     const sign = n < 0 ? '-' : (withSign ? '+' : '');

@@ -122,7 +122,7 @@ export const CEOQuickBar: React.FC<CEOQuickBarProps> = ({ financials, avgMonthly
                         ₩{Math.round(avgMonthlyBurn || 0).toLocaleString()}
                     </h3>
                     <p className="text-[10px] font-bold text-slate-500 mt-2">
-                        {hasActivity ? '최근 30일 기준 평균 지출액' : '데이터가 없습니다.'}
+                        {hasActivity ? '활성 기간 기준 월평균 지출액' : '데이터가 없습니다.'}
                     </p>
                 </div>
             </button>

@@ -3,6 +3,7 @@ node_modules
 dist
 .env*
 .DS_Store
+scripts/
 
 # Rust / Tauri Backend
 src-tauri/target

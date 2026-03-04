@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { useAccounting } from '../../hooks/useAccounting';
 import { AlertCircle, ShieldCheck } from 'lucide-react';
-import { ConstitutionMonitor } from '../../constitution/ConstitutionMonitor';
+import { ConstitutionMonitor, ViolationLog } from '../../constitution/ConstitutionMonitor';
 
 /**
  * 🛡️ [PHASE 11] INTEGRITY GUARD (Numerical Auditor)
@@ -39,7 +39,7 @@ export const IntegrityGuard: React.FC = () => {
     }, [financials, getForecast, systemNow, ledger.length]);
 
     const stats = monitor.getStats();
-    const activeViolations = stats.violations.filter(v => v.level !== 'WARNING' || v.count > 1);
+    const activeViolations = stats.violations.filter((v: ViolationLog) => v.level !== 'WARNING' || v.count > 1);
 
     if (activeViolations.length === 0) return null;
 
@@ -56,7 +56,7 @@ export const IntegrityGuard: React.FC = () => {
                             현재 대시보드와 AI 시뮬레이터 간의 수치가 일치하지 않습니다. (무결성 훼손)
                         </p>
                         <div className="mt-3 space-y-2">
-                            {activeViolations.map((v, i) => (
+                            {activeViolations.map((v: ViolationLog, i: number) => (
                                 <div key={i} className="text-[9px] text-rose-300 bg-white/5 p-2 rounded-lg border border-white/5">
                                     {v.detail}
                                 </div>

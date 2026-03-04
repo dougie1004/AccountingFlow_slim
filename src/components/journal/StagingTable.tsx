@@ -33,6 +33,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
 
     // Multi-line editor state for the selected row
     const [editLines, setEditLines] = useState<JournalLine[]>([]);
+    const [editDate, setEditDate] = useState<string>('');
 
     React.useEffect(() => {
         if (selectedRow !== null) {
@@ -65,6 +66,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
 
             initialLines.push({ account: row.creditAccount || '미지급금', amount: amount, type: 'Credit' });
 
+            setEditDate(row.date || '');
             setEditLines(initialLines);
         } else {
             setSuggestions([]);
@@ -103,6 +105,7 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
             creditAccount: primaryCredit?.account || newData[selectedRow].creditAccount,
             debitLegs: editLines.filter(l => l.type === 'Debit').map(l => ({ account: l.account, amount: l.amount })),
             creditLegs: editLines.filter(l => l.type === 'Credit').map(l => ({ account: l.account, amount: l.amount })),
+            date: editDate,
             amount: debitTotal,
             vat: vatLine?.amount || 0,
             reasoning: `[User Refined] ${editLines.length} lines journal entry. Balance OK.`
@@ -363,7 +366,9 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col">
-                                                <span className="text-white font-mono text-xs font-black tracking-tight">{row.date?.split('-').slice(1).join('.')}</span>
+                                                <span className={`font-mono text-xs font-black tracking-tight ${!row.date ? 'text-amber-500 animate-pulse text-[10px]' : 'text-white'}`}>
+                                                    {row.date ? row.date.split('-').slice(1).join('.') : '날짜 확인 필요'}
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
@@ -450,6 +455,21 @@ export const StagingTable: React.FC<StagingTableProps> = ({ data, partners, onCo
                                     {isBalanced ? <CheckCircle2 size={12} /> : <Shield size={12} />}
                                     {isBalanced ? 'Balance Verified' : 'Unbalanced'}
                                 </div>
+                            </div>
+
+                            <div className="bg-indigo-500/5 p-4 rounded-2xl border border-indigo-500/10 flex items-center justify-between group">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                        <Clock size={12} /> Transaction Date Override
+                                    </span>
+                                    <span className="text-[9px] text-slate-600 font-bold">증빙에서 날짜가 누락된 경우 직접 지정하십시오.</span>
+                                </div>
+                                <input
+                                    type="date"
+                                    value={editDate}
+                                    onChange={(e) => setEditDate(e.target.value)}
+                                    className={`bg-slate-950 border ${!editDate ? 'border-amber-500/40 animate-pulse' : 'border-white/10'} text-white font-mono text-xs px-3 py-2 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all`}
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-8 relative">

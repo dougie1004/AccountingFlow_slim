@@ -327,15 +327,17 @@ const Journal: React.FC = () => {
 
             {/* Main Content Area */}
             {decisionMode === 'STAGING' ? (
-                <div className="space-y-6 animate-in fade-in duration-500">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-                                <Sparkles size={24} />
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-center justify-between bg-white/[0.02] p-8 rounded-[2rem] border border-white/5 shadow-xl backdrop-blur-2xl">
+                        <div className="flex items-center gap-6">
+                            <div className="w-16 h-16 bg-indigo-500/10 rounded-[1.5rem] flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                                <Sparkles size={32} />
                             </div>
                             <div>
-                                <h2 className="text-xl font-black text-white">AI 거래 분석 및 임시 저장소</h2>
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Staging Area • {stagingTransactions.length} Pending Transactions</p>
+                                <h2 className="text-3xl font-black text-white tracking-tight">데이터 업로드</h2>
+                                <p className="text-xs text-slate-500 font-bold uppercase tracking-[0.2em] mt-1 opacity-60">
+                                    AI-Powered Batch Processor • {stagingTransactions.length} Pending Records
+                                </p>
                             </div>
                         </div>
                         <button
@@ -343,9 +345,9 @@ const Journal: React.FC = () => {
                                 setDecisionMode('IDLE');
                                 setIsUploadOpen(false);
                             }}
-                            className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
+                            className="px-8 py-4 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-black uppercase tracking-widest rounded-[1.25rem] border border-white/10 transition-all active:scale-95"
                         >
-                            분개장으로 돌아가기
+                            ← 분개장으로 복귀
                         </button>
                     </div>
 

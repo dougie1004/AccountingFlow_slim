@@ -1,5 +1,5 @@
 use crate::core::models::{
-    Asset, JournalEntry, ParsedTransaction, TenantConfig, AnalysisResponse, Partner
+    Asset, JournalEntry, ParsedTransaction, TenantConfig, AnalysisResponse, Partner, SystemError
 };
 use crate::models::{Account, ManagementProject, ReviewAnalysisResult, ReviewFinding, ManagementIssue, ManagementScenario};
 use crate::ai::ai_service;
@@ -19,18 +19,18 @@ pub async fn parse_transaction(
     tenant_id: String,
     tier: String,
     custom_api_key: Option<String>,
-) -> Result<AnalysisResponse, String> {
+) -> Result<AnalysisResponse, SystemError> {
     // Slimmed: Minimal journal extraction
     let parsed_list = match (image_bytes, image_mime) {
         (Some(bytes), Some(mime)) => {
-            ai_service::call_journal_ai(&input, Some((bytes, mime)), &policy, &tenant_id, &tier, custom_api_key).await?
+            ai_service::call_journal_ai(&input, Some((bytes, mime)), &policy, &tenant_id, &tier, custom_api_key).await.map_err(|e| { eprintln!("[AI Error] {}", e); SystemError::Internal })?
         },
         _ => {
-            ai_service::call_journal_ai(&input, None, &policy, &tenant_id, &tier, custom_api_key).await?
+            ai_service::call_journal_ai(&input, None, &policy, &tenant_id, &tier, custom_api_key).await.map_err(|e| { eprintln!("[AI Error] {}", e); SystemError::Internal })?
         }
     };
 
-    let parsed = parsed_list.into_iter().next().ok_or("AI returned no transactions")?;
+    let parsed = parsed_list.into_iter().next().ok_or_else(|| { eprintln!("[AI Error] AI returned no entries"); SystemError::Internal })?;
     
     // 2. Compliance Logic (Restoring Compliance AI)
     let is_non_financial = parsed.description.as_deref() == Some("NOT_A_FINANCIAL_DOCUMENT");
@@ -63,15 +63,15 @@ pub async fn parse_transaction(
 pub async fn process_mass_ai_batch(
     transactions: Vec<ParsedTransaction>,
     policy: String,
-) -> Result<Vec<ParsedTransaction>, String> {
-    crate::ai::mass_processor::process_mass_batch(transactions, &policy).await
+) -> Result<Vec<ParsedTransaction>, SystemError> {
+    crate::ai::mass_processor::process_mass_batch(transactions, &policy).await.map_err(|e| { eprintln!("[Mass AI Error] {}", e); SystemError::Internal })
 }
 
 #[tauri::command]
 pub async fn process_universal_file(
     file_bytes: Vec<u8>,
     file_name: String,
-) -> Result<Vec<ParsedTransaction>, String> {
+) -> Result<Vec<ParsedTransaction>, SystemError> {
     crate::ai::universal_ingestor::ingest_universal_file(file_bytes, file_name).await
 }
 
@@ -135,7 +135,7 @@ pub fn run_closing(mut assets: Vec<Asset>, date: String, tenant_id: String) -> V
 }
 
 #[tauri::command]
-pub fn run_depreciation(mut assets: Vec<Asset>, date: String, tenant_id: String) -> Result<Vec<JournalEntry>, String> {
+pub fn run_depreciation(mut assets: Vec<Asset>, date: String, tenant_id: String) -> Result<Vec<JournalEntry>, SystemError> {
     Ok(assets::generate_closing_entries(&mut assets, &date, &tenant_id, &vec![]))
 }
 
@@ -143,7 +143,7 @@ pub fn run_depreciation(mut assets: Vec<Asset>, date: String, tenant_id: String)
 pub async fn run_tax_bridge(
     ledger: Vec<JournalEntry>,
     _config: Option<TenantConfig>,
-) -> Result<crate::core::models::TaxFilingPackage, String> {
+) -> Result<crate::core::models::TaxFilingPackage, SystemError> {
     let meta = crate::core::models::EntityMetadata {
         company_name: "Startup MVP".to_string(),
         reg_id: "000-00-00000".to_string(),
@@ -153,7 +153,7 @@ pub async fn run_tax_bridge(
         is_startup_tax_benefit: false,
         num_employees: 0,
     };
-    crate::tax::tax_bridge::generate_hometax_xml(ledger, &meta, vec![])
+    crate::tax::tax_bridge::generate_hometax_xml(ledger, &meta, vec![]).map_err(|e| { eprintln!("[Tax Bridge Error] {}", e); SystemError::Internal })
 }
 
 #[tauri::command]
@@ -162,28 +162,28 @@ pub fn check_modification_allowed(_date: String, _config: TenantConfig) -> bool 
 }
 
 #[tauri::command]
-pub fn generate_filing(snapshot_ledger: Vec<JournalEntry>, config: TenantConfig) -> Result<String, String> {
-    let meta = config.entity_metadata.clone().ok_or("엔티티 메타데이터가 없습니다.")?;
-    let path = crate::tax::hometax::HometaxEngine::generate_vat_xml(&snapshot_ledger, &meta, &config.tenant_id)?;
-    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+pub fn generate_filing(snapshot_ledger: Vec<JournalEntry>, config: TenantConfig) -> Result<String, SystemError> {
+    let meta = config.entity_metadata.clone().ok_or(SystemError::InvalidFormat("엔티티 메타데이터가 없습니다.".into()))?;
+    let path = crate::tax::hometax::HometaxEngine::generate_vat_xml(&snapshot_ledger, &meta, &config.tenant_id).map_err(|e| { eprintln!("[Filing Error] {}", e); SystemError::Internal })?;
+    let content = std::fs::read_to_string(&path).map_err(|e| { eprintln!("[File Error] {}", e); SystemError::Internal })?;
     Ok(content)
 }
 
 #[tauri::command]
-pub fn save_tenant_config(app: tauri::AppHandle, config: TenantConfig) -> Result<(), String> {
-    crate::core::config_manager::save_config(&app, config)
+pub fn save_tenant_config(app: tauri::AppHandle, config: TenantConfig) -> Result<(), SystemError> {
+    crate::core::config_manager::save_config(&app, config).map_err(|e| { eprintln!("[Config Error] {}", e); SystemError::Internal })
 }
 
 #[tauri::command]
-pub fn load_tenant_config(app: tauri::AppHandle) -> Result<TenantConfig, String> {
-    crate::core::config_manager::load_config(&app)
+pub fn load_tenant_config(app: tauri::AppHandle) -> Result<TenantConfig, SystemError> {
+    crate::core::config_manager::load_config(&app).map_err(|e| { eprintln!("[Config Error] {}", e); SystemError::Internal })
 }
 
 #[tauri::command]
 pub fn batch_export_with_validation(
     entries: Vec<JournalEntry>
-) -> Result<crate::accounting::batch_export::BatchExportResult, String> {
-    crate::accounting::batch_export::process_batch_export(entries)
+) -> Result<crate::accounting::batch_export::BatchExportResult, SystemError> {
+    crate::accounting::batch_export::process_batch_export(entries).map_err(|e| { eprintln!("[Export Error] {}", e); SystemError::Internal })
 }
 
 #[tauri::command]
@@ -193,13 +193,8 @@ pub fn generate_journal_id(date: String, entry_type: String) -> String {
 }
 
 #[tauri::command]
-pub fn parse_universal_file(file_bytes: Vec<u8>) -> Result<csv_inference::InferenceResult, String> {
-    crate::ai::csv_inference::analyze_csv(file_bytes)
-}
-
-#[tauri::command]
-pub async fn parse_excel_file(file_bytes: Vec<u8>) -> Result<Vec<ParsedTransaction>, String> {
-    crate::ai::excel_parser::parse_excel_file(file_bytes)
+pub async fn parse_excel_file(file_bytes: Vec<u8>) -> Result<Vec<ParsedTransaction>, SystemError> {
+    Ok(crate::ai::excel_parser::parse_excel_file(file_bytes)?)
 }
 
 #[tauri::command]
@@ -207,24 +202,24 @@ pub async fn generic_ai_chat(
     prompt: String,
     system_context: Option<String>,
     custom_api_key: Option<String>,
-) -> Result<String, String> {
-    ai_service::generic_ai_chat(&prompt, system_context, custom_api_key).await
+) -> Result<String, SystemError> {
+    ai_service::generic_ai_chat(&prompt, system_context, custom_api_key).await.map_err(|e| { eprintln!("[AI Chat Error] {}", e); SystemError::Internal })
 }
 
 #[tauri::command]
 pub async fn process_review_context(
     file_bytes: Vec<u8>,
     file_name: String,
-) -> Result<String, String> {
-    crate::ai::universal_ingestor::extract_context_text(file_bytes, file_name).await
+) -> Result<String, SystemError> {
+    crate::ai::universal_ingestor::extract_context_text(file_bytes, file_name).await.map_err(|e| { eprintln!("[Review Engine] {}", e); SystemError::Internal })
 }
 
 #[tauri::command]
 pub async fn perform_review_check(
     transactions: Vec<ParsedTransaction>,
     context: String,
-) -> Result<Vec<ParsedTransaction>, String> {
-    crate::ai::ai_service::perform_ai_audit(transactions, context).await
+) -> Result<Vec<ParsedTransaction>, SystemError> {
+    crate::ai::ai_service::perform_ai_audit(transactions, context).await.map_err(|e| { eprintln!("[AI Audit Error] {}", e); SystemError::Internal })
 }
 
 #[tauri::command]
@@ -233,7 +228,7 @@ pub async fn generate_management_report(
     period_start: String,
     period_end: String,
     report_mode: String,
-) -> Result<crate::accounting::report_engine::ManagementReport, String> {
+) -> Result<crate::accounting::report_engine::ManagementReport, SystemError> {
     crate::accounting::report_engine::generate_management_report(
         ledger, 
         Vec::<crate::inventory::InventoryItem>::new(),
@@ -241,7 +236,7 @@ pub async fn generate_management_report(
         period_start, 
         period_end,
         report_mode
-    ).await
+    ).await.map_err(|e| { eprintln!("[Report Engine] {}", e); SystemError::Internal })
 }
 
 #[tauri::command]
@@ -249,7 +244,7 @@ pub async fn calculate_account_afri(
     account_name: String,
     target_year: i32,
     sub_ledger: Vec<JournalEntry>
-) -> Result<crate::models::RiskIndex, String> {
+) -> Result<crate::models::RiskIndex, SystemError> {
     let account_entries: Vec<&JournalEntry> = sub_ledger.iter()
         .filter(|e| e.debit_account == account_name || e.credit_account == account_name)
         .collect();
@@ -266,7 +261,7 @@ pub async fn calculate_account_afri(
 #[tauri::command]
 pub async fn perform_pii_masking(
     transactions: Vec<serde_json::Value>
-) -> Result<Vec<serde_json::Value>, String> {
+) -> Result<Vec<serde_json::Value>, SystemError> {
     Ok(review_engine::mask_pii(transactions))
 }
 
@@ -275,8 +270,8 @@ pub async fn execute_review_run(
     transactions: Vec<serde_json::Value>,
     is_judgment_run: bool,
     custom_api_key: Option<String>,
-) -> Result<serde_json::Value, String> {
-    review_engine::execute_review_run(transactions, is_judgment_run, custom_api_key).await
+) -> Result<serde_json::Value, SystemError> {
+    review_engine::execute_review_run(transactions, is_judgment_run, custom_api_key).await.map_err(|e| { eprintln!("[AI Review Error] {}", e); SystemError::Internal })
 }
 
 // --- PHASE 3: AI Process Mining & Simulation ---
@@ -309,7 +304,7 @@ pub struct MockLogFile {
 }
 
 #[tauri::command]
-pub async fn analyze_process_mining(project_type: String) -> Result<MiningResult, String> {
+pub async fn analyze_process_mining(_project_type: String) -> Result<MiningResult, SystemError> {
     // [Phase 3] Digital Trace Simulation
     // In a real environment, this would ingest CaseID/Activity/Timestamp CSVs.
     Ok(MiningResult {
@@ -317,34 +312,12 @@ pub async fn analyze_process_mining(project_type: String) -> Result<MiningResult
         total_edges: 412,
         violation_count: 3,
         throughput_avg: "4.2 Days".to_string(),
-        violations: vec![
-            ProcessViolation {
-                id: "VIO-P2P-001".to_string(),
-                description: "Purchase Order (PO) created AFTER Invoice receipt. Potential bypass of procurement controls.".to_string(),
-                severity: "High".to_string(),
-                timestamp: "2026-02-15 14:22".to_string(),
-                affected_nodes: vec!["Invoice Recv".to_string(), "PO Creation".to_string(), "Payment".to_string()],
-            },
-            ProcessViolation {
-                id: "VIO-P2P-082".to_string(),
-                description: "Approval path bypass: Invoice approved by the same user who requested the PO (Maverick Buying).".to_string(),
-                severity: "High".to_string(),
-                timestamp: "2026-02-18 09:11".to_string(),
-                affected_nodes: vec!["PR Request".to_string(), "Invoice Approval".to_string()],
-            },
-            ProcessViolation {
-                id: "VIO-TS-044".to_string(),
-                description: "Duplicate Activity Detection: Double payment processing for the same vendor within 1 hour.".to_string(),
-                severity: "Medium".to_string(),
-                timestamp: "2026-02-20 16:05".to_string(),
-                affected_nodes: vec!["Payment Exec".to_string(), "Payment Exec (Duplicate)".to_string()],
-            }
-        ]
+        violations: vec![]
     })
 }
 
 #[tauri::command]
-pub async fn generate_mining_mock_data() -> Result<Vec<MockLogFile>, String> {
+pub async fn generate_mining_mock_data() -> Result<Vec<MockLogFile>, SystemError> {
     Ok(vec![
         MockLogFile {
             name: "ERP_P2P_EventLog_2025.csv".to_string(),
@@ -365,4 +338,71 @@ pub async fn generate_mining_mock_data() -> Result<Vec<MockLogFile>, String> {
             path: "/logs/finance/bank_tracing.xlsx".to_string(),
         }
     ])
+}
+
+// --- PHASE 7: Business Memory Layer (Local Pattern Recognition) ---
+
+#[tauri::command]
+pub async fn record_business_patterns(
+    app: tauri::AppHandle,
+    entries: Vec<JournalEntry>,
+    tenant_id: String,
+) -> Result<(), SystemError> {
+    let conn = crate::database::get_connection(&app).map_err(|e| { eprintln!("[Database Error] {}", e); SystemError::DatabaseError })?;
+    
+    for entry in entries {
+        // [Pattern Recognition] Record with high-precision signals
+        if let Some(ref vendor) = entry.vendor {
+            if !vendor.is_empty() {
+                // In a real scenario, we'd detect source from metadata.
+                // For now, we use defaults but captured at recording time.
+                let source = "Universal"; 
+                let flow = if entry.entry_type == "Revenue" { "IN" } else { "OUT" };
+
+                crate::core::memory_service::update_business_pattern_v2(
+                    &conn,
+                    &tenant_id,
+                    source,
+                    flow,
+                    vendor,
+                    entry.amount,
+                    &entry.date,
+                    entry.debit_legs,
+                    entry.credit_legs
+                ).map_err(|e| { eprintln!("[Database Error] {}", e); SystemError::DatabaseError })?;
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_business_suggestions(
+    app: tauri::AppHandle,
+    source: String,
+    flow: String,
+    vendor_name: String,
+    amount: f64,
+    date: String,
+    tenant_id: String,
+) -> Result<Vec<crate::core::memory_service::AccountSuggestion>, SystemError> {
+    let conn = crate::database::get_connection(&app).map_err(|e| { eprintln!("[Database Error] {}", e); SystemError::DatabaseError })?;
+    crate::core::memory_service::get_business_suggestions_v2(
+        &conn, 
+        &tenant_id, 
+        &source, 
+        &flow, 
+        &vendor_name, 
+        amount, 
+        &date
+    ).map_err(|e| { eprintln!("[Database Error] {}", e); SystemError::DatabaseError })
+}
+
+#[tauri::command]
+pub async fn reset_business_memory(
+    app: tauri::AppHandle,
+    tenant_id: String,
+) -> Result<(), SystemError> {
+    let conn = crate::database::get_connection(&app).map_err(|e| { eprintln!("[Database Error] {}", e); SystemError::DatabaseError })?;
+    crate::core::memory_service::reset_business_memory(&conn, &tenant_id).map_err(|e| { eprintln!("[Database Error] {}", e); SystemError::DatabaseError })
 }

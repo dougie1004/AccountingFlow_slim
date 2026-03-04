@@ -1,13 +1,14 @@
 use tauri::AppHandle;
 use tauri::Manager;
 use rusqlite::{params, Connection};
+use crate::core::models::SystemError;
 
-pub fn initialize_database(app_handle: &AppHandle) -> Result<(), String> {
-    let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+pub fn initialize_database(app_handle: &AppHandle) -> Result<(), SystemError> {
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| { eprintln!("[DB Init] Path Error: {}", e); SystemError::Internal })?;
     if !app_dir.exists() { std::fs::create_dir_all(&app_dir).ok(); }
     
     let db_path = app_dir.join("accounting_slim_v1.db");
-    let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+    let conn = Connection::open(db_path).map_err(|e| { eprintln!("[DB Init] Open Error: {}", e); SystemError::DatabaseError })?;
 
     println!(">>> [INIT] Initializing AccountingFlow Slim DB...");
 
@@ -27,7 +28,7 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<(), String> {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )", 
         params![]
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|e| { eprintln!("[DB Init] Query Execution Error: {}", e); SystemError::DatabaseError })?;
 
     // 2. Tenant Config
     conn.execute(
@@ -37,7 +38,7 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<(), String> {
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )",
         params![]
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|e| { eprintln!("[DB Init] Query Execution Error: {}", e); SystemError::DatabaseError })?;
 
     // 3. Accounts (Master Data - Constitutional Art. 4 Enforcement)
     conn.execute(
@@ -47,7 +48,7 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<(), String> {
             nature TEXT NOT NULL
         )",
         params![]
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|e| { eprintln!("[DB Init] Query Execution Error: {}", e); SystemError::DatabaseError })?;
 
     // 4. Initial Balances
     conn.execute(
@@ -56,7 +57,7 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<(), String> {
             amount REAL NOT NULL
         )",
         params![]
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|e| { eprintln!("[DB Init] Query Execution Error: {}", e); SystemError::DatabaseError })?;
 
     // 5. Account Risk Profile (AFRI v1.0)
     conn.execute(
@@ -75,7 +76,28 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<(), String> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
         params![]
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|e| { eprintln!("[DB Init] Query Execution Error: {}", e); SystemError::DatabaseError })?;
+
+    // 6. Local Business Memory Layer (High-Precision V2)
+    // Stores historical confirmation patterns for complex multi-leg account suggestions
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS business_patterns_v2 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id TEXT NOT NULL,
+            context_hash TEXT NOT NULL,
+            debit_legs TEXT NOT NULL,
+            credit_legs TEXT NOT NULL,
+            usage_count INTEGER DEFAULT 1,
+            last_used_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(tenant_id, context_hash)
+        )",
+        params![]
+    ).map_err(|e| { eprintln!("[DB Init] Query Execution Error: {}", e); SystemError::DatabaseError })?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pattern_context ON business_patterns_v2(tenant_id, context_hash)",
+        params![]
+    ).map_err(|e| { eprintln!("[DB Init] Index Creation Error: {}", e); SystemError::DatabaseError })?;
 
     // [CONSTITUTION Art. 4] Mandatory Seeding of Standard Accounts
     // Ensure all standard accounts exist with their natures.
@@ -86,7 +108,7 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<(), String> {
         ("매출원가", "COGS"),
         ("급여", "SG&A"),
         ("지급수수료", "SG&A"),
-        ("임차료", "SG&A"),
+        ("지급임차료", "SG&A"),
     ];
 
     for (name, nature) in standard_accounts {
@@ -99,10 +121,16 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-pub fn save_config(conn: &Connection, tenant_id: &str, config_json: &str) -> Result<(), String> {
+pub fn get_connection(app_handle: &tauri::AppHandle) -> Result<rusqlite::Connection, SystemError> {
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| { eprintln!("[DB Conn] Path Error: {}", e); SystemError::Internal })?;
+    let db_path = app_dir.join("accounting_slim_v1.db");
+    rusqlite::Connection::open(db_path).map_err(|e| { eprintln!("[DB Conn] Open Error: {}", e); SystemError::DatabaseError })
+}
+
+pub fn save_config(conn: &rusqlite::Connection, tenant_id: &str, config_json: &str) -> Result<(), SystemError> {
     conn.execute(
         "INSERT OR REPLACE INTO tenant_config (id, config_json) VALUES (?1, ?2)",
         params![tenant_id, config_json]
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|e| { eprintln!("[DB Config] Save Error: {}", e); SystemError::DatabaseError })?;
     Ok(())
 }

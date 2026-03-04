@@ -72,6 +72,7 @@ pub fn generate_closing_entries(
                 entry_type: "Expense".to_string(),
                 status: "Closed".to_string(),
                 audit_trail: vec![format!("Automatic Depreciation (Slim Engine) - Tenant: {}", tenant_id)],
+                ..Default::default()
             });
             
             asset.accumulated_depreciation += amount;

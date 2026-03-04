@@ -1,4 +1,4 @@
-use crate::core::models::{JournalEntry, EntityMetadata, TaxFilingPackage};
+use crate::core::models::{JournalEntry, EntityMetadata, TaxFilingPackage, SystemError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,7 +21,7 @@ pub fn generate_hometax_xml(
     _ledger: Vec<JournalEntry>,
     meta: &EntityMetadata,
     _adjustments: Vec<String>
-) -> Result<TaxFilingPackage, String> {
+) -> Result<TaxFilingPackage, SystemError> {
     // Slimmed: Generate a minimal XML structure for demo purposes
     let xml = format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>

@@ -1,96 +1,188 @@
-use crate::core::models::ParsedTransaction;
+use crate::core::models::{ParsedTransaction, SystemError, TransactionSource, AmountOrigin};
 
 /**
  * Rule-Based Classification Engine (Slim Version)
  * Fast keyword-based account mapping without complex risk detection.
  */
-pub fn classify_by_rules(tx: &mut ParsedTransaction) {
-    let description = tx.description.as_deref().unwrap_or("").to_lowercase();
-    let vendor = tx.vendor.as_deref().unwrap_or("").to_lowercase();
-    let combined = format!("{} {}", description, vendor);
-    let entry_type = tx.entry_type.as_deref().unwrap_or("Expense");
+pub fn classify_by_rules(tx: &mut ParsedTransaction) -> Result<(), SystemError> {
+    // 1. Structure Phase: Determine Flow (In/Out)
+    crate::ai::normalizer::normalize_transaction(tx)?;
+    
+    let combined = format!("{} {}", tx.description.as_deref().unwrap_or(""), tx.vendor.as_deref().unwrap_or("")).to_lowercase();
+    let flow = tx.flow_direction.as_deref().unwrap_or("Unknown");
+    let source = tx.source_type.as_ref();
 
-    // 1. Inflow Handling (Deposits)
-    if entry_type == "Revenue" {
-        tx.debit_account = Some("보통예금".to_string());
-        
-        if combined.contains("투자") || combined.contains("investment") || combined.contains("capital") {
-            // Equity Injection
-            let acc = if combined.contains("잉여금") || combined.contains("series-a") { "자본잉여금" } else { "자본금" };
-            tx.credit_account = Some(acc.to_string());
-            tx.account_name = Some(acc.to_string());
-            tx.reasoning = "RuleEngine: Equity Investment Detected".to_string();
-        } else {
-            // Standard Revenue
-            let rev_acc = if combined.contains("애플") || combined.contains("apple") || combined.contains("구글") || combined.contains("google") || combined.contains("카카오") || combined.contains("kakao") || combined.contains("매출") {
-                "SaaS 매출"
-            } else {
-                "매출"
-            };
-            tx.credit_account = Some(rev_acc.to_string());
-            tx.account_name = Some(rev_acc.to_string());
-            tx.reasoning = "RuleEngine: Detected Revenue/Deposit".to_string();
+    // Special Case: Reverse Settlement (Already Deterministic)
+    if tx.is_settlement_flow {
+        let target_acc = tx.settlement_target.as_deref().unwrap_or("미지급금");
+        tx.debit_account = Some(target_acc.to_string());
+        tx.credit_account = Some("보통예금".to_string());
+        tx.reasoning = format!("Reverse Settlement: Paying off {}", target_acc);
+        return Ok(());
+    }
+
+    // 2. Nature Phase: Why did the money move? (Core Accounting Intent)
+    let nature_account = if combined.contains("자본금") || combined.contains("투자") { Some("자본금") }
+                        else if combined.contains("매출") || combined.contains("정산") { Some("매출") }
+                        else if combined.contains("급여") || combined.contains("상여") || combined.contains("인건비") { Some("급여") }
+                        else if combined.contains("임차료") || combined.contains("월세") || combined.contains("렌탈") || combined.contains("리스") { Some("지급임차료") }
+                        else if combined.contains("aws") || combined.contains("인프라") || combined.contains("클라우드") { Some("매출원가") }
+                        else if combined.contains("식대") || combined.contains("스타벅스") || combined.contains("배달의민족") { Some("복리후생비") }
+                        else if combined.contains("광고") || combined.contains("마케팅") || combined.contains("google ads") { Some("광고선전비") }
+                        else if combined.contains("접대") || combined.contains("선물") || combined.contains("상품권") || combined.contains("백화점") { Some("접대비") }
+                        else if combined.contains("환급") || combined.contains("부가세") { Some("부가세예수금") }
+                        else { None };
+
+    if nature_account.is_none() {
+        tx.needs_clarification = true;
+        tx.account_name = Some("계정확인필요".to_string());
+        tx.reasoning = "거래의 성격(Why)을 텍스트에서 확정할 수 없습니다. 직접 수정을 권장합니다.".into();
+        return Ok(()); // Wait for user input
+    }
+    let core_acc = nature_account.unwrap().to_string();
+
+    // 3. Source Phase: How was it moved? (Payment / Receipt channel)
+    let channel_acc = match source {
+        Some(TransactionSource::BankFile) => "보통예금".to_string(),
+        Some(TransactionSource::CardFile) => {
+            if flow == "Inflow" { "미수금".to_string() } else { "미지급금".to_string() }
         }
+        _ => "현금".to_string(), // Default fallback
+    };
+
+    // 4. Assembly Phase: Double-Entry Construction
+    if flow == "Inflow" {
+        tx.debit_account = Some(channel_acc); 
+        tx.credit_account = Some(core_acc.clone());
     } else {
-        // 2. Outflow Handling (Withdrawals)
-        if combined.contains("현금") || combined.contains("cash") {
-            tx.payment_method = Some("Cash".to_string());
-            tx.credit_account = Some("현금".to_string());
-        } else {
-            tx.payment_method = Some("Card".to_string());
-            tx.credit_account = Some("미지급금".to_string());
-        }
+        tx.debit_account = Some(core_acc.clone());
+        tx.credit_account = Some(channel_acc);
+    }
+    tx.account_name = Some(core_acc);
 
-        // 3. Keyword Mapping for Expenses & COGS
-        let (account, reasoning) = if combined.contains("급여") || combined.contains("월급") {
-            ("급여", "Keyword: Salary")
-        } else if combined.contains("인프라") || combined.contains("클라우드") || combined.contains("aws") || combined.contains("api") || combined.contains("원가") {
-            ("매출원가", "Keyword: COGS/Infrastructure")
-        } else if combined.contains("식비") || combined.contains("커피") || combined.contains("카페") || combined.contains("마트") {
-            ("복리후생비", "Keyword: Meals/Welfare")
-        } else if combined.contains("택시") || combined.contains("버스") || combined.contains("교통") {
-            ("여비교통비", "Keyword: Transport")
-        } else if combined.contains("광고") || combined.contains("홍보") || combined.contains("마케팅") {
-            ("광고선전비", "Keyword: Marketing")
-        } else if combined.contains("임대") || combined.contains("월세") || combined.contains("관리비") || combined.contains("패스트파이브") {
-            ("임차료", "Keyword: Rent/Facility")
-        } else if combined.contains("택배") || combined.contains("운송") {
-            ("운반비", "Keyword: Logistics")
-        } else if combined.contains("보험") || combined.contains("연금") {
-            ("보험료", "Keyword: Insurance")
-        } else {
-            ("소모품비", "Default: Office Supplies/General")
+    // 5. Final Integrity Check: Anti-Panic & VAT
+    if tx.debit_account == tx.credit_account && tx.debit_account.is_some() {
+        return Err(SystemError::InvalidFormat(format!("Recursive Entry Detected for {}", tx.debit_account.clone().unwrap())));
+    }
+
+    // Comprehensive VAT Logic
+    let current_acc = tx.account_name.as_deref().unwrap_or("");
+    if current_acc == "급여" || current_acc == "자본금" || current_acc == "부가세예수금" || combined.contains("면세") {
+        tx.vat = 0.0;
+    } else if tx.vat == 0.0 && tx.amount != 0.0 {
+        tx.vat = (tx.amount / 11.0).round();
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::models::ParsedTransaction;
+
+    #[test]
+    fn test_e2e_bank_statement_scenario() {
+        // [Stage 1: Ingestion metadata]
+        let mut tx = ParsedTransaction {
+            description: Some("서버 인프라 구축(AWS)".to_string()), // Nature: 매출원가
+            amount: 250000.0,
+            source_type: Some(TransactionSource::BankFile),
+            amount_origin: Some(AmountOrigin::WithdrawalColumn),
+            ..Default::default()
+        };
+        
+        // [Stage 2 & 3: Normalize & Classify]
+        classify_by_rules(&mut tx).unwrap();
+        
+        // [Structural Validation]
+        assert_eq!(tx.flow_direction.as_deref(), Some("Outflow"));
+        assert_eq!(tx.credit_account.as_deref(), Some("보통예금")); // Source (How)
+        assert_eq!(tx.debit_account.as_deref(), Some("매출원가")); // Nature (Why)
+    }
+
+    #[test]
+    fn test_e2e_card_statement_scenario() {
+        let mut tx = ParsedTransaction {
+            description: Some("스타벅스 강남점".to_string()), // Nature: 복리후생비
+            amount: -5500.0,
+            source_type: Some(TransactionSource::CardFile),
+            amount_origin: Some(AmountOrigin::Generic),
+            ..Default::default()
+        };
+        
+        classify_by_rules(&mut tx).unwrap();
+        
+        // [Structural Validation]
+        assert_eq!(tx.flow_direction.as_deref(), Some("Outflow"));
+        assert_eq!(tx.credit_account.as_deref(), Some("미지급금")); // Source (How)
+        assert_eq!(tx.debit_account.as_deref(), Some("복리후생비")); // Nature (Why)
+    }
+
+    #[test]
+    fn test_rental_classification() {
+        // [G-006 scenario]
+        let mut tx = ParsedTransaction {
+            description: Some("사무실 복합기 렌탈료 55,000원 이체완료".to_string()),
+            amount: -55000.0,
+            source_type: Some(TransactionSource::BankFile),
+            amount_origin: Some(AmountOrigin::Generic),
+            ..Default::default()
+        };
+        classify_by_rules(&mut tx).unwrap();
+        assert_eq!(tx.account_name.as_deref(), Some("지급임차료"));
+        assert_eq!(tx.credit_account.as_deref(), Some("보통예금"));
+    }
+
+    #[test]
+    fn test_gift_classification() {
+        // [G-002 scenario]
+        let mut tx = ParsedTransaction {
+            description: Some("거래처 선물용으로 백화점 상품권 구매".to_string()),
+            amount: -200000.0,
+            source_type: Some(TransactionSource::CardFile),
+            amount_origin: Some(AmountOrigin::Generic),
+            ..Default::default()
+        };
+        classify_by_rules(&mut tx).unwrap();
+        assert_eq!(tx.account_name.as_deref(), Some("접대비"));
+        assert_eq!(tx.credit_account.as_deref(), Some("미지급금"));
+    }
+
+    #[test]
+    fn test_capital_increase_scenario() {
+        // [Scenario from User Screenshot]
+        let mut tx = ParsedTransaction {
+            description: Some("초기 설립 자본금 (제너럴)".to_string()),
+            amount: 50000000.0, // 50M
+            source_type: Some(TransactionSource::BankFile),
+            amount_origin: Some(AmountOrigin::Generic),
+            ..Default::default()
         };
 
-        tx.account_name = Some(account.to_string());
-        tx.debit_account = Some(account.to_string());
-        tx.reasoning = format!("RuleEngine: {}", reasoning);
+        classify_by_rules(&mut tx).unwrap();
+
+        // [Verification]
+        assert_eq!(tx.flow_direction.as_deref(), Some("Inflow"));
+        assert_eq!(tx.debit_account.as_deref(), Some("보통예금")); // Where the money went
+        assert_eq!(tx.credit_account.as_deref(), Some("자본금")); // Source of the money (Equity)
+        assert!(tx.needs_clarification == false);
     }
 
-    tx.confidence = Some("Medium".to_string());
-    
-    // 4. Intelligent VAT Logic
-    // If VAT is already provided (not 0.0), respect it.
-    if tx.vat > 0.0 {
-        return;
-    }
-
-    let acc = tx.account_name.as_deref().unwrap_or("");
-    
-    // Exempt accounts from VAT
-    let is_exempt = acc == "급여" || 
-                    acc == "보험료" || 
-                    acc == "자본금" || 
-                    acc == "자본잉여금" || 
-                    acc == "예수금" ||
-                    acc == "세금과공과" ||
-                    combined.contains("면세") ||
-                    combined.contains("보험");
-
-    if is_exempt {
-        tx.vat = 0.0;
-    } else {
-        // Standard 10% VAT (re-calculate from total amount if missing)
-        tx.vat = (tx.amount / 11.0).round();
+    #[test]
+    fn test_repayment_reconcile_scenario() {
+        let mut tx = ParsedTransaction {
+            description: Some("신한카드결제대금".to_string()),
+            amount: -1500000.0,
+            source_type: Some(TransactionSource::BankFile),
+            amount_origin: Some(AmountOrigin::Generic),
+            ..Default::default()
+        };
+        
+        classify_by_rules(&mut tx).unwrap();
+        
+        assert!(tx.is_settlement_flow);
+        assert_eq!(tx.debit_account.as_deref(), Some("미지급금")); 
+        assert_eq!(tx.credit_account.as_deref(), Some("보통예금"));
     }
 }

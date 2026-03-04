@@ -1,22 +1,29 @@
 import React, { useState } from 'react';
-import { X, CheckCircle2, Shield, FileText, AlertCircle, Zap, Calculator, ShieldAlert } from 'lucide-react';
-import { CLEARING_REASON, BLOCKED_REASON, ClearingReasonCode, BlockedReasonCode, ACCOUNT_NAMES } from '../../constants/accounts';
+import { X, CheckCircle2, Shield, FileText, AlertCircle, Zap, Calculator, ShieldAlert, Calendar } from 'lucide-react';
+import { CLEARING_REASON, BLOCKED_REASON, ClearingReasonCode, BlockedReasonCode, ACCOUNT_NAMES, isArAccount, isApAccount, isSuspenseAccount } from '../../constants/accounts';
 import { JournalEntry, ClearingRecord } from '../../types';
 
 interface ClearingModalProps {
     entry: JournalEntry;
     onClose: () => void;
-    onConfirm: (targetAccount: string | null, metadata: Omit<ClearingRecord, 'sourceEntryId' | 'clearingEntryId' | 'clearedAt'>) => void;
+    onConfirm: (targetAccount: string | null, metadata: Omit<ClearingRecord, 'sourceEntryId' | 'clearingEntryId' | 'clearedAt'>, overrideDate?: string) => void;
 }
 
 export const ClearingModal: React.FC<ClearingModalProps> = ({ entry, onClose, onConfirm }) => {
     const [mode, setMode] = useState<'CLEARED' | 'BLOCKED'>('CLEARED');
-    const [targetAccount, setTargetAccount] = useState('복리후생비');
+
+    // Auto-detect default target account based on source entry
+    const isAr = isArAccount(entry.debitAccount);
+    const isAp = isApAccount(entry.creditAccount);
+    const defaultTarget = (isAr || isAp) ? '보통예금' : '복리후생비';
+
+    const [targetAccount, setTargetAccount] = useState(defaultTarget);
     const [reasonCode, setReasonCode] = useState<ClearingReasonCode>('EXP_CONFIRMED');
     const [blockedReasonCode, setBlockedReasonCode] = useState<BlockedReasonCode>('EVIDENCE_MISSING');
     const [reasonText, setReasonText] = useState('');
     const [evidenceType, setEvidenceType] = useState<ClearingRecord['evidenceType']>('RECEIPT');
     const [searchTerm, setSearchTerm] = useState('');
+    const [clearingDate, setClearingDate] = useState(new Date().toISOString().split('T')[0]);
 
     const filteredAccounts = ACCOUNT_NAMES.filter(name =>
         name.includes(searchTerm)
@@ -34,7 +41,7 @@ export const ClearingModal: React.FC<ClearingModalProps> = ({ entry, onClose, on
             reasonText,
             evidenceType,
             status: mode,
-        });
+        }, clearingDate);
     };
 
     return (
@@ -75,6 +82,20 @@ export const ClearingModal: React.FC<ClearingModalProps> = ({ entry, onClose, on
                         >
                             <ShieldAlert size={14} /> 정산 불가 처리 (Blocked)
                         </button>
+                    </div>
+
+                    {/* Step 0: Clearing Date */}
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                            <Calendar size={12} className="text-indigo-400" />
+                            공통: 실제 입금/출금 날짜 (Settlement Date)
+                        </label>
+                        <input
+                            type="date"
+                            value={clearingDate}
+                            onChange={(e) => setClearingDate(e.target.value)}
+                            className="w-full px-5 py-4 bg-[#0B1221] border border-white/10 rounded-2xl text-white font-bold text-sm focus:ring-2 focus:ring-amber-500/50 outline-none"
+                        />
                     </div>
 
                     {/* Source Info */}

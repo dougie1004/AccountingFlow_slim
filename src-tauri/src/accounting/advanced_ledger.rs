@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
-use crate::core::models::JournalEntry;
+use crate::core::models::{JournalEntry, SystemError};
 
 /// Trait for advanced accounting logic plugins
 pub trait AdvancedAccountingModule {
     fn module_id(&self) -> &'static str;
-    fn process_logic(&self, input: AdvancedLedgerInput, ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, String>;
+    fn process_logic(&self, input: AdvancedLedgerInput, ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, SystemError>;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -34,7 +34,7 @@ pub struct SuggestedEntry {
 pub struct RndCapitalizationEngine;
 impl AdvancedAccountingModule for RndCapitalizationEngine {
     fn module_id(&self) -> &'static str { "rnd_capitalization" }
-    fn process_logic(&self, input: AdvancedLedgerInput, ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, String> {
+    fn process_logic(&self, input: AdvancedLedgerInput, ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, SystemError> {
         let capitalization_ratio = input.payload["capitalizationRatio"].as_f64().unwrap_or(0.5);
         
         let mut total_labor_cost = 0.0;
@@ -98,7 +98,7 @@ impl AdvancedAccountingModule for RndCapitalizationEngine {
 pub struct StockCompensationEngine;
 impl AdvancedAccountingModule for StockCompensationEngine {
     fn module_id(&self) -> &'static str { "stock_compensation" }
-    fn process_logic(&self, input: AdvancedLedgerInput, _ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, String> {
+    fn process_logic(&self, input: AdvancedLedgerInput, _ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, SystemError> {
         let payload = &input.payload;
         let s0 = payload["stockPrice"].as_f64().unwrap_or(10000.0); // 현재 주가
         let k = payload["exercisePrice"].as_f64().unwrap_or(5000.0); // 행사가
@@ -157,7 +157,7 @@ impl AdvancedAccountingModule for StockCompensationEngine {
 pub struct CurrencyRevaluationEngine;
 impl AdvancedAccountingModule for CurrencyRevaluationEngine {
     fn module_id(&self) -> &'static str { "currency_revaluation" }
-    fn process_logic(&self, input: AdvancedLedgerInput, _ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, String> {
+    fn process_logic(&self, input: AdvancedLedgerInput, _ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, SystemError> {
         let payload = &input.payload;
         let balance_fc = payload["balance"].as_f64().unwrap_or(1000.0); // 외화 잔액
         let current_rate = payload["currentRate"].as_f64().unwrap_or(1350.0); // 현재 환율
@@ -221,7 +221,7 @@ impl AdvancedAccountingModule for CurrencyRevaluationEngine {
 pub struct TaxCreditFinderEngine;
 impl AdvancedAccountingModule for TaxCreditFinderEngine {
     fn module_id(&self) -> &'static str { "tax_credit_finder" }
-    fn process_logic(&self, _input: AdvancedLedgerInput, ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, String> {
+    fn process_logic(&self, _input: AdvancedLedgerInput, ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, SystemError> {
         let mut rnd_labor_cost = 0.0;
         let mut youth_employee_count = 0; // Simplified detection
         
@@ -267,7 +267,7 @@ impl AdvancedAccountingModule for TaxCreditFinderEngine {
 pub struct FinancialInstrumentEngine;
 impl AdvancedAccountingModule for FinancialInstrumentEngine {
     fn module_id(&self) -> &'static str { "financial_instruments" }
-    fn process_logic(&self, _input: AdvancedLedgerInput, _ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, String> {
+    fn process_logic(&self, _input: AdvancedLedgerInput, _ledger: &[JournalEntry]) -> Result<AdvancedLedgerOutput, SystemError> {
         Ok(AdvancedLedgerOutput {
             status: "Success".to_string(),
             summary: "금융상품 상각 로직이 초기화되었습니다.".to_string(),

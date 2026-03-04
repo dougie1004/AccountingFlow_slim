@@ -1,4 +1,4 @@
-use crate::core::models::JournalEntry;
+use crate::core::models::{JournalEntry, SystemError};
 use serde::{Serialize, Deserialize};
 use serde_json::json;
 
@@ -31,7 +31,7 @@ pub struct MonthlyProjection {
 pub async fn generate_cash_flow_forecast(
     ledger: Vec<JournalEntry>,
     current_balance: f64,
-) -> Result<CashFlowForecast, String> {
+) -> Result<CashFlowForecast, SystemError> {
     // 1. 과거 월별 트렌드 분석 (최근 180일)
     let today = chrono::Local::now().naive_local();
     let mut monthly_stats = std::collections::BTreeMap::new();
@@ -147,8 +147,8 @@ async fn generate_ai_insights(
     revenue: f64,
     rev_growth: f64,
     exp_growth: f64,
-) -> Result<String, String> {
-    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| "환경 변수 'GEMINI_API_KEY'가 설정되지 않았습니다.".to_string())?;
+) -> Result<String, SystemError> {
+    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| SystemError::AuthError)?;
 
     let prompt = format!(
         r#"당신은 전문 CFO AI입니다. 다음의 '실제 데이터 기반 추세'를 분석하여 향후 3개월 리스크를 진단하세요.
@@ -177,14 +177,14 @@ async fn generate_ai_insights(
         .json(&json!({ "contents": [{ "parts": [{ "text": prompt }] }] }))
         .send()
         .await
-        .map_err(|e| format!("AI 호출 실패: {}", e))?;
+        .map_err(|_| SystemError::ExternalDependency)?;
 
     let json_res: serde_json::Value = response.json().await
-        .map_err(|e| format!("응답 파싱 실패: {}", e))?;
+        .map_err(|_| SystemError::ExternalDependency)?;
 
     let insights = json_res["candidates"][0]["content"]["parts"][0]["text"]
         .as_str()
-        .ok_or("AI 응답 없음")?
+        .ok_or(SystemError::ExternalDependency)?
         .to_string();
 
     Ok(insights)

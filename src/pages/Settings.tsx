@@ -5,7 +5,11 @@ import { STANDARD_ACCOUNTS } from '../constants/accounts';
 import { AccountNature } from '../types';
 
 const Settings: React.FC = () => {
-    const { ledger, config, updateConfig, clearAllData, loadDemoData, customAccounts, addCustomAccount, removeCustomAccount, corporateRules, updateCorporateRules } = useAccounting();
+    const {
+        ledger, config, updateConfig, clearAllData, loadDemoData,
+        customAccounts, addCustomAccount, removeCustomAccount,
+        corporateRules, updateCorporateRules, resetBusinessMemory
+    } = useAccounting();
     const [newAccount, setNewAccount] = useState('');
     const [newAmount, setNewAmount] = useState('');
     const [newCustomAccount, setNewCustomAccount] = useState('');
@@ -155,6 +159,23 @@ const Settings: React.FC = () => {
                         >
                             <div className="text-rose-400 font-black text-lg mb-2 group-hover:translate-x-1 transition-transform">🗑️ 전체 데이터 삭제 (Delete All Data)</div>
                             <p className="text-slate-400 text-xs">모든 전표와 설정을 삭제하고 빈 상태로 만듭니다.</p>
+                        </button>
+
+                        <button
+                            onClick={async () => {
+                                if (window.confirm('로컬 비즈니스 메모리(벤더별 계정 분류 이력)를 초기화하시겠습니까?')) {
+                                    try {
+                                        await resetBusinessMemory();
+                                        window.alert('비즈니스 메모리가 초기화되었습니다.');
+                                    } catch (e) {
+                                        window.alert('초기화 중 오류가 발생했습니다.');
+                                    }
+                                }
+                            }}
+                            className="p-6 rounded-2xl border border-indigo-500/20 bg-indigo-500/10 hover:bg-indigo-500/20 transition-all text-left group"
+                        >
+                            <div className="text-indigo-400 font-black text-lg mb-2 group-hover:translate-x-1 transition-transform">🧠 비즈니스 메모리 초기화 (Reset Memory)</div>
+                            <p className="text-slate-400 text-xs">학습된 벤더별 계정과목 추천 데이터를 삭제합니다.</p>
                         </button>
                     </div>
                 </div>

@@ -35,8 +35,8 @@ export interface JournalEntry {
 
     // [Time Constitution]
     date: string; // Effective Date (Effective Date)
-    transactionDate: string; // Real-world event date (거래 발생일)
-    recognitionDate: string; // Accrual recognition date (수익/비용 인식일 - 헌법 제5조)
+    transactionDate?: string; // Real-world event date (거래 발생일)
+    recognitionDate?: string; // Accrual recognition date (수익/비용 인식일 - 헌법 제5조)
     eventDate?: string; // Initial decision/contract date
 
     description: string;
@@ -239,6 +239,11 @@ export interface ParsedTransaction {
     merchantName?: string;
     originalAmount?: number;
     attachmentUrl?: string;
+    isIntent?: boolean;
+    sourceType?: 'BankFile' | 'CardFile' | 'Manual';
+    amountOrigin?: 'WithdrawalColumn' | 'DepositColumn' | 'Generic';
+    debitLegs?: { account: string; amount: number }[];
+    creditLegs?: { account: string; amount: number }[];
 }
 
 export interface Partner {

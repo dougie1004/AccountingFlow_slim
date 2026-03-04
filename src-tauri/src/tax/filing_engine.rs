@@ -1,12 +1,12 @@
-use crate::core::models::{AuditSnapshot, EntityMetadata};
+use crate::core::models::{AuditSnapshot, EntityMetadata, SystemError};
 
-pub fn generate_electronic_filing(snapshot: &AuditSnapshot, meta: Option<EntityMetadata>) -> Result<String, String> {
+pub fn generate_electronic_filing(snapshot: &AuditSnapshot, meta: Option<EntityMetadata>) -> Result<String, SystemError> {
     // 1. Validation Logic
     if snapshot.total_amount <= 0.0 {
-        return Err("Cannot file with zero or negative total amount.".to_string());
+        return Err(SystemError::InvalidFormat("Amount zero or negative".to_string()));
     }
     
-    let company_info = meta.ok_or("Entity Metadata missing. Please complete setup wizard.")?;
+    let company_info = meta.ok_or(SystemError::AuthError)?;
 
     // 2. Mock XML Generation (National Tax Service Standard - Simplified)
     let xml_content = format!(

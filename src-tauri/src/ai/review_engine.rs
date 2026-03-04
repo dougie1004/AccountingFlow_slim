@@ -1,3 +1,4 @@
+use crate::core::models::SystemError;
 use crate::models::{ReviewRunLog, ScanSummary, AiOutputCard};
 use crate::ai::ai_service;
 use serde_json::{json, Value};
@@ -53,7 +54,7 @@ pub async fn execute_review_run(
     transactions: Vec<Value>,
     is_judgment_run: bool,
     custom_api_key: Option<String>,
-) -> Result<Value, String> {
+) -> Result<Value, SystemError> {
     let start_time = Local::now();
     let tx_count = transactions.len();
     
@@ -113,7 +114,7 @@ pub async fn execute_review_run(
     let ai_response = ai_service::generic_ai_chat(&prompt, Some(system_instruction.to_string()), custom_api_key).await?;
     
     // 3. Parse and Enhance Response
-    let mut response_json: Value = serde_json::from_str(&ai_response).map_err(|e| format!("AI Response Parse Error: {}", e))?;
+    let response_json: Value = serde_json::from_str(&ai_response).map_err(|e| { eprintln!("AI Response Parse Error: {}", e); SystemError::Internal })?;
     
     let end_time = Local::now();
     let duration = end_time.signed_duration_since(start_time);

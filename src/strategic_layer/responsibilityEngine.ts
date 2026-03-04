@@ -3,7 +3,7 @@
  * Defines the routing of human responsibility when the AI remains silent.
  */
 
-export type OrgRole = 'FINANCE_STAFF' | 'CFO' | 'SYSTEM_ADMIN' | 'INTERNAL_AUDITOR';
+export type OrgRole = 'FINANCE_STAFF' | 'CFO' | 'SYSTEM_ADMIN' | 'INTERNAL_AUDITOR' | 'CEO';
 
 export interface ResponsibilityRoute {
     currentOwner: OrgRole;
@@ -79,10 +79,15 @@ export const getResponsibilityRoute = (
     const isMissingEvidence = thresholds.requiresEvidence && tx.hasEvidence === false;
 
     if (tx.isHighRisk || isOverThreshold || isMissingEvidence || tx.isRecurringAnomaly) {
+        let currentOwner: OrgRole = 'CFO';
         let riskReason = 'HIGH_RISK_UNCLASSIFIED';
         let riskDesc = '고위험 항목으로 분류되어 CFO에게 즉시 보고되었습니다.';
 
-        if (isMissingEvidence) {
+        if (tx.amount >= 50000000) {
+            currentOwner = 'CEO';
+            riskReason = 'EXECUTIVE_WATCH';
+            riskDesc = '5,000만원 이상의 거액 지출로 대표이사(CEO) 직속 검토 제어권이 발동되었습니다.';
+        } else if (isMissingEvidence) {
             riskReason = 'EVIDENCE_MISSING';
             riskDesc = '주요 증빙이 누락되어 시스템 정책에 따라 CFO 검토가 필요합니다.';
         } else if (isOverThreshold) {
@@ -91,7 +96,7 @@ export const getResponsibilityRoute = (
         }
 
         return {
-            currentOwner: 'CFO',
+            currentOwner,
             isImmutable: false,
             reason: riskReason,
             description: riskDesc

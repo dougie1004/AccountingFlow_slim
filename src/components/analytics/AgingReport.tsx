@@ -5,13 +5,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 interface AgingReportProps {
     entries: JournalEntry[];
     type: 'AR' | 'AP' | 'SUS';
+    systemNow?: string;
 }
 
 import { isArAccount, isApAccount, isSuspenseAccount } from '../../constants/accounts';
 
-export const AgingReport: React.FC<AgingReportProps> = ({ entries, type }) => {
+export const AgingReport: React.FC<AgingReportProps> = ({ entries, type, systemNow }) => {
     const data = useMemo(() => {
-        const today = new Date();
+        const today = systemNow ? new Date(systemNow) : new Date();
         const buckets = [
             { name: '0-30일', range: [0, 30], value: 0 },
             { name: '31-60일', range: [31, 60], value: 0 },
@@ -20,7 +21,14 @@ export const AgingReport: React.FC<AgingReportProps> = ({ entries, type }) => {
         ];
 
         entries.filter(e => {
-            if (e.isSettled || e.status !== 'Approved') return false;
+            // Point-in-time unsettled check
+            const isUnsettledByThen = !e.isSettled || (e.settledDate && systemNow && e.settledDate > systemNow);
+            if (!isUnsettledByThen) return false;
+
+            // Match ArApManagement's visibility (Include Unconfirmed)
+            if (e.status !== 'Approved' && e.status !== 'Unconfirmed') return false;
+            if (systemNow && e.date > systemNow) return false;
+
             const isAr = isArAccount(e.debitAccount);
             const isAp = isApAccount(e.creditAccount);
             const isSus = isSuspenseAccount(e.debitAccount) || isSuspenseAccount(e.creditAccount);

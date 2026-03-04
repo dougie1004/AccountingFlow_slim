@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Utc, Duration};
 
+use crate::core::models::SystemError;
+
 pub struct QuotaManager {
     usage: Arc<Mutex<HashMap<String, UserQuota>>>,
 }
@@ -22,7 +24,7 @@ impl QuotaManager {
         }
     }
 
-    pub fn can_use_ai(&self, tenant_id: &str, tier: &str) -> Result<(), String> {
+    pub fn can_use_ai(&self, tenant_id: &str, tier: &str) -> Result<(), SystemError> {
         let mut usage = self.usage.lock().unwrap();
         let quota = usage.entry(tenant_id.to_string()).or_insert(UserQuota {
             tenant_id: tenant_id.to_string(),
@@ -45,11 +47,11 @@ impl QuotaManager {
         };
 
         if quota.daily_calls >= daily_limit {
-            return Err(format!("Daily limit reached: {}", daily_limit));
+            return Err(SystemError::AuthError);
         }
 
         if quota.monthly_calls >= monthly_limit {
-            return Err(format!("Monthly limit reached: {}", monthly_limit));
+            return Err(SystemError::AuthError);
         }
 
         Ok(())

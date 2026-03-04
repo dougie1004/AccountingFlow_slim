@@ -63,7 +63,7 @@ export const FileUploader = React.forwardRef<any, FileUploaderProps>(({ onTransa
     const [pendingFile, setPendingFile] = useState<{ bytes: Uint8Array, name: string, headers: string[], initialMapping: Record<string, string> } | null>(null);
     const [isMappingProgress, setIsMappingProgress] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const { config, corporateRules } = useAccounting();
+    const { config, corporateRules, applyMappingRules } = useAccounting();
 
     React.useImperativeHandle(ref, () => ({
         triggerUpload: () => {
@@ -81,38 +81,56 @@ export const FileUploader = React.forwardRef<any, FileUploaderProps>(({ onTransa
         let transactionFiles: File[] = [];
         let bulkFiles: File[] = [];
 
-        // 1. First Pass: Identify Context & Sort
-        for (const file of files) {
-            const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+        // 1. Smart Routing (Speed + Precision)
+        const contextFiles = files.filter(f => {
+            const name = f.name.toLowerCase();
+            const isDoc = (['.docx', '.doc', '.txt'].includes(name.slice(name.lastIndexOf('.'))));
+            // Combined keywords for contracts, policies, guidelines, etc.
+            const contextKeywords = [/규정/, /계약/, /지침/, /원칙/, /manual/, /policy/, /agreement/, /guideline/, /약관/];
+            const hasKeyword = contextKeywords.some(rev => rev.test(name));
+            return isDoc || hasKeyword;
+        });
 
-            if (['.docx', '.txt', '.pdf'].includes(ext)) {
-                try {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const bytes = new Uint8Array(arrayBuffer);
-                    const text = await invoke<string>('process_review_context', {
-                        fileBytes: Array.from(bytes),
-                        fileName: file.name
-                    });
-                    contextString += `\n[Document: ${file.name}]\n${text}\n`;
-                    transactionFiles.push(file);
-                } catch (e) {
-                    console.error("Context extraction failed:", e);
-                    transactionFiles.push(file); // Still try to analyze
-                }
-            } else {
-                transactionFiles.push(file);
-            }
-        }
+        // Evidence: Sources of transactions. We now allow docs and txt to be analyzed too!
+        const evidenceFiles = files.filter(f => {
+            const name = f.name.toLowerCase();
+            const ext = name.slice(name.lastIndexOf('.'));
+
+            // Rules/Policies remain strictly context to avoid noise in extraction
+            const strictPolicyKeywords = [/규정/, /지침/, /원칙/, /manual/, /policy/, /guideline/, /약관/];
+            if (strictPolicyKeywords.some(rev => rev.test(name))) return false;
+
+            // Allow documents (Drafts, Reports) to be analyzed for transactions
+            return (['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.csv', '.xlsx', '.xls', '.docx', '.doc', '.txt'].includes(ext));
+        });
+
+        console.log(`[AI Routing] Context: ${contextFiles.length}, Evidence: ${evidenceFiles.length}`);
 
         try {
-            const allAiResults: ParsedTransaction[] = [];
+            // 2. Extract Context in Parallel
+            console.log(`[AI Context] Total: ${contextFiles.length} files. Names:`, contextFiles.map(f => f.name));
+            const contextPromises = contextFiles.map(async (f) => {
+                const buf = await f.arrayBuffer();
+                const bytes = new Uint8Array(buf);
+                try {
+                    const text = await invoke<string>('process_review_context', {
+                        fileBytes: bytes,
+                        fileName: f.name
+                    });
+                    return `\n[File: ${f.name}]\n${text}\n`;
+                } catch (e) {
+                    console.warn(`Context extraction failed for ${f.name}:`, e);
+                    return "";
+                }
+            });
+            const contextResults = await Promise.all(contextPromises);
+            contextString += contextResults.join("");
 
-            // 2. Sequential Processing (More stable, hits fewer API limits)
-            for (const file of transactionFiles) {
+            // 3. Parallel Transaction Processing (Evidence Files)
+            const analysisPromises = evidenceFiles.map(async (file) => {
                 try {
                     const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
                     const isImage = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext);
-                    const isContextCandidate = ['.docx', '.txt', '.pdf'].includes(ext);
 
                     let bytes: Uint8Array;
                     if (isImage) {
@@ -122,63 +140,79 @@ export const FileUploader = React.forwardRef<any, FileUploaderProps>(({ onTransa
                         bytes = new Uint8Array(buf);
                     }
 
-                    // Extract Context if needed
-                    if (isContextCandidate) {
-                        try {
-                            const text = await invoke<string>('process_review_context', {
-                                fileBytes: Array.from(bytes),
-                                fileName: file.name
-                            });
-                            contextString += `\n[Doc: ${file.name}]\n${text}\n`;
-                        } catch (e) {
-                            console.warn("Context extraction failed for", file.name, e);
-                        }
-                    }
-
                     // AI Extraction
-                    console.log(`Analyzing ${file.name} (${(bytes.length / 1024).toFixed(1)} KB) with AI...`);
+                    console.log(`[AI Parallel] Analyzing Evidence: ${file.name}...`);
                     const apiResults = await invoke<ParsedTransaction[]>('process_universal_file', {
-                        fileBytes: Array.from(bytes),
+                        fileBytes: bytes,
                         fileName: file.name
                     });
 
                     if (apiResults && apiResults.length > 0) {
-                        if (isImage) {
+                        const validResults = apiResults.filter(tx => tx && tx.description !== "NOT_A_FINANCIAL_DOCUMENT");
+                        console.log(`[AI Parallel] Result for ${file.name}: ${validResults.length} transactions found.`, validResults);
+
+                        if (isImage && validResults.length > 0) {
                             const blob = new Blob([bytes.buffer as any], { type: 'image/jpeg' });
                             const attachmentUrl = URL.createObjectURL(blob);
-                            apiResults.filter(Boolean).forEach(tx => {
-                                if (tx) tx.attachmentUrl = attachmentUrl;
-                            });
+                            validResults.forEach(tx => tx.attachmentUrl = attachmentUrl);
                         }
-                        allAiResults.push(...apiResults);
+                        return validResults;
+                    } else {
+                        console.warn(`[AI Parallel] No transactions found in ${file.name}`);
+                        return [];
                     }
-                } catch (beErr) {
+                } catch (beErr: any) {
                     console.error(`Analysis failed for ${file.name}:`, beErr);
+                    // Deterministic Error Handling for Encoding and Format
+                    if (beErr && typeof beErr === 'object' && beErr.code === 'encodingUncertain') {
+                        setError("파일 인코딩을 확인할 수 없습니다. (UTF-8 권장)");
+                    } else if (beErr && typeof beErr === 'object' && beErr.code === 'invalidFormat') {
+                        setError(`파일 데이터 해석 오류: ${beErr.message || '형식이 올바르지 않습니다.'}`);
+                    } else if (beErr && typeof beErr === 'object' && beErr.code === 'emptyFile') {
+                        setError("파일 내용이 비어 있습니다.");
+                    } else {
+                        setError(`${file.name} 처리 중 오류가 발생했습니다.`);
+                    }
                 }
-            }
+                return [];
+            });
+
+            // Wait for ALL files to be analyzed simultaneously
+            const resultsBlocks = await Promise.all(analysisPromises);
+            const allAiResults: ParsedTransaction[] = resultsBlocks.flat();
 
             let auditedResults = [...allAiResults];
 
-            // 3. AI Audit Cross-Check
+            // 4. AI Audit Cross-Check (Uses the freshly extracted context!)
             if (auditedResults.length > 0) {
                 try {
                     const fullAuditContext = `[사내 회계 규정]\n${corporateRules}\n\n[증빙 및 문서 컨텍스트]\n${contextString}`;
+                    console.log(`[Financial Master Bridge] Commencing audit for ${auditedResults.length} transactions...`);
+                    console.log(`[Financial Master Bridge] Context Size: ${fullAuditContext.length} chars. Sources: ${contextFiles.map(f => f.name).join(', ')}`);
 
                     auditedResults = await invoke<ParsedTransaction[]>('perform_review_check', {
                         transactions: auditedResults,
                         context: fullAuditContext
                     });
+                    console.log("[Financial Master Bridge] Audit complete. Judgments applied.");
                 } catch (auditErr) {
                     console.error("Audit Check Failed:", auditErr);
                 }
             }
 
-            // 4. Commit Results
-            if (auditedResults.length > 0) {
-                const finalResults = auditedResults.map((r: ParsedTransaction) => ({ ...r, originalAmount: r.amount }));
+            // [Smart Memory Injection] Apply Mapping Rules & History
+            const smartResults = applyMappingRules(auditedResults);
+
+            // 5. Commit Results
+            if (smartResults.length > 0) {
+                const finalResults = smartResults.map((r: ParsedTransaction) => ({
+                    ...r,
+                    originalAmount: r.amount || 0,
+                    status: (r as any).status || 'Unconfirmed'
+                }));
                 onTransactionsLoaded(finalResults);
             } else if (bulkFiles.length === 0) {
-                setError("분석된 거래 내역이 없습니다. 파일 형식을 확인해주세요.");
+                setError("분석된 거래 내역이 없습니다. (규정/계약서만 업로드되었거나 증빙을 찾지 못함)");
             }
 
             // 5. Bulk File Routing

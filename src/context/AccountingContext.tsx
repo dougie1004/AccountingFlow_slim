@@ -1,10 +1,18 @@
 import React, { createContext, useState, useMemo, ReactNode } from 'react';
 import { JournalEntry, Partner, Asset, LeaseContract, TenantConfig, ParsedTransaction, MappingRule, ClearingRecord, AccountingPeriod, ClosingRecord, MonthlyBudget, BudgetItem, RiskDecisionLog, LiabilityRecord, BusinessScenario, ScenarioParams, AccountNature, Account, ConstitutionViolationError, SimulationViewMode, ScenarioType, ProjectedCashFlow, RunwayAnalysis } from '../types';
-import { getAccountNature, STANDARD_ACCOUNTS, isSuspenseAccount, isCashAccount } from '../constants/accounts';
+import { getAccountNature, STANDARD_ACCOUNTS, isSuspenseAccount, isCashAccount, isArAccount, isApAccount } from '../constants/accounts';
 import { calculateFinancials, generateClosingSnapshot, calculatePeriodDepreciation, generateCashForecast, calculateRunway, getConsolidatedMetrics } from '../bridge/StrategicBridge';
 import { validateTransaction } from '../core_engine/journalValidator';
 import { generateThreeYearSimulation, generateYearlyPack } from '../utils/mockDataGenerator';
 import { toLocalIsoDate } from '../utils/formatUtils';
+import { invoke } from '@tauri-apps/api/core';
+const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
+
+// Helper for unique IDs that works in all contexts
+const generateId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+};
 
 export interface AccountingContextType {
     ledger: JournalEntry[];
@@ -44,8 +52,8 @@ export interface AccountingContextType {
     mappingRules: MappingRule[];
     addMappingRule: (rule: MappingRule) => void;
     removeMappingRule: (id: string) => void;
-    applyMappingRules: (entries: JournalEntry[]) => JournalEntry[];
-    performClearing: (sourceEntryId: string, targetAccount: string | null, metadata: Omit<ClearingRecord, 'sourceEntryId' | 'clearingEntryId' | 'clearedAt'>) => void;
+    applyMappingRules: <T extends any>(entries: T[]) => T[];
+    performClearing: (sourceEntryId: string, targetAccount: string | null, metadata: Omit<ClearingRecord, 'sourceEntryId' | 'clearingEntryId' | 'clearedAt'>, overrideDate?: string) => void;
     // Closing v1.0
     periods: AccountingPeriod[];
     closingRecords: ClosingRecord[];
@@ -95,6 +103,9 @@ export interface AccountingContextType {
     // [Corporate Governance] Internal Regulations
     corporateRules: string;
     updateCorporateRules: (rules: string) => void;
+    // Business Memory Layer (High-Precision V2)
+    getAccountSuggestions: (source: string, flow: string, vendorName: string, amount: number, date: string) => Promise<any[]>;
+    resetBusinessMemory: () => Promise<void>;
 }
 
 export const AccountingContext = createContext<AccountingContextType | undefined>(undefined);
@@ -141,6 +152,20 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         return saved ? JSON.parse(saved) : [];
     });
     const [stagingTransactions, setStagingTransactions] = useState<ParsedTransaction[]>([]); // Staging data is transient, no need to persist
+
+    const recordPatterns = async (entries: JournalEntry[]) => {
+        if (!isTauri()) return;
+        try {
+            // Phase 7: Local Business Memory Integration
+            await invoke('record_business_patterns', {
+                entries,
+                tenant_id: config.tenantId || 'default-tenant'
+            });
+        } catch (e) {
+            console.error('[Business Memory] Failed to record patterns', e);
+        }
+    };
+
     const [candidateLedger, setCandidateLedger] = useState<JournalEntry[]>(() => {
         const saved = localStorage.getItem('accounting_candidate_ledger');
         return saved ? JSON.parse(saved) : [];
@@ -260,6 +285,33 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
     const updateCorporateRules = (rules: string) => {
         setCorporateRules(rules);
         localStorage.setItem('accounting_corporate_rules', rules);
+    };
+
+    const getAccountSuggestions = async (source: string, flow: string, vendorName: string, amount: number, date: string) => {
+        try {
+            return await invoke('get_business_suggestions', {
+                source,
+                flow,
+                vendorName,
+                amount,
+                date,
+                tenant_id: config.tenantId || 'default-tenant'
+            }) as any[];
+        } catch (e) {
+            console.error('[Business Memory] Failed to get suggestions', e);
+            return [];
+        }
+    };
+
+    const resetBusinessMemory = async () => {
+        try {
+            await invoke('reset_business_memory', {
+                tenant_id: config.tenantId || 'default-tenant'
+            });
+        } catch (e) {
+            console.error('[Business Memory] Failed to reset memory', e);
+            throw e;
+        }
     };
 
     const addLiability = (record: LiabilityRecord) => setLiabilities(prev => [...prev, record]);
@@ -504,118 +556,151 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         });
     };
 
-    const applyMappingRules = (entries: JournalEntry[]) => {
+    const applyMappingRules = <T extends any>(entries: T[]): T[] => {
         return entries.map(entry => {
+            const casted = entry as any;
+            const vendor = casted.vendor || '';
+            const description = casted.description || '';
+
+            // 1. Primary: Explicit Mapping Rules
             const rule = mappingRules.find(r =>
-                entry.vendor?.includes(r.keyword) ||
-                entry.description.includes(r.keyword)
+                (vendor && vendor.includes(r.keyword)) ||
+                (description && description.includes(r.keyword))
             );
+
             if (rule) {
                 const isExpense = rule.type === 'Expense';
                 return {
-                    ...entry,
-                    debitAccount: isExpense ? rule.targetAccount : 'Cash',
-                    creditAccount: isExpense ? 'Cash' : rule.targetAccount,
-                    controlTrail: [...(entry.controlTrail || []), `[Standard Mapping] Rule applied for "${rule.keyword}" -> ${rule.targetAccount}`]
-                };
+                    ...casted,
+                    debitAccount: isExpense ? rule.targetAccount : (casted.debitAccount || 'Cash'),
+                    creditAccount: isExpense ? (casted.creditAccount || 'Cash') : rule.targetAccount,
+                    accountName: rule.targetAccount, // Sync for both types
+                    controlTrail: [...(casted.controlTrail || []), `[Smart Mapping] Rule applied: ${rule.keyword} -> ${rule.targetAccount}`]
+                } as T;
             }
+
+            // 2. Secondary: Historical Memory (Zero-effort learning)
+            if (vendor) {
+                const recentHistory = [...ledger].reverse().find(e =>
+                    e.vendor === vendor &&
+                    e.debitAccount !== '미지정' &&
+                    e.debitAccount !== '미확정비용'
+                );
+
+                if (recentHistory) {
+                    return {
+                        ...casted,
+                        debitAccount: recentHistory.debitAccount,
+                        creditAccount: recentHistory.creditAccount,
+                        accountName: recentHistory.debitAccount,
+                        controlTrail: [...(casted.controlTrail || []), `[Memory] Restored from past transaction with ${vendor}`]
+                    } as T;
+                }
+            }
+
             return entry;
         });
     };
     const addEntries = (entries: JournalEntry[]) => {
-        // [INTEGRITY GUARD] Hydrate missing mandatory dates
-        const hydratedEntries = entries.map(e => {
-            const d = e.date || toLocalIsoDate(new Date());
-            return {
-                ...e,
-                date: d,
-                transactionDate: e.transactionDate || d,
-                recognitionDate: e.recognitionDate || d
-            };
-        });
+        try {
+            console.log(`[AccountingContext] addEntries called with ${entries.length} entries`);
+            // [INTEGRITY GUARD] Hydrate missing mandatory dates
+            const hydratedEntries = entries.map(e => {
+                const d = e.date || toLocalIsoDate(new Date());
+                return {
+                    ...e,
+                    date: d,
+                    transactionDate: e.transactionDate || d,
+                    recognitionDate: e.recognitionDate || d
+                };
+            });
 
-        const locked = hydratedEntries.some(e => isDateLocked(e.date));
-        if (locked) {
-            alert(`⛔ [마감된 기간] 포함된 전표 중 일부가 마감일(${config.closingDate}) 이전입니다.`);
-            return;
-        }
-
-        // [⚖️ ACCOUNTING CONSTITUTION CHECK]
-        for (const e of hydratedEntries) {
-            const val = validateTransaction(e);
-            if (!val.isValid) {
-                alert(`❌ [회계 헌법 위반 - 대량 주입 중단]\n\n전표 ID: ${e.id}\n사유: ${val.errors[0]}`);
+            const locked = hydratedEntries.some(e => isDateLocked(e.date));
+            if (locked) {
+                alert(`⛔ [마감된 기간] 포함된 전표 중 일부가 마감일(${config.closingDate}) 이전입니다.`);
                 return;
             }
-        }
 
-        const mappedEntries = applyMappingRules(hydratedEntries);
-        const LIABILITY_TARGETS = ['가수금', '단기차입금', '임원차입금', '장기차입금'];
-        const detectedLiabilities: LiabilityRecord[] = [];
-
-        // Pre-calculate updates based on CURRENT state to avoid side-effects in setters
-        // Note: This relies on the fact that 'periods' state is up-to-date when addEntries is called.
-        // If rapid concurrent calls happen, this might need a ref to be safe, but for this app it's acceptable.
-
-        let newPeriods = [...periods];
-        const numberedEntries = mappedEntries.map(entry => {
-            const periodKey = entry.date.substring(0, 7);
-            let period = newPeriods.find(p => p.period === periodKey);
-
-            if (!period) {
-                period = {
-                    period: periodKey,
-                    status: 'OPEN',
-                    lastJournalSequence: 0
-                };
-                newPeriods.push(period);
-            }
-
-            const nextSeq = (period.lastJournalSequence || 0) + 1;
-            period.lastJournalSequence = nextSeq;
-
-            // [Phase 11] Detect Liability Creation in batch
-            let liabilityRecord: LiabilityRecord | undefined;
-            if (LIABILITY_TARGETS.includes(entry.creditAccount) && entry.amount > 0) {
-                liabilityRecord = {
-                    id: crypto.randomUUID(),
-                    entryId: entry.id,
-                    state: 'UNPLANNED',
-                    lender: entry.vendor || (entry.creditAccount.includes('가수금') ? '대표이사' : 'Unknown'),
-                    amount: entry.amount,
-                    remainingAmount: entry.amount,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                };
-                detectedLiabilities.push(liabilityRecord);
-            }
-
-            return {
-                ...entry,
-                sequenceNumber: nextSeq,
-                journalNumber: `JE-${periodKey.replace('-', '')}-${String(nextSeq).padStart(4, '0')}`,
-                liabilityRecordId: liabilityRecord?.id, // Link!
-                createdAt: entry.createdAt || new Date().toISOString()
-            };
-        });
-
-        // Update States Sequentially
-        setPeriods(newPeriods);
-        setLedger(prev => [...prev, ...numberedEntries]);
-
-        // Add detected liabilities to state (with duplicate prevention)
-        if (detectedLiabilities.length > 0) {
-            setTimeout(() => setLiabilities(prev => {
-                // Filter out duplicates - check if liability with same entryId already exists
-                const existingEntryIds = new Set(prev.map(l => l.entryId));
-                const newLiabilities = detectedLiabilities.filter(l => !existingEntryIds.has(l.entryId));
-
-                if (newLiabilities.length > 0) {
-                    console.log(`[Liability Engine] Adding ${newLiabilities.length} new liabilities (Prevented ${detectedLiabilities.length - newLiabilities.length} duplicates)`);
-                    return [...prev, ...newLiabilities];
+            // [⚖️ ACCOUNTING CONSTITUTION CHECK]
+            for (const e of hydratedEntries) {
+                const val = validateTransaction(e);
+                if (!val.isValid) {
+                    alert(`❌ [회계 헌법 위반 - 대량 주입 중단]\n\n전표 ID: ${e.id}\n사유: ${val.errors[0]}`);
+                    return;
                 }
-                return prev;
-            }), 0);
+            }
+
+            const mappedEntries = applyMappingRules(hydratedEntries);
+            const LIABILITY_TARGETS = ['가수금', '단기차입금', '임원차입금', '장기차입금'];
+            const detectedLiabilities: LiabilityRecord[] = [];
+
+            let newPeriods = [...periods];
+            const numberedEntries = mappedEntries.map(entry => {
+                const casted = entry as any;
+                const date = casted.date || toLocalIsoDate(new Date());
+                const periodKey = date.substring(0, 7);
+                let period = newPeriods.find(p => p.period === periodKey);
+
+                if (!period) {
+                    period = {
+                        period: periodKey,
+                        status: 'OPEN',
+                        lastJournalSequence: 0
+                    };
+                    newPeriods.push(period);
+                }
+
+                const nextSeq = (period.lastJournalSequence || 0) + 1;
+                period.lastJournalSequence = nextSeq;
+
+                let liabilityRecord: LiabilityRecord | undefined;
+                const creditAccount = casted.creditAccount || '미지급금';
+                const amount = casted.amount || 0;
+
+                if (LIABILITY_TARGETS.includes(creditAccount) && amount > 0) {
+                    liabilityRecord = {
+                        id: generateId(),
+                        entryId: casted.id || generateId(),
+                        state: 'UNPLANNED',
+                        lender: casted.vendor || (creditAccount.includes('가수금') ? '대표이사' : 'Unknown'),
+                        amount: amount,
+                        remainingAmount: amount,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    };
+                    detectedLiabilities.push(liabilityRecord);
+                }
+
+                const result: JournalEntry = {
+                    ...casted,
+                    id: casted.id || generateId(),
+                    date: date,
+                    amount: amount,
+                    debitAccount: casted.debitAccount || '미확정비용',
+                    creditAccount: creditAccount,
+                    sequenceNumber: nextSeq,
+                    journalNumber: `JE-${periodKey.replace('-', '')}-${String(nextSeq).padStart(4, '0')}`,
+                    liabilityRecordId: liabilityRecord?.id,
+                    createdAt: casted.createdAt || new Date().toISOString()
+                };
+                return result;
+            });
+
+            setPeriods(newPeriods);
+            setLedger(prev => [...prev, ...numberedEntries]);
+
+            if (detectedLiabilities.length > 0) {
+                setTimeout(() => setLiabilities(prev => {
+                    const existingEntryIds = new Set(prev.map(l => l.entryId));
+                    const newLiabilities = detectedLiabilities.filter(l => !existingEntryIds.has(l.entryId));
+                    return [...prev, ...newLiabilities];
+                }), 0);
+            }
+
+            recordPatterns(numberedEntries);
+        } catch (error) {
+            console.error('[AccountingContext] Critical failure in addEntries:', error);
+            alert('전표 등록 중 오류가 발생했습니다. 데이터를 확인해 주세요.');
         }
     };
 
@@ -624,13 +709,17 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
 
     const approveEntry = (id: string) => {
         const target = ledger.find(e => e.id === id);
-        if (target) checkSealViolation(target.date);
+        if (target) {
+            checkSealViolation(target.date);
+            recordPatterns([target]);
+        }
         setLedger(prev => prev.map(e => e.id === id ? { ...e, status: 'Approved' } : e));
     };
 
     const bulkApprove = (ids: string[]) => {
         const targets = ledger.filter(e => ids.includes(e.id));
         targets.forEach(e => checkSealViolation(e.date));
+        recordPatterns(targets);
         const idSet = new Set(ids);
         setLedger(prev => prev.map(e => idSet.has(e.id) ? { ...e, status: 'Approved' } : e));
     };
@@ -980,7 +1069,8 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
     const performClearing = (
         sourceEntryId: string,
         targetAccount: string | null,
-        metadata: Omit<ClearingRecord, 'sourceEntryId' | 'clearingEntryId' | 'clearedAt'>
+        metadata: Omit<ClearingRecord, 'sourceEntryId' | 'clearingEntryId' | 'clearedAt'>,
+        overrideDate?: string
     ) => {
         const sourceEntry = ledger.find(e => e.id === sourceEntryId);
         if (!sourceEntry) return;
@@ -991,6 +1081,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         }
 
         const now = new Date().toISOString();
+        const effectiveDate = overrideDate || now.split('T')[0];
 
         if (metadata.status === 'BLOCKED') {
             // 1. Create the Blocked Record
@@ -1024,19 +1115,45 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         };
 
         // 2. Prepare the new Journal Entry
-        const isDebitSus = isSuspenseAccount(sourceEntry.debitAccount);
+        // [Engine Logic] Determine which side to reverse based on account nature
+        const isDebitOutstanding = isSuspenseAccount(sourceEntry.debitAccount) || isArAccount(sourceEntry.debitAccount);
+        const isCreditOutstanding = isSuspenseAccount(sourceEntry.creditAccount) || isApAccount(sourceEntry.creditAccount);
+
+        let debitAccount: string;
+        let creditAccount: string;
+        let entryType: string;
+
+        if (isDebitOutstanding) {
+            // Case AR: AR(DR)/Rev(CR) -> clearing: Bank(DR)/AR(CR)
+            // Case Sus: Sus(DR)/Bank(CR) -> clearing: Exp(DR)/Sus(CR)
+            debitAccount = targetAccount;
+            creditAccount = sourceEntry.debitAccount;
+            entryType = isArAccount(sourceEntry.debitAccount) ? 'Asset' : 'Expense';
+        } else if (isCreditOutstanding) {
+            // Case AP: Exp(DR)/AP(CR) -> clearing: AP(DR)/Bank(CR)
+            // Case Sus: Bank(DR)/Sus(CR) -> clearing: Sus(DR)/Rev(CR)
+            debitAccount = sourceEntry.creditAccount;
+            creditAccount = targetAccount;
+            entryType = isApAccount(sourceEntry.creditAccount) ? 'Liability' : 'Revenue';
+        } else {
+            // Internal Fallback
+            debitAccount = targetAccount;
+            creditAccount = sourceEntry.debitAccount;
+            entryType = 'Adjustment';
+        }
+
         const newEntry: JournalEntry = {
             id: clearingEntryId,
-            date: now.split('T')[0],
-            transactionDate: now.split('T')[0],
-            recognitionDate: now.split('T')[0],
+            date: effectiveDate,
+            transactionDate: effectiveDate,
+            recognitionDate: effectiveDate,
             description: `[정산] ${sourceEntry.description}`,
             vendor: sourceEntry.vendor || '',
-            debitAccount: isDebitSus ? targetAccount : sourceEntry.debitAccount,
-            creditAccount: isDebitSus ? sourceEntry.debitAccount : targetAccount,
+            debitAccount,
+            creditAccount,
             amount: sourceEntry.amount,
             vat: sourceEntry.vat,
-            type: isDebitSus ? 'Expense' : 'Revenue',
+            type: entryType,
             status: 'Approved',
             clearingRecord: clearingRecord,
             createdAt: now,
@@ -1047,7 +1164,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         // 3. Atomically update the ledger
         setLedger(prev => prev.map(e =>
             e.id === sourceEntryId
-                ? { ...e, isSettled: true, settledDate: now.split('T')[0], clearingRecord }
+                ? { ...e, isSettled: true, settledDate: effectiveDate, clearingRecord }
                 : e
         ).concat(newEntry));
     };
@@ -1327,13 +1444,16 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         simulationViewMode, setSimulationViewMode,
         activeScenario, setActiveScenario,
         initialCashBalance, injectStressData,
-        corporateRules, updateCorporateRules
+        corporateRules, updateCorporateRules,
+        getAccountSuggestions, resetBusinessMemory
     }), [
         ledger, partners, financials, assets, leases, stagingTransactions, config, subLedger,
         customAccounts, mappingRules, periods, closingRecords, budgets, riskDecisions,
         candidateLedger, language, systemNow, liabilities, simulationViewMode,
         activeScenario, initialCashBalance, injectStressData,
-        corporateRules, updateCorporateRules, bulkDelete
+        corporateRules, updateCorporateRules, bulkDelete,
+        getAccountSuggestions, resetBusinessMemory,
+        addEntries, approveEntry, bulkApprove
     ]);
 
     return (

@@ -1,4 +1,4 @@
-use crate::core::models::ParsedTransaction;
+use crate::core::models::{ParsedTransaction, SystemError};
 use crate::ai::ai_service;
 use tokio::task::JoinSet;
 
@@ -7,7 +7,7 @@ use tokio::task::JoinSet;
 pub async fn process_mass_batch(
     transactions: Vec<ParsedTransaction>,
     policy: &str,
-) -> Result<Vec<ParsedTransaction>, String> {
+) -> Result<Vec<ParsedTransaction>, SystemError> {
     let chunk_size = 20;
     let mut enhanced_transactions = Vec::new();
     
@@ -42,7 +42,7 @@ pub async fn process_mass_batch(
 async fn enhance_transaction_with_ai(
     mut tx: ParsedTransaction,
     policy: &str,
-) -> Result<ParsedTransaction, String> {
+) -> Result<ParsedTransaction, SystemError> {
     let input = format!(
         "Date: {}, Description: {}, Amount: {}, Vendor: {}, VAT: {}",
         tx.date.as_deref().unwrap_or("Unknown"),

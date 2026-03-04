@@ -1,4 +1,4 @@
-use crate::core::models::{ParsedTransaction, JournalEntry};
+use crate::core::models::{ParsedTransaction, JournalEntry, SystemError};
 use crate::ai::robust_parser::detect_and_decode;
 use csv::ReaderBuilder;
 use std::io::Cursor;
@@ -15,7 +15,7 @@ pub struct DouzoneRecord {
 }
 
 /// 더존(Douzone) 전표 데이터 특화 파서
-pub fn parse_douzone_data(bytes: Vec<u8>, file_name: &str) -> Result<Vec<ParsedTransaction>, String> {
+pub fn parse_douzone_data(bytes: Vec<u8>, file_name: &str) -> Result<Vec<ParsedTransaction>, SystemError> {
     let ext = std::path::Path::new(file_name)
         .extension()
         .and_then(|s| s.to_str())
@@ -39,7 +39,7 @@ struct RawRow {
     account: String,
 }
 
-fn parse_douzone_csv(bytes: Vec<u8>) -> Result<Vec<ParsedTransaction>, String> {
+fn parse_douzone_csv(bytes: Vec<u8>) -> Result<Vec<ParsedTransaction>, SystemError> {
     let content = detect_and_decode(&bytes)?.replace("\u{feff}", "");
     
     // 1. Delimiter Detection
@@ -68,7 +68,7 @@ fn parse_douzone_csv(bytes: Vec<u8>) -> Result<Vec<ParsedTransaction>, String> {
         .flexible(true)
         .from_reader(Cursor::new(content.clone()));
 
-    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
+    let headers = rdr.headers().map_err(|e| { eprintln!("[Parser] CSV Header Read Error: {}", e); SystemError::InvalidFormat("CSV 헤더를 읽을 수 없습니다.".to_string()) })?.clone();
     println!("[Parser] Raw CSV Headers (len={}): {:?}", headers.len(), headers);
     
     let mut header_map = std::collections::HashMap::new();
@@ -81,13 +81,13 @@ fn parse_douzone_csv(bytes: Vec<u8>) -> Result<Vec<ParsedTransaction>, String> {
     }
     
     if header_map.is_empty() {
-        return Err("헤더 매핑에 실패했습니다. (일자, 금액/차변/대변, 적요 등 필수 필드 누락)".to_string());
+        return Err(SystemError::InvalidFormat("헤더 매핑에 실패했습니다. (일자, 금액/차변/대변, 적요 등 필수 필드 누락)".to_string()));
     }
 
     let mut raw_rows = Vec::new();
     
     for result in rdr.records() {
-        let record = result.map_err(|e| e.to_string())?;
+        let record = result.map_err(|e| { eprintln!("[Parser] CSV Record Error: {}", e); SystemError::InvalidFormat("CSV 행 읽기 실패".to_string()) })?;
         
         let fields: Vec<String> = if record.len() == 1 && (record[0].contains(',') || record[0].contains('\t')) {
             let split_char = if record[0].contains('\t') { '\t' } else { ',' };
@@ -184,14 +184,14 @@ fn group_and_merge_rows(rows: Vec<RawRow>) -> Vec<ParsedTransaction> {
     results
 }
 
-fn parse_douzone_excel(bytes: Vec<u8>) -> Result<Vec<ParsedTransaction>, String> {
+fn parse_douzone_excel(bytes: Vec<u8>) -> Result<Vec<ParsedTransaction>, SystemError> {
     let mut excel: Xlsx<_> = calamine::open_workbook_from_rs(Cursor::new(bytes))
-        .map_err(|e| format!("Excel open failed: {}", e))?;
+        .map_err(|e| { eprintln!("[Parser] Excel Open Error: {}", e); SystemError::InvalidFormat("Excel 파일 열기 실패".to_string()) })?;
     
-    let sheet_name = excel.sheet_names().get(0).ok_or("No sheets found")?.clone();
-    let range = excel.worksheet_range(&sheet_name).map_err(|e| e.to_string())?;
+    let sheet_name = excel.sheet_names().get(0).ok_or_else(|| { eprintln!("[Parser] No sheets in Excel"); SystemError::InvalidFormat("워크시트가 없습니다.".to_string()) })?.clone();
+    let range = excel.worksheet_range(&sheet_name).map_err(|e| { eprintln!("[Parser] Range Error: {}", e); SystemError::InvalidFormat("시트 데이터 읽기 실패".to_string()) })?;
     
-    let headers = range.rows().next().ok_or("Empty excel sheet")?;
+    let headers = range.rows().next().ok_or_else(|| { eprintln!("[Parser] Empty sheet"); SystemError::EmptyFile })?;
     let header_strs: Vec<String> = headers.iter().map(|h| h.to_string()).collect();
     let header_map = map_headers_raw(&header_strs);
 

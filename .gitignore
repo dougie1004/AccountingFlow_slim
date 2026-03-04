@@ -1,39 +1,56 @@
-# Node / Frontend
+# 🛡️ AccountingFlow Private & Strategic Layers (DO NOT PUSH)
+history/
+constitution/
+DAILY_WORK_LOG.md
+docs/DAILY_DEV_REPORT.md
+PHASE_3_ROADMAP.md
+SCENARIO_ANALYSIS_*.md
+SIMULATION_INSIGHTS_*.md
+STRATEGY_MANIFESTO_*.md
+SYSTEM_UPGRADE_*.md
+LESSONS_LEARNED.md
+PERFORMANCE_UPGRADE_REPORT.md
+WORK_LOG_Handoover.md
+Slim_Controller_Update.md
+STRATEGY_MANIFESTO_FINAL.md
+
+# 📝 Logs, Audits, and Intermediate Reports (DO NOT PUSH)
+*.log
+*.txt
+audit_output*.txt
+cargo_check.json
+build_err*.txt
+final_report.txt
+inspector_output.txt
+scenario_results.txt
+test_log.txt
+test_result*.log
+test-results/
+playwright-report/
+
+# 📦 Binaries, Sample Data, and Assets (DO NOT PUSH)
+*.exe
+*.xlsx
+*.csv
+real_data_sample.xlsx
+DemoCo_Sample_2026.xlsx
+app-icon*
+
+# ⚙️ Standard Framework & Environment
 node_modules
 dist
 .env*
 .DS_Store
 scripts/
-
-# Rust / Tauri Backend
 src-tauri/target
 src-tauri/gen/android
 src-tauri/gen/schemas
 src-tauri/.cargo
-
-# IDE / OS
 .vscode
 .idea
 *.swp
 Thumbs.db
-
-# Logs and temporary files
-*.log
-build_log.txt
-cargo_errors.txt
-commands_view.txt
-
-# Generated assets and temporary scripts
-app-logo.png
-app-icon.jpg
-app-icon-square.png
-mega_fix.py
-add_config_commands.py
-test_key.js
-
-# Evidence images (temporary)
 KakaoTalk_*.jpg
 20260109_*.jpg
-# Private Management Docs
 docs/*_PRIVATE.md
 docs/FINANCIAL_SCENARIOS_PRIVATE.md

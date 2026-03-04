@@ -105,7 +105,7 @@ pub async fn generate_management_report(
     period_start: String,
     period_end: String,
     report_mode: String, // "Growth" | "Efficiency" | "Defense"
-) -> Result<ManagementReport, String> {
+) -> Result<ManagementReport, SystemError> {
     // 1. 재무 데이터 집계
     let financial_overview = calculate_financial_overview(&ledger);
 
@@ -377,8 +377,8 @@ async fn generate_ai_analysis(
     tax: &TaxCompliance,
     assets: &AssetInsights,
     report_mode: &str,
-) -> Result<AiAnalysisResponse, String> {
-    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| "환경 변수 'GEMINI_API_KEY'가 설정되지 않았습니다.".to_string())?;
+) -> Result<AiAnalysisResponse, SystemError> {
+    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| { eprintln!("[Narrative Engine] API Key missing."); SystemError::AuthError })?;
 
     let trends_summary = trends.iter()
         .map(|t| format!("- {}: {}", t.category, t.insight))
@@ -481,14 +481,15 @@ JSON 형식으로 응답:
         .json(&json!({ "contents": [{ "parts": [{ "text": prompt }] }] }))
         .send()
         .await
-        .map_err(|e| format!("AI 호출 실패: {}", e))?;
+        .map_err(|e| { eprintln!("[Narrative AI] Call Failed: {}", e); SystemError::ExternalDependency })?;
 
-    let json_res: serde_json::Value = response.json().await
-        .map_err(|e| format!("응답 파싱 실패: {}", e))?;
+    let body_text = response.text().await.unwrap_or_else(|_| "No Body".to_string());
+    let json_res: serde_json::Value = serde_json::from_str(&body_text)
+        .map_err(|e| { eprintln!("[Narrative AI] JSON Parse Error: {}. Raw: {}", e, body_text); SystemError::ExternalDependency })?;
 
     let mut text = json_res["candidates"][0]["content"]["parts"][0]["text"]
         .as_str()
-        .ok_or("AI 응답 없음")?
+        .ok_or_else(|| { eprintln!("[Narrative AI] Candidate Missing"); SystemError::ExternalDependency })?
         .to_string();
 
     // JSON 추출
@@ -500,7 +501,7 @@ JSON 형식으로 응답:
     }
 
     let ai_res: AiAnalysisResponse = serde_json::from_str(&text)
-        .map_err(|e| format!("JSON 파싱 실패 (AiAnalysisResponse): {}", e))?;
+        .map_err(|e| { eprintln!("[Narrative AI] Field Map Fail: {} - Snippet: {}", e, if text.len() > 100 { &text[..100] } else { &text }); SystemError::ExternalDependency })?;
  
     Ok(ai_res)
 }

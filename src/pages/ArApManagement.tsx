@@ -221,7 +221,7 @@ export const ArApManagement: React.FC = () => {
                             Aging Report (미결제 연령 분석)
                         </h3>
                     </div>
-                    <AgingReport entries={ledger} type={view} />
+                    <AgingReport entries={ledger} type={view} systemNow={effectiveDateStr} />
                 </div>
 
                 <div className="bg-[#151D2E]/50 p-8 rounded-[2.5rem] border border-dashed border-white/10 flex flex-col items-center justify-center text-center">
@@ -311,49 +311,7 @@ export const ArApManagement: React.FC = () => {
                                     view={view}
                                     formatCurrency={formatCurrency}
                                     currentDate={effectiveDateStr}
-                                    onAction={(entry) => {
-                                        if (view === 'AR') {
-                                            if (window.confirm(`'${entry.description}' 건에 대한 수금 처리를 진행하시겠습니까?`)) {
-                                                updateEntry(entry.id, { isSettled: true });
-                                                addEntry({
-                                                    id: crypto.randomUUID(),
-                                                    date: new Date().toISOString().split('T')[0],
-                                                    description: `[수금] ${entry.description}`,
-                                                    vendor: entry.vendor || '',
-                                                    debitAccount: '보통예금',
-                                                    creditAccount: entry.debitAccount,
-                                                    amount: entry.amount + (entry.vat || 0),
-                                                    vat: 0,
-                                                    type: 'Asset',
-                                                    status: 'Approved',
-                                                    createdAt: new Date().toISOString(),
-                                                    journalNumber: 'TEST-AR',
-                                                    sequenceNumber: 0
-                                                });
-                                            }
-                                        } else if (view === 'AP') {
-                                            if (window.confirm(`'${entry.description}' 건에 대한 지급 승인을 진행하시겠습니까?`)) {
-                                                updateEntry(entry.id, { isSettled: true });
-                                                addEntry({
-                                                    id: crypto.randomUUID(),
-                                                    date: new Date().toISOString().split('T')[0],
-                                                    description: `[지급] ${entry.description}`,
-                                                    vendor: entry.vendor || '',
-                                                    debitAccount: entry.creditAccount,
-                                                    creditAccount: '보통예금',
-                                                    amount: entry.amount + (entry.vat || 0),
-                                                    vat: 0,
-                                                    type: 'Liability',
-                                                    status: 'Approved',
-                                                    createdAt: new Date().toISOString(),
-                                                    journalNumber: 'TEST-AP',
-                                                    sequenceNumber: 0
-                                                });
-                                            }
-                                        } else {
-                                            setSelectedEntry(entry);
-                                        }
-                                    }}
+                                    onAction={(entry) => setSelectedEntry(entry)}
                                 />
                             ))}
                             {unsettledEntries.length > displayCount && (
@@ -384,8 +342,8 @@ export const ArApManagement: React.FC = () => {
                 <ClearingModal
                     entry={selectedEntry}
                     onClose={() => setSelectedEntry(null)}
-                    onConfirm={(targetAccount, metadata) => {
-                        performClearing(selectedEntry.id, targetAccount, metadata);
+                    onConfirm={(targetAccount, metadata, overrideDate) => {
+                        performClearing(selectedEntry.id, targetAccount, metadata, overrideDate);
                         setSelectedEntry(null);
                     }}
                 />

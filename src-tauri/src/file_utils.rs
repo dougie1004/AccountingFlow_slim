@@ -1,4 +1,5 @@
 use std::path::Path;
+use crate::core::models::SystemError;
 use std::fs::File;
 use std::io::Read;
 use calamine::{Range, Data};
@@ -536,10 +537,10 @@ pub async fn geocode_address(address: &str, api_key: &str) -> Option<(f64, f64, 
     Some((37.5 + lat_offset, 127.0 + lng_offset, format!("[Simulation] {}", address)))
 }
 
-pub fn read_file_with_encoding(path: &Path) -> Result<String, String> {
-    let mut file = File::open(path).map_err(|e| e.to_string())?;
+pub fn read_file_with_encoding(path: &Path) -> Result<String, SystemError> {
+    let mut file = File::open(path).map_err(|_| SystemError::Internal)?;
     let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).map_err(|e| e.to_string())?;
+    file.read_to_end(&mut buffer).map_err(|_| SystemError::Internal)?;
 
     // 1. Try UTF-8 first
     if let Ok(utf8) = std::str::from_utf8(&buffer) {
@@ -551,9 +552,9 @@ pub fn read_file_with_encoding(path: &Path) -> Result<String, String> {
     Ok(cow.to_string())
 }
 
-pub fn extract_text_from_zip(path: &Path, file_patterns: Vec<&str>) -> Result<String, String> {
-    let file = File::open(path).map_err(|e| e.to_string())?;
-    let mut archive = ZipArchive::new(file).map_err(|e| e.to_string())?;
+pub fn extract_text_from_zip(path: &Path, file_patterns: Vec<&str>) -> Result<String, SystemError> {
+    let file = File::open(path).map_err(|_| SystemError::Internal)?;
+    let mut archive = ZipArchive::new(file).map_err(|_| SystemError::Internal)?;
     let mut full_text = String::new();
 
     let mut files_to_read = Vec::new();
@@ -582,7 +583,7 @@ pub fn extract_text_from_zip(path: &Path, file_patterns: Vec<&str>) -> Result<St
     }
 
     if full_text.trim().is_empty() {
-        return Err("No text extracted from document".to_string());
+        return Err(SystemError::ExternalDependency);
     }
     Ok(full_text)
 }
@@ -606,15 +607,15 @@ pub fn compress_csv_data(content: String) -> (String, Vec<String>) {
     ("Full Scan Ready".to_string(), row_store)
 }
 
-pub fn read_any_file(path: &Path, ext: &str) -> Result<String, String> {
+pub fn read_any_file(path: &Path, ext: &str) -> Result<String, SystemError> {
     match ext {
-        "pdf" => extract_text(path).map_err(|e| format!("PDF Error: {}", e)),
+        "pdf" => extract_text(path).map_err(|_| SystemError::ExternalDependency),
         "docx" => extract_text_from_zip(path, vec!["word/document"]),
         "pptx" => extract_text_from_zip(path, vec!["ppt/slides/slide"]),
         "xlsx" => extract_text_from_zip(path, vec!["xl/sharedStrings", "xl/worksheets/sheet"]),
         "eml" => {
-            let content = std::fs::read(path).map_err(|e| e.to_string())?;
-            let parsed = parse_mail(&content).map_err(|e| e.to_string())?;
+            let content = std::fs::read(path).map_err(|_| SystemError::Internal)?;
+            let parsed = parse_mail(&content).map_err(|_| SystemError::ExternalDependency)?;
             let subject = parsed.headers.get_first_value("Subject").unwrap_or("No Subject".to_string());
             let from = parsed.headers.get_first_value("From").unwrap_or("Unknown".to_string());
             let body = parsed.get_body().unwrap_or("No Body".to_string());
@@ -629,7 +630,7 @@ pub fn read_any_file(path: &Path, ext: &str) -> Result<String, String> {
                     return Ok(text);
                 }
             }
-            Err(format!("Unsupported format or binary file: .{}", ext))
+            Err(SystemError::ExternalDependency)
         }
     }
 }

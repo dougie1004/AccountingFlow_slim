@@ -1,4 +1,4 @@
-use crate::core::models::JournalEntry;
+use crate::core::models::{JournalEntry, SystemError};
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -23,9 +23,9 @@ pub struct TrialBalance {
  * Batch Process Service
  * 전표 일괄 확정 및 시산표 검증 (이중 검증 시스템)
  */
-pub fn process_batch_export(entries: Vec<JournalEntry>) -> Result<BatchExportResult, String> {
+pub fn process_batch_export(entries: Vec<JournalEntry>) -> Result<BatchExportResult, SystemError> {
     if entries.is_empty() {
-        return Err("전표가 없습니다.".to_string());
+        return Err(SystemError::EmptyFile);
     }
 
     // 1. 시산표 검증 (Trial Balance)
@@ -62,7 +62,7 @@ pub fn process_batch_export(entries: Vec<JournalEntry>) -> Result<BatchExportRes
         }
 
         // 3-3. VAT 비율 이상
-        if entry.vat > 0.0 && (entry.vat / entry.amount) > 0.15 {
+        if entry.amount > 0.0 && entry.vat > 0.0 && (entry.vat / entry.amount) > 0.15 {
             anomalies.push(format!(
                 "#{} VAT 비율 이상: {} ({}%)",
                 idx + 1, entry.description, (entry.vat / entry.amount * 100.0)
@@ -98,15 +98,15 @@ fn calculate_trial_balance(entries: &[JournalEntry]) -> TrialBalance {
     }
 }
 
-fn generate_csv(entries: &[JournalEntry]) -> Result<String, String> {
+fn generate_csv(entries: &[JournalEntry]) -> Result<String, SystemError> {
     let mut csv = String::from("날짜,적요,거래처,차변계정,대변계정,금액,VAT,상태\n");
     
     for entry in entries {
         csv.push_str(&format!(
             "{},{},{},{},{},{},{},{}\n",
             entry.date,
-            entry.description,
-            entry.vendor.as_deref().unwrap_or(""),
+            entry.description.replace(",", ";"), // CSV injection safety
+            entry.vendor.as_deref().unwrap_or("").replace(",", ";"),
             entry.debit_account,
             entry.credit_account,
             entry.amount,
@@ -121,8 +121,8 @@ fn generate_csv(entries: &[JournalEntry]) -> Result<String, String> {
 /**
  * AI 기반 이상 거래 탐지 (Gemini 3.0 Pro 활용)
  */
-pub async fn detect_anomalies_with_ai(entries: &[JournalEntry]) -> Result<Vec<String>, String> {
-    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| "환경 변수 'GEMINI_API_KEY'가 설정되지 않았습니다.".to_string())?;
+pub async fn detect_anomalies_with_ai(entries: &[JournalEntry]) -> Result<Vec<String>, SystemError> {
+    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| { eprintln!("[Export AI] API Key missing."); SystemError::AuthError })?;
 
     // 전표 요약 생성
     let summary = entries.iter()
@@ -161,22 +161,23 @@ pub async fn detect_anomalies_with_ai(entries: &[JournalEntry]) -> Result<Vec<St
         .json(&serde_json::json!({ "contents": [{ "parts": [{ "text": prompt }] }] }))
         .send()
         .await
-        .map_err(|e| format!("AI 호출 실패: {}", e))?;
+        .map_err(|e| { eprintln!("[Export AI] Call Failed: {}", e); SystemError::ExternalDependency })?;
 
-    let json_res: serde_json::Value = response.json().await
-        .map_err(|e| format!("응답 파싱 실패: {}", e))?;
+    let text_res = response.text().await.map_err(|e| { eprintln!("[Export AI] Response Read Error: {}", e); SystemError::ExternalDependency })?;
+    let json_res: serde_json::Value = serde_json::from_str(&text_res)
+        .map_err(|e| { eprintln!("[Export AI] JSON Parse Fail: {}. Text: {}", e, text_res); SystemError::ExternalDependency })?;
 
     let text = json_res["candidates"][0]["content"]["parts"][0]["text"]
         .as_str()
-        .ok_or("AI 응답 없음")?
+        .ok_or_else(|| { eprintln!("[Export AI] Empty candidates list."); SystemError::ExternalDependency })?
         .replace("```json", "").replace("```", "").trim().to_string();
 
     let result: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| format!("JSON 파싱 실패: {}", e))?;
+        .map_err(|e| { eprintln!("[Export AI] Result Structure Map Fail: {}", e); SystemError::ExternalDependency })?;
 
     let anomalies = result["anomalies"]
         .as_array()
-        .ok_or("anomalies 필드 없음")?
+        .ok_or_else(|| { eprintln!("[Export AI] Missing 'anomalies' field."); SystemError::ExternalDependency })?
         .iter()
         .filter_map(|v| v.as_str().map(String::from))
         .collect();

@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::core::models::{JournalEntry, EntityMetadata};
+use crate::core::models::{JournalEntry, EntityMetadata, SystemError};
 use std::fs;
 use std::path::PathBuf;
 
@@ -23,7 +23,7 @@ impl HometaxEngine {
         entries: &[JournalEntry], 
         meta: &EntityMetadata,
         tenant_id: &str
-    ) -> Result<PathBuf, String> {
+    ) -> Result<PathBuf, SystemError> {
         let mut total_sales = 0.0;
         let mut total_purchase = 0.0;
 
@@ -62,26 +62,26 @@ impl HometaxEngine {
 
         // 로컬 보안 폴더에 저장
         let secure_dir = PathBuf::from("./secure_storage").join(tenant_id);
-        fs::create_dir_all(&secure_dir).map_err(|e| e.to_string())?;
+        fs::create_dir_all(&secure_dir).map_err(|_| SystemError::Internal)?;
         
         let file_path = secure_dir.join(format!("VAT_Filing_{}.xml", chrono::Local::now().format("%Y%m%d")));
-        fs::write(&file_path, xml_content).map_err(|e| e.to_string())?;
+        fs::write(&file_path, xml_content).map_err(|_| SystemError::Internal)?;
 
         Ok(file_path)
     }
 
     /// [안정화] 국세청 표준(XSD) 준수 여부 검증
-    fn validate_xml_structure(xml: &str) -> Result<(), String> {
+    fn validate_xml_structure(xml: &str) -> Result<(), SystemError> {
         let mandatory_tags = vec!["<NTS_VAT_REPORT>", "<HEADER>", "<SUMMARY>", "<BIZ_NO>", "<VAT_PAYABLE>"];
         for tag in mandatory_tags {
             if !xml.contains(tag) {
-                return Err(format!("XML 유효성 검사 실패: 필수 태그 {}가 누락되었습니다.", tag));
+                return Err(SystemError::InvalidFormat(format!("XML Missing Tag: {}", tag)));
             }
         }
         
         // 사업자 번호 형식 검증 (단순화)
         if xml.contains("<BIZ_NO>000-00-00000</BIZ_NO>") {
-             return Err("XML 유효성 검사 실패: 유효하지 않은 사업자 번호(테스트용)입니다.".into());
+             return Err(SystemError::InvalidFormat("Invalid Biz No".to_string()));
         }
 
         Ok(())
@@ -91,18 +91,18 @@ impl HometaxEngine {
     pub fn generate_bridge_file(
         entries: &[JournalEntry],
         tenant_id: &str
-    ) -> Result<PathBuf, String> {
+    ) -> Result<PathBuf, SystemError> {
         use crate::core::security::SecurityGuard;
 
         // 1. 데이터 직렬화
-        let serialized = serde_json::to_string(entries).map_err(|e| e.to_string())?;
+        let serialized = serde_json::to_string(entries).map_err(|_| SystemError::Internal)?;
         
         // 2. 테넌트 키로 암호화 (AES-256-GCM)
         let encrypted_payload = SecurityGuard::encrypt_data(tenant_id, &serialized)?;
 
         // 3. 파일 생성 (.af_audit)
         let audit_dir = PathBuf::from("./audit_packages").join(tenant_id);
-        fs::create_dir_all(&audit_dir).map_err(|e| e.to_string())?;
+        fs::create_dir_all(&audit_dir).map_err(|_| SystemError::Internal)?;
         
         let file_name = format!("Audit_Package_{}.af_audit", chrono::Local::now().format("%Y%m%d_%H%M"));
         let file_path = audit_dir.join(file_name);
@@ -116,7 +116,7 @@ impl HometaxEngine {
             "payload": encrypted_payload
         });
 
-        fs::write(&file_path, package.to_string()).map_err(|e| e.to_string())?;
+        fs::write(&file_path, package.to_string()).map_err(|_| SystemError::Internal)?;
 
         Ok(file_path)
     }
@@ -125,16 +125,16 @@ impl HometaxEngine {
     pub fn verify_bridge_file(
         package_path: PathBuf,
         tenant_id: &str
-    ) -> Result<usize, String> {
+    ) -> Result<usize, SystemError> {
         use crate::core::security::SecurityGuard;
 
-        let content = fs::read_to_string(package_path).map_err(|e| e.to_string())?;
-        let package: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+        let content = fs::read_to_string(package_path).map_err(|_| SystemError::Internal)?;
+        let package: serde_json::Value = serde_json::from_str(&content).map_err(|_| SystemError::Internal)?;
         
-        let encrypted_payload = package["payload"].as_str().ok_or("Invalid package format")?;
+        let encrypted_payload = package["payload"].as_str().ok_or(SystemError::Internal)?;
         let decrypted = SecurityGuard::decrypt_data(tenant_id, encrypted_payload)?;
         
-        let entries: Vec<JournalEntry> = serde_json::from_str(&decrypted).map_err(|e| e.to_string())?;
+        let entries: Vec<JournalEntry> = serde_json::from_str(&decrypted).map_err(|_| SystemError::Internal)?;
         Ok(entries.len())
     }
 }

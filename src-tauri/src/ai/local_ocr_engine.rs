@@ -1,4 +1,4 @@
-use crate::core::models::ParsedTransaction;
+use crate::core::models::{ParsedTransaction, SystemError};
 use image::{DynamicImage, GenericImageView, Luma};
 use std::io::Cursor;
 use regex::Regex;
@@ -8,13 +8,13 @@ use regex::Regex;
 /// NOTE: This module currently performs high-speed Image Pre-processing (Grayscale/Binarization).
 /// For full Local OCR, the system requires 'tesseract' and 'leptonica' libraries.
 /// In this version, we implement the Pipeline and Regex matching.
-pub fn perform_local_ocr(image_bytes: &[u8]) -> Result<Option<ParsedTransaction>, String> {
+pub fn perform_local_ocr(image_bytes: &[u8]) -> Result<Option<ParsedTransaction>, SystemError> {
     println!("[Local OCR] Starting Tier 1.5 Pre-processing (Rust Side)...");
 
     // 1. Image Pre-processing
     // Pure Rust implementation using 'image' crate
     let img = image::load_from_memory(image_bytes)
-        .map_err(|e| format!("이미지를 로드할 수 없습니다: {}", e))?;
+        .map_err(|e| { eprintln!("[Local OCR] Image Load Error: {}", e); SystemError::Internal })?;
     
     // Grayscale conversion
     let gray_img = img.grayscale();

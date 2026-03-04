@@ -1,21 +1,22 @@
 ﻿use tauri::{AppHandle, Manager};
 use rusqlite::{params, Connection};
+use crate::core::models::SystemError;
 
 #[tauri::command]
-pub fn remove_duplicate_issues(app_handle: AppHandle, project_id: String) -> Result<String, String> {
+pub fn remove_duplicate_issues(app_handle: AppHandle, project_id: String) -> Result<String, SystemError> {
     let db_path = app_handle.path().app_data_dir().unwrap().join("audit_data_v4.db");
-    let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+    let conn = Connection::open(db_path).map_err(|_| SystemError::DatabaseError)?;
 
     // Find duplicates based on row_index and similar evidence
     let mut stmt = conn.prepare(
         "SELECT id, row_index, evidence_quote FROM audit_issues 
          WHERE project_type = ?1 
          ORDER BY row_index, id"
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|_| SystemError::DatabaseError)?;
 
     let issues: Vec<(i64, i64, String)> = stmt.query_map(params![&project_id], |row| {
         Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-    }).map_err(|e| e.to_string())?
+    }).map_err(|_| SystemError::DatabaseError)?
     .filter_map(|r| r.ok())
     .collect();
 

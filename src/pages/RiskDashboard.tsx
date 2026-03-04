@@ -56,7 +56,7 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
         const unsettledEntries = ledger.filter(e => {
             // 1. Must exist as of systemNow
             if (e.date > systemNow) return false;
-            if (e.status !== 'Approved') return false;
+            if (e.status !== 'Approved' && e.status !== 'Unconfirmed') return false;
 
             // 2. Must be unsettled as of systemNow
             // Either never settled, or settled AFTER our reference date
@@ -80,7 +80,9 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
         const opEntries = unsettledEntries.filter(e => {
             if (complianceEntries.includes(e)) return false;
             if (matchingEntries.includes(e)) return false;
-            return isArAp(e.debitAccount) || isArAp(e.creditAccount);
+            // Operational: strictly check the obligation side (AR on Debit, AP on Credit)
+            // to match ArApManagement's tab logic.
+            return isArAccount(e.debitAccount) || isApAccount(e.creditAccount);
         });
         const opAmount = opEntries.reduce((s, e) => s + (e.amount + (e.vat || 0)), 0);
 
@@ -95,7 +97,10 @@ export const RiskDashboard: React.FC<{ setTab: (tab: string) => void }> = ({ set
         const blocked = relevantEntries.filter(e => e.clearingRecord?.status === 'BLOCKED');
         const blockedAmount = blocked.reduce((s, e) => s + (e.amount + (e.vat || 0)), 0);
 
-        const aging90 = relevantEntries.filter(e => new Date(e.date) < ninetyDaysAgo);
+        const aging90 = relevantEntries.filter(e => {
+            const refDateStr = e.dueDate || e.date;
+            return new Date(refDateStr) < ninetyDaysAgo;
+        });
         const overdue90Amount = aging90.reduce((s, e) => s + (e.amount + (e.vat || 0)), 0);
 
         const pillarData = [

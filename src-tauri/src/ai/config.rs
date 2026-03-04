@@ -15,10 +15,10 @@ impl AiConfig {
         
         let model_flash = env::var("GEMINI_MODEL")
             .or_else(|_| env::var("AI_MODEL_NAME"))
-            .unwrap_or_else(|_| "gemini-1.5-flash".to_string());
+            .unwrap_or_else(|_| "gemini-2.0-flash".to_string());
 
         let model_pro = env::var("GEMINI_PRO_MODEL")
-            .unwrap_or_else(|_| "gemini-1.5-pro".to_string());
+            .unwrap_or_else(|_| "gemini-2.0-flash".to_string());
 
         Self {
             base_url: base_url.trim_end_matches('/').to_string(),

@@ -1,10 +1,11 @@
 use async_trait::async_trait;
 use crate::core::bank_models::PaymentRequest;
+use crate::core::models::SystemError;
 
 #[async_trait]
 pub trait BankConnector {
     /// Future API connection implementation
-    async fn transfer(&self, request: &PaymentRequest) -> Result<String, String>;
+    async fn transfer(&self, request: &PaymentRequest) -> Result<String, SystemError>;
     
     /// Export as SAM (Standardized Adjustment Method) or Fixed-length text file
     fn generate_firm_banking_sam(&self, requests: &[PaymentRequest]) -> String;
@@ -17,8 +18,8 @@ pub struct ExcelAdapter;
 
 #[async_trait]
 impl BankConnector for ExcelAdapter {
-    async fn transfer(&self, _request: &PaymentRequest) -> Result<String, String> {
-        Err("API 연동이 활성화되지 않았습니다. 현재는 엑셀 내보내기만 가능합니다.".to_string())
+    async fn transfer(&self, _request: &PaymentRequest) -> Result<String, SystemError> {
+        Err(SystemError::ExternalDependency)
     }
 
     fn generate_firm_banking_sam(&self, requests: &[PaymentRequest]) -> String {

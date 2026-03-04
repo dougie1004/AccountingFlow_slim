@@ -9,6 +9,7 @@ pub mod utils;
 
 mod commands;
 pub mod models;
+pub mod database;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -39,6 +40,10 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .setup(|app| {
+            database::initialize_database(app.handle())?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::parse_transaction,
             commands::process_mass_ai_batch,
@@ -52,7 +57,6 @@ pub fn run() {
             commands::load_tenant_config,
             commands::batch_export_with_validation,
             commands::generate_journal_id,
-            commands::parse_universal_file,
             commands::parse_excel_file,
             commands::generic_ai_chat,
             commands::get_management_projects,
@@ -64,7 +68,10 @@ pub fn run() {
             commands::perform_pii_masking,
             commands::execute_review_run,
             commands::analyze_process_mining,
-            commands::generate_mining_mock_data
+            commands::generate_mining_mock_data,
+            commands::record_business_patterns,
+            commands::get_business_suggestions,
+            commands::reset_business_memory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

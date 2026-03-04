@@ -1,4 +1,5 @@
 ﻿use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -7,6 +8,40 @@ pub enum ParseStatus {
     Warning,
     NeedConfirm,
     Error,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(tag = "code", content = "message", rename_all = "camelCase")]
+pub enum SystemError {
+    EncodingUncertain(String),
+    InvalidFormat(String),
+    EmptyFile,
+    AuthError,
+    DatabaseError,
+    ExternalDependency,
+    Internal,
+}
+
+impl fmt::Display for SystemError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for SystemError {}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub enum TransactionSource {
+    BankFile,
+    CardFile,
+    Manual,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub enum AmountOrigin {
+    WithdrawalColumn,
+    DepositColumn,
+    Generic,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -29,11 +64,31 @@ pub struct ParsedTransaction {
     pub clarification_prompt: Option<String>,
     pub confidence: Option<String>,
     pub payment_method: Option<String>,
+    pub source_type: Option<TransactionSource>,
+    pub amount_origin: Option<AmountOrigin>,
+    pub flow_direction: Option<String>, 
+    pub settlement_type: Option<String>, 
+    #[serde(default)]
+    pub is_settlement_flow: bool,      // Whether this is a debt repayment (e.g., Card Settlement)
+    pub settlement_target: Option<String>, // The target liability account (e.g., "미지급금")
     pub debit_account: Option<String>,
     pub credit_account: Option<String>,
     #[serde(default)]
+    pub debit_legs: Vec<JournalLeg>,
+    #[serde(default)]
+    pub credit_legs: Vec<JournalLeg>,
+    #[serde(default)]
     pub audit_trail: Vec<String>,
     pub parse_status: Option<ParseStatus>,
+    #[serde(default)]
+    pub is_intent: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct JournalLeg {
+    pub account: String,
+    pub amount: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -43,8 +98,12 @@ pub struct JournalEntry {
     pub date: String,
     pub description: String,
     pub vendor: Option<String>,
-    pub debit_account: String,
-    pub credit_account: String,
+    pub debit_account: String,  // Primary (Legacy support)
+    pub credit_account: String, // Primary (Legacy support)
+    #[serde(default)]
+    pub debit_legs: Vec<JournalLeg>,
+    #[serde(default)]
+    pub credit_legs: Vec<JournalLeg>,
     pub amount: f64,
     pub vat: f64,
     #[serde(rename = "type")]
@@ -81,7 +140,7 @@ pub struct InitialBalance {
     pub amount: f64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TenantConfig {
     pub tenant_id: String,

@@ -8,4 +8,5 @@ pub mod ai_cache;
 pub mod excel_parser;
 pub mod csv_inference;
 pub mod review_engine;
+pub mod normalizer;
 // pub mod local_ocr_engine;
